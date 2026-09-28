@@ -1,0 +1,5 @@
+Approved, including your three decisions (same character for goodwitch/badwitch, hardcoded crops for statue.jpeg, baseline-locked shared cells). Answers:
+1. Boss depth: L1 Marble statue = 1 phase (it's the tutorial boss). Ul Burjo = 2 phases, the second one uses the 90-degree rotating arena. The Patient One = 2 phases and gets most of the budget for the light-prediction AI.
+2. Adaptive AI: keep the ceiling. It nudges inside the band for the chosen difficulty and never goes past it. Keep all the fairness caps you listed.
+3. Resolution: keep 480x270, but make it a single constant.
+Write the spec doc, then build it all the way. Also add a short README with how to run it (static server command) and the controls.
