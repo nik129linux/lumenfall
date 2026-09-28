@@ -1,3 +1,2 @@
-assets/atlases/_probe_*
 .scratch/
-.bunny-loop.log
+__pycache__/

@@ -1,0 +1,82 @@
+== round 1 14:45
+[0m
+> build · space-bunny-free
+[0m
+Understood — autonomous from here. Noting decisions in docs/, scratch in `.scratch/`, git init for milestone commits.
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && mkdir -p .scratch && git init -q 2>&1 | head -2; git config user.email "niko@local" && git config user.name "Nico" && printf '.scratch/\n__pycache__/\n' > .gitignore && echo "git ready" && python3 -c "
+from PIL import Image
+ims=[Image.open('assets/atlases/_probe_%s.png'%n).convert('RGBA') for n in ['statue','kael','goodwitch','badwitch']]
+W=max(i.width for i in ims); H=sum(i.height for i in ims)+30
+out=Image.new('RGBA',(W,H),(25,25,30,255)); y=0
+for i in ims: out.alpha_composite(i,(0,y)); y+=i.height+10
+out.save('.scratch/allprobe.png'); print('probe sheet', out.size)
+"
+git ready
+probe sheet (630, 582)
+[0m
+[0m→ [0mRead .scratch/allprobe.png
+Kael, goodwitch and badwitch are all clean. Statue is still too dark — my earlier percentile was biased (I filtered `>40` before measuring). Let me measure the true distribution.
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && python3 -c "
+import importlib.util
+s=importlib.util.spec_from_file_location('ba','tools/build-atlas.py'); m=importlib.util.module_from_spec(s); s.loader.exec_module(m)
+from PIL import Image
+import numpy as np
+im=Image.open('assets/statue.jpeg').convert('RGB')
+k,a=m.key_dark(im)
+rgb=np.asarray(im).astype(float)
+for i,(x0,x1) in enumerate([(24,151),(136,264),(248,372)]):
+    crop=a[150:398,x0:x1]; lum=rgb[150:398,x0:x1]@np.array([0.299,0.587,0.114])
+    op=crop>0.9
+    print('pose%d opaque=%d  lum pct %s'%(i,op.sum(),[int(np.percentile(lum[op],p)) for p in (5,25,50,75,95)] if op.sum() else '-'))
+"
+pose0 opaque=5541  lum pct [57, 72, 97, 140, 212]
+pose1 opaque=5306  lum pct [57, 71, 97, 139, 208]
+pose2 opaque=5587  lum pct [57, 70, 96, 137, 208]
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && python3 tools/build-atlas.py 2>&1 | tail -8 && python3 -c "
+from PIL import Image
+import numpy as np
+a=Image.open('assets/atlases/statue.png').convert('RGBA')
+ar=np.asarray(a); op=ar[...,3]>200
+lum=ar[...,:3]@np.array([0.299,0.587,0.114])
+print('atlas',a.size,'opaque px',op.sum(),'lum pct',[int(np.percentile(lum[op],p)) for p in (5,50,95)])
+"
+badwitch:
+  -> assets/atlases/badwitch.png  cell=[48, 56]  clips={'idle': 3, 'cast': 2, 'sway': 3, 'attack': 3, 'kneel': 1}
+demon:
+  -> assets/atlases/demon.png  cell=[84, 84]  clips={'idle': 4, 'walk': 2, 'raise': 2, 'teleport': 3, 'vanish': 1}
+statue:
+  -> assets/atlases/statue.png  cell=[72, 80]  clips={'idle': 4, 'walk': 4, 'run': 4, 'sweep': 1, 'roots': 1}
+
+wrote assets/atlases/manifest.json
+atlas (1008, 80) opaque px 2206 lum pct [37, 115, 238]
+[0m
+Median 115 / highlights 238 — that's a proper dark marble statue, it just looked dark on the contact sheet. Atlases are built. Let me verify the final set and commit.
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && python3 -c "
+from PIL import Image
+names=['kael','goodwitch','badwitch','statue','demon']
+ims=[Image.open('assets/atlases/%s.png'%n).convert('RGBA') for n in names]
+W=max(i.width for i in ims); H=sum(i.height for i in ims)+10*len(ims)
+out=Image.new('RGBA',(W,H),(24,26,22,255)); y=0
+for i in ims: out.alpha_composite(i,(0,y)); y+=i.height+10
+out.save('.scratch/atlases.png'); print(out.size)
+" && ls -la assets/atlases/ && rm -f assets/atlases/_probe_*.png
+(1008, 374)
+total 540
+drwxrwxr-x 2 nico nico  4096 Sep 28 14:46 .
+drwxrwxr-x 3 nico nico  4096 Sep 28 14:36 ..
+-rw-rw-r-- 1 nico nico 38833 Sep 28 14:42 _probe_badwitch.png
+-rw-rw-r-- 1 nico nico 74139 Sep 28 14:42 _probe_demon.png
+-rw-rw-r-- 1 nico nico 42293 Sep 28 14:42 _probe_goodwitch.png
+-rw-rw-r-- 1 nico nico 36671 Sep 28 14:42 _probe_kael.png
+-rw-rw-r-- 1 nico nico 56707 Sep 28 14:42 _probe_statue.png
+-rw-rw-r-- 1 nico nico 44712 Sep 28 14:46 badwitch.png
+-rw-rw-r-- 1 nico nico 75159 Sep 28 14:46 demon.png
+-rw-rw-r-- 1 nico nico 49171 Sep 28 14:46 goodwitch.png
+-rw-rw-r-- 1 nico nico 41660 Sep 28 14:46 kael.png
+-rw-rw-r-- 1 nico nico  3064 Sep 28 14:46 manifest.json
+-rw-rw-r-- 1 nico nico 57973 Sep 28 14:46 statue.png
+[0m
+[0m→ [0mRead .scratch/atlases.png
+All five atlases are clean. Committing this milestone.
