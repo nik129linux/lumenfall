@@ -1,0 +1,171 @@
+import * as THREE from '../vendor/three.module.js';
+import { tileAt } from './physics.js';
+import { makeRng } from '../core/rng.js';
+
+// Particles and one-shot effects. Everything is a pooled sprite in a single
+// group: at this resolution a particle is a few pixels, so the cost that matters
+// is draw calls, not fill.
+
+const MAX = 320;
+
+export class FX {
+  constructor(scene) {
+    this.scene = scene;
+    this.items = [];
+    this.rng = makeRng(9182);
+    this.group = new THREE.Group();
+    scene.add(this.group);
+
+    const geo = new THREE.PlaneGeometry(1, 1);
+    for (let i = 0; i < MAX; i++) {
+      const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+        color: 0xffffff, transparent: true, opacity: 1, depthTest: false, depthWrite: false,
+      }));
+      mesh.visible = false;
+      mesh.frustumCulled = false;
+      this.group.add(mesh);
+      this.items.push({ mesh, life: 0, max: 1, vx: 0, vy: 0, g: 0, size: 2, fade: true });
+    }
+    this.next = 0;
+  }
+
+  _take() {
+    for (let i = 0; i < MAX; i++) {
+      const idx = (this.next + i) % MAX;
+      if (this.items[idx].life <= 0) {
+        this.next = (idx + 1) % MAX;
+        return this.items[idx];
+      }
+    }
+    return this.items[this.next = (this.next + 1) % MAX];
+  }
+
+  spawn(x, y, opts = {}) {
+    const p = this._take();
+    p.life = p.max = opts.life ?? 0.4;
+    p.vx = opts.vx ?? 0;
+    p.vy = opts.vy ?? 0;
+    p.g = opts.g ?? 0;
+    p.size = opts.size ?? 2;
+    p.drag = opts.drag ?? 0;
+    p.mesh.position.set(x, y, 0);
+    p.mesh.scale.set(p.size, p.size, 1);
+    p.mesh.material.color.set(opts.color ?? 0xffffff);
+    p.mesh.material.opacity = 1;
+    p.mesh.visible = true;
+    return p;
+  }
+
+  // ---- named effects
+  burst(x, y, color, n = 8, speed = 60) {
+    const r = this.rng;
+    for (let i = 0; i < n; i++) {
+      const a = r.range(0, Math.PI * 2);
+      this.spawn(x, y, {
+        vx: Math.cos(a) * r.range(speed * 0.4, speed),
+        vy: Math.sin(a) * r.range(speed * 0.4, speed),
+        g: 90, life: r.range(0.2, 0.45), size: r.range(1, 3), color,
+      });
+    }
+  }
+
+  slashArc(x, y, facing, color = 0x9fe8ff) {
+    // A short crescent thrown along the blade path. Rotating a flat quad by the
+    // attack angle reads as a slash at 480px and costs one sprite.
+    for (let i = 0; i < 5; i++) {
+      const t = i / 4;
+      const p = this.spawn(x + facing * (4 + t * 16), y + 2 + t * 10, {
+        vx: facing * 30, vy: 8, g: -20, life: 0.14 + t * 0.05,
+        size: 3 + t * 3, color,
+      });
+      p.mesh.material.opacity = 1 - t * 0.6;
+    }
+  }
+
+  dust(x, y, color = 0x6a7a70) {
+    const r = this.rng;
+    for (let i = 0; i < 4; i++) {
+      this.spawn(x + r.range(-5, 5), y, {
+        vx: r.range(-16, 16), vy: r.range(-6, 6), g: 30,
+        life: r.range(0.15, 0.3), size: r.range(1, 2), color,
+      });
+    }
+  }
+
+  ember(x, y) {
+    this.spawn(x, y, { vx: this.rng.range(-8, 8), vy: this.rng.range(20, 46), g: -6, life: 1.1, size: 2, color: 0x8fffc0 });
+  }
+
+  // The ending payoff: green bleeding back into the world from the Ember.
+  colorBleed(x, y, n = 60) {
+    const r = this.rng;
+    for (let i = 0; i < n; i++) {
+      const a = r.range(0, Math.PI * 2);
+      const s = r.range(30, 160);
+      this.spawn(x, y, {
+        vx: Math.cos(a) * s, vy: Math.sin(a) * s * 0.6, g: -12,
+        life: r.range(0.8, 2.0), size: r.range(2, 5), color: 0x54f0a8,
+      });
+    }
+  }
+
+  update(dt) {
+    for (const p of this.items) {
+      if (p.life <= 0) continue;
+      p.life -= dt;
+      if (p.life <= 0) { p.mesh.visible = false; continue; }
+      if (p.drag) {
+        p.vx -= p.vx * p.drag * dt;
+        p.vy -= p.vy * p.drag * dt;
+      }
+      p.vy += p.g * dt;
+      p.mesh.position.x += p.vx * dt;
+      p.mesh.position.y += p.vy * dt;
+      p.mesh.material.opacity = Math.min(1, p.life / p.max * 1.6);
+    }
+  }
+}
+
+// ---------------------------------------------------------------- projectiles
+
+export class Projectile {
+  constructor(scene, x, y, vx, vy, opts = {}) {
+    this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+    this.dead = false;
+    this.life = opts.life ?? 2.2;
+    this.r = opts.r ?? 3;
+    this.color = opts.color ?? 0xa86cf0;
+    this.dmg = opts.dmg ?? 1;
+    this.gravity = opts.gravity ?? 0;
+    this.mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(this.r * 2, this.r * 2),
+      new THREE.MeshBasicMaterial({ color: this.color, transparent: true, opacity: 0.95, depthTest: false })
+    );
+    this.mesh.position.set(x, y, 0);
+    this.mesh.frustumCulled = false;
+    scene.add(this.mesh);
+    this.scene = scene;
+    this.t = 0;
+  }
+
+  update(dt, level, player) {
+    this.t += dt;
+    this.life -= dt;
+    this.vy += this.gravity * dt;
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+    this.mesh.position.set(this.x, this.y, 0);
+    this.mesh.material.opacity = 0.6 + Math.sin(this.t * 18) * 0.3;
+
+    if (this.life <= 0) { this.dead = true; return; }
+    if (tileAt(level, Math.floor(this.x / 8), Math.floor(this.y / 8)) === 1) { this.dead = true; return; }
+    if (!player.dead && !player.isInvulnerable &&
+        this.x > player.body.left - this.r && this.x < player.body.right + this.r &&
+        this.y > player.body.bottom - this.r && this.y < player.body.top + this.r) {
+      player.hurt();
+      this.dead = true;
+    }
+  }
+
+  dispose() { this.scene.remove(this.mesh); this.mesh.geometry.dispose(); this.mesh.material.dispose(); }
+}

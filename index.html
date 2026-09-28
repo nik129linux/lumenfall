@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LUMENFALL</title>
+<meta name="description" content="LUMENFALL - a 2D action platformer. La caida de la luz / The fall of light.">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="stage">
+  <canvas id="game"></canvas>
+
+  <!-- ============================== HUD ============================== -->
+  <div id="ui">
+    <div id="hud">
+      <div class="hud-left">
+        <div class="hud-row">
+          <span id="hp-label" class="hud-label">Vida</span>
+          <span id="hp-pips" class="pips"></span>
+        </div>
+        <div class="hud-row">
+          <span id="dash-pip" class="dash-pip"><i></i></span>
+          <span id="dash-label" class="hud-sub">Listo</span>
+        </div>
+      </div>
+      <div class="hud-right">
+        <div class="hud-row">
+          <span id="ember-label" class="hud-label">Brasa</span>
+          <span id="ember-count" class="hud-num">0</span>
+        </div>
+        <div id="zone-label" class="hud-sub"></div>
+      </div>
+      <div id="bossbar">
+        <div id="boss-name" class="boss-name"></div>
+        <div class="boss-track"><div id="boss-fill" class="boss-fill"></div></div>
+        <div id="boss-phase" class="boss-phase"></div>
+      </div>
+      <div id="toast"></div>
+    </div>
+
+    <!-- =========================== MENU ============================ -->
+    <div id="menu" class="screen">
+      <div class="menu-inner">
+        <h1 id="title-text">LUMENFALL</h1>
+        <p id="subtitle-text" class="subtitle"></p>
+
+        <div class="menu-actions">
+          <button id="menu-new" class="btn primary">Nueva partida</button>
+          <button id="menu-continue" class="btn">Continuar</button>
+        </div>
+
+        <div class="opt-group">
+          <div id="difficulty-label" class="opt-label"></div>
+          <div id="difficulty-row" class="opt-row"></div>
+        </div>
+
+        <div class="opt-group">
+          <div id="lang-label" class="opt-label"></div>
+          <div id="lang-row" class="opt-row"></div>
+        </div>
+
+        <button id="menu-controls" class="btn ghost"></button>
+        <p class="menu-foot"></p>
+      </div>
+
+      <div id="controls-panel" class="sheet">
+        <div class="sheet-inner">
+          <h2 id="controls-title">Controles</h2>
+          <div id="controls-body"></div>
+          <button id="menu-back" class="btn">Volver</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================= CUTSCENE ========================== -->
+    <div id="cutscene" class="screen">
+      <div class="bar top"></div>
+      <div class="bar bottom"></div>
+      <div id="panel-art" class="panel-art"></div>
+      <div class="cut-inner">
+        <h2 id="cut-title" class="cut-title"></h2>
+        <p id="type-line" class="type-line"></p>
+        <p id="cut-hint" class="cut-hint"></p>
+      </div>
+    </div>
+
+    <!-- =========================== PAUSE =========================== -->
+    <div id="pause" class="screen">
+      <div class="menu-inner small">
+        <h2 id="pause-title">Pausa</h2>
+        <div class="menu-actions">
+          <button id="pause-resume" class="btn primary"></button>
+          <button id="pause-retry" class="btn"></button>
+          <button id="pause-title-btn" class="btn ghost"></button>
+        </div>
+        <div class="opt-group">
+          <div id="difficulty-label-2" class="opt-label"></div>
+          <div id="difficulty-row-2" class="opt-row"></div>
+        </div>
+        <div class="opt-group">
+          <div id="lang-label-2" class="opt-label"></div>
+          <div id="lang-row-2" class="opt-row"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================== ENDING =========================== -->
+    <div id="ending" class="screen">
+      <div class="bar top"></div>
+      <div class="bar bottom"></div>
+      <div class="ending-inner">
+        <h1 id="ending-title">FIN</h1>
+        <p id="ending-sub" class="subtitle"></p>
+        <div class="menu-actions">
+          <button id="ending-restart" class="btn primary"></button>
+          <button id="ending-menu" class="btn ghost"></button>
+        </div>
+      </div>
+      <canvas id="bleed-canvas"></canvas>
+    </div>
+  </div>
+
+  <div id="boot">
+    <div class="boot-inner">
+      <div class="boot-title">LUMENFALL</div>
+      <div class="boot-bar"><i id="boot-fill"></i></div>
+      <div id="boot-note" class="boot-note"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+<noscript><p style="color:#ccc;font:16px monospace;padding:2rem">LUMENFALL needs JavaScript.</p></noscript>
+</body>
+</html>
