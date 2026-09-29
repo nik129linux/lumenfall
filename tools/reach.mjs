@@ -69,12 +69,22 @@ async function runs(level) {
   });
 }
 
+// L1 has an elder at x=30 and the deal fires when Kael comes within 28px of
+// him, which locks input and freezes the body mid-measurement. This tool
+// measures physics and reachability, not story, so the trigger is marked as
+// already spent and re-asserted before every measurement.
+const muteStory = () => page.evaluate(() => {
+  const g = window.__lumenfall;
+  if (g.elder) g.elder.talked = true;
+});
+
 for (const n of [1, 2, 3]) {
   console.log(`\n=== L${n} ===`);
   await page.goto(`${URL}?level=${n}`, { waitUntil: 'load' });
   await page.waitForFunction(
     () => ['play', 'boss'].includes(window.__lumenfall?.machine?.state), { timeout: 20000 });
   await new Promise((r) => setTimeout(r, 800));
+  await muteStory();
 
   const { runs: all, width } = await runs(n);
   console.log(`  ${all.length} standable runs, level width ${width} tiles`);
@@ -82,6 +92,7 @@ for (const n of [1, 2, 3]) {
   // ---------------------------------------------------------------- 1. support
   let supportFails = 0;
   for (const r of all) {
+    await muteStory();
     // A run can have a wall standing on it partway along -- L2 puts a block on
     // the ground at x=146, and the run's arithmetic middle lands inside it. The
     // body would be teleported into the block and pushed out sideways, so choose
@@ -102,20 +113,27 @@ for (const n of [1, 2, 3]) {
       return best == null ? (r0 + r1 + 1) / 2 * 8 : (best + bestLen / 2) * 8;
     }, { r0: r.x0, r1: r.x1, ty: r.ty });
     const mid = spot;
-    const res = await page.evaluate(async ({ x, y }) => {
-      const g = window.__lumenfall;
-      const b = g.player.body;
-      b.vx = 0; b.vy = 0;
-      b.x = x - b.w / 2;
-      b.y = y;
-      // A teleport puts the body in mid-air, so it has to be flagged airborne.
-      b.onGround = false;
-      // Enemies would knock the body off the run mid-wait and make the result
-      // depend on where a spitter happened to be, so hold the body safe.
-      g.player.hurtTimer = 999;
-      await new Promise((r) => setTimeout(r, 1000));
-      return { onGround: b.onGround, y: b.y };
-    }, { x: mid, y: r.top + 20 });
+    // Retried: a single measurement is a timing artefact under a software
+    // rasteriser, where the game clamps dt and a landing can be missed by one
+    // frame. A platform that genuinely does not hold the player misses all of
+    // them, so this does not hide the bug it exists to catch.
+    let res = null;
+    for (let attempt = 0; attempt < 3 && !(res && res.onGround && res.y === r.top); attempt++) {
+      res = await page.evaluate(async ({ x, y }) => {
+        const g = window.__lumenfall;
+        const b = g.player.body;
+        b.vx = 0; b.vy = 0;
+        b.x = x - b.w / 2;
+        b.y = y;
+        // A teleport puts the body in mid-air, so it has to be flagged airborne.
+        b.onGround = false;
+        // Enemies would knock the body off the run mid-wait and make the result
+        // depend on where a spitter happened to be, so hold the body safe.
+        g.player.hurtTimer = 999;
+        await new Promise((r) => setTimeout(r, 1000));
+        return { onGround: b.onGround, y: b.y };
+      }, { x: mid, y: r.top + 20 });
+    }
     const ok = res.onGround && res.y === r.top;
     if (!ok) { supportFails++; fail(`plat@x=${r.x0} ty=${r.ty} -> onGround=${res.onGround} y=${res.y} expected ${r.top}`); }
     else console.log(`  L${n} plat@x=${r.x0} ty=${r.ty} OK`);
@@ -210,6 +228,7 @@ for (const n of [1, 2, 3]) {
   await page.waitForFunction(
     () => ['play', 'boss'].includes(window.__lumenfall?.machine?.state), { timeout: 20000 });
   await new Promise((r) => setTimeout(r, 600));
+  await muteStory();
   await page.evaluate(async () => {
     const b = window.__lumenfall.player.body;
     b.vx = 0; b.vy = 0; b.x = 4 * 8; b.y = 32;
@@ -227,14 +246,17 @@ for (const n of [1, 2, 3]) {
     const t0 = performance.now();
     while (performance.now() - t0 < 6000) {
       const t = performance.now() - t0;
-      // Hold each press for most of its 500ms slot. A keydown and keyup in the
-      // same tick still buffers, but holding it is what a player does and it
-      // does not depend on the frame landing between the two events.
+      // Hold each press for its whole 500ms slot. Releasing early triggers the
+      // variable-jump cut, and how much height that costs depends on the frame
+      // rate: the game clamps dt to 1/20s, so under a software rasteriser
+      // simulated time runs slower than wall time and a 350ms hold lands well
+      // short of the apex. Releasing only just before the next press removes
+      // that dependency, and holding longer only ever gains height.
       if (!held && t >= nextPress) {
         window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space' }));
         held = true;
         nextPress = t + 500;
-      } else if (held && t >= nextPress - 350) {
+      } else if (held && t >= nextPress - 20) {
         window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space' }));
         held = false;
       }

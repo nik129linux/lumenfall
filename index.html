@@ -78,11 +78,35 @@
     <div id="cutscene" class="screen">
       <div class="bar top"></div>
       <div class="bar bottom"></div>
-      <div id="panel-art" class="panel-art"></div>
+      <div id="panel-art" class="panel-art">
+        <div class="panel-layer"><img class="panel-bg" alt=""><img class="panel-img" alt=""></div>
+        <div class="panel-layer"><img class="panel-bg" alt=""><img class="panel-img" alt=""></div>
+      </div>
       <div class="cut-inner">
         <h2 id="cut-title" class="cut-title"></h2>
         <p id="type-line" class="type-line"></p>
         <p id="cut-hint" class="cut-hint"></p>
+      </div>
+    </div>
+
+    <!-- ====================== IN-GAME DIALOGUE ====================== -->
+    <!-- Over the level, not a screen: the level keeps rendering behind these
+         bars, which is the whole point of the deal. -->
+    <div id="story" class="story">
+      <div class="bar top"></div>
+      <div class="bar bottom"></div>
+      <div id="story-panel" class="story-panel">
+        <div class="panel-layer"><img class="panel-bg" alt=""><img class="panel-img" alt=""></div>
+        <div class="panel-layer"><img class="panel-bg" alt=""><img class="panel-img" alt=""></div>
+      </div>
+      <div class="story-box">
+        <div class="story-portrait left"><img id="portrait-kael" alt=""></div>
+        <div class="story-text">
+          <h3 id="story-speaker"></h3>
+          <p id="story-line"></p>
+          <p id="story-hint" class="story-hint"></p>
+        </div>
+        <div class="story-portrait right"><img id="portrait-elder" alt=""></div>
       </div>
     </div>
 

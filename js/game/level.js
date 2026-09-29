@@ -55,6 +55,46 @@ const block = (lv, tx, ty, tw, th) => fill(lv, tx, ty, tw, th);
 const FLOOR_Y = (GROUND + 1) * TILE;   // standing surface, in pixels
 const at = (ty) => ty * TILE + TILE;   // top face of a platform row, in pixels
 
+// The elder waits at x=30. Stage 2 wants that spot to be a safe place to stop
+// and talk, so the requirements are asserted here rather than eyeballed: this
+// is a level-layout contract, and a later platform dropped over his head would
+// silently break the opening.
+const ELDER_TX = 30;
+const ELDER_CLEAR_TILES = 8;      // flat ground each side
+const ELDER_MIN_HEADROOM = 6;     // no platform lower than 6 tiles over him
+const ELDER_NO_ENEMY_TILES = 20;   // no spawn or patrol inside this radius
+
+// Returns the reason the elder's spot is unusable, or null if it is fine.
+function elderSpotProblem(lv) {
+  const solid = (tx, ty) => {
+    if (tx < 0 || tx >= lv.width || ty < 0 || ty >= lv.height) return SOLID;
+    return lv.grid[ty * lv.width + tx];
+  };
+  const occupied = (tx, ty) => solid(tx, ty) === SOLID || solid(tx, ty) === PLATFORM;
+
+  // Flat ground for at least 8 tiles each way.
+  for (let d = 0; d <= ELDER_CLEAR_TILES; d++) {
+    for (const tx of [ELDER_TX - d, ELDER_TX + d]) {
+      if (occupied(tx, GROUND + 1)) return `ground blocked at x=${tx}`;
+    }
+  }
+  // Nothing low enough overhead to clip his head or read as a step over him.
+  for (let ty = GROUND + 1; ty <= GROUND + ELDER_MIN_HEADROOM; ty++) {
+    if (occupied(ELDER_TX, ty)) return `tile at x=${ELDER_TX} ty=${ty} is within ${ELDER_MIN_HEADROOM} tiles overhead`;
+  }
+  // No enemy spawn or patrol range nearby. `patrol` is in tiles, and it is the
+  // whole stretch it can wander, not a radius around the spawn.
+  for (const e of lv.entities) {
+    if (e.type !== 'wisp' && e.type !== 'crawler' && e.type !== 'spitter') continue;
+    const tx = Math.floor(e.x / TILE);
+    const lo = e.patrol ? Math.min(...e.patrol) : tx;
+    const hi = e.patrol ? Math.max(...e.patrol) : tx;
+    const near = hi >= ELDER_TX - ELDER_NO_ENEMY_TILES && lo <= ELDER_TX + ELDER_NO_ENEMY_TILES;
+    if (near) return `${e.type} roaming tiles ${lo}..${hi} is within ${ELDER_NO_ENEMY_TILES} tiles of x=${ELDER_TX}`;
+  }
+  return null;
+}
+
 export const LEVEL_DEFS = [
   // ------------------------------------------------------------------ L1
   () => {
@@ -98,13 +138,19 @@ export const LEVEL_DEFS = [
       { type: 'shard', x: 120 * TILE, y: at(9) + 2 * TILE },
       { type: 'shard', x: 140 * TILE, y: at(10) },
       { type: 'shard', x: 156 * TILE, y: at(9) },
-      { type: 'elder', x: 48 * TILE, y: FLOOR_Y },
+      { type: 'elder', x: ELDER_TX * TILE, y: FLOOR_Y, face: -1 },
       { type: 'wisp', x: 64 * TILE, y: FLOOR_Y + 40, patrol: [60, 78] },
       { type: 'wisp', x: 100 * TILE, y: FLOOR_Y + 40, patrol: [96, 112] },
       { type: 'crawler', x: 132 * TILE, y: FLOOR_Y, patrol: [126, 152] },
       { type: 'crawler', x: 152 * TILE, y: FLOOR_Y, patrol: [146, 164] },
       { type: 'boss', boss: 'statue', x: (W - 20) * TILE, y: FLOOR_Y },
     );
+
+    // The whole opening depends on the elder being approachable, so a layout
+    // change that walls him in, drops a platform on his head or parks an enemy
+    // next to him fails here instead of shipping.
+    const problem = elderSpotProblem(lv);
+    if (problem) throw new Error(`L1 elder spot at x=${ELDER_TX} unusable: ${problem}`);
     return lv;
   },
 

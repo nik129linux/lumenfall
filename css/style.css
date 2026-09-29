@@ -289,22 +289,55 @@ kbd {
 .bar.bottom { bottom: 0; }
 #cutscene.on .bar { height: 13%; }
 
-.panel-art {
+/* The panel area is the 16:9 strip between the letterbox bars. The image is
+   `contain`ed into it and centred, with the same image again behind it as a
+   blurred `cover`, so the square panels (03, 04) do not get black side bars.
+   Two layers crossfade so a panel change is not a hard cut. */
+.panel-art,
+.story-panel {
   position: absolute;
-  inset: 0;
+  left: 0; right: 0;
+  top: 13%; bottom: 13%;
   opacity: .5;
-  background-size: cover;
-  background-position: center;
-  filter: contrast(1.15) saturate(.8);
+  overflow: hidden;
 }
-.panel-art::after {
-  content: '';
+.panel-layer {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at center, transparent 25%, rgba(3,6,5,.95) 78%);
+  opacity: 0;
+  transition: opacity .4s linear;
 }
-/* Panel art is procedural: each scene gets a colour field, so the cutscenes read
-   as composed frames without shipping separate illustrations. */
+.panel-layer.on { opacity: 1; }
+.panel-layer img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* No pixelation filter on these: they are painted stills, not sprites, and
+     the blocky treatment would fight the art. */
+}
+.panel-img { object-fit: contain; }
+/* The backdrop copy only exists to fill what `contain` leaves empty. */
+.panel-bg {
+  object-fit: cover;
+  filter: blur(18px) brightness(.35);
+  transform: scale(1.1);
+}
+/* Slow push in over the time a panel is on screen, alternating side so
+   consecutive panels do not drift the same way. */
+.panel-layer .panel-img,
+.panel-layer .panel-bg {
+  transition: transform 6.5s cubic-bezier(.16,1,.3,1), opacity .4s linear;
+  transform: scale(1);
+  transform-origin: 50% 50%;
+}
+.panel-layer.origin-left .panel-img,
+.panel-layer.origin-left .panel-bg { transform-origin: 0% 50%; }
+.panel-layer.zoomed .panel-img,
+.panel-layer.zoomed .panel-bg { transform: scale(1.06); }
+
+/* Panel art is procedural: the later cutscenes still key off a colour field
+   rather than a still, so each scene reads as a composed frame. */
 .panel-art[data-art="elder"]    { background: radial-gradient(circle at 62% 46%, #2f5c3f 0%, #0c1a13 62%); }
 .panel-art[data-art="kael"]     { background: radial-gradient(circle at 40% 55%, #20402f 0%, #080f0c 64%); }
 .panel-art[data-art="ulburjo"]  { background: radial-gradient(circle at 50% 42%, #4a2568 0%, #120a1c 64%); }
@@ -312,6 +345,95 @@ kbd {
 .panel-art[data-art="ember"]    { background: radial-gradient(circle at 50% 60%, #1f6b45 0%, #071410 62%); }
 .panel-art[data-art="dark"]     { background: radial-gradient(circle at 50% 50%, #101010 0%, #000 70%); }
 .panel-art[data-art="green"]    { background: radial-gradient(circle at 50% 58%, #2f9c68 0%, #082018 66%); }
+/* An art id of '01'..'06' means a real still; the gradient field is then only a
+   backdrop behind it and the still is what you look at. */
+.panel-art[data-art^="0"],
+.panel-art[data-art^="1"]:not([data-art="kael"]) { background: #060a08; }
+
+/* ====================== IN-GAME DIALOGUE ====================== */
+
+/* Not a screen: the level keeps rendering behind the bars. */
+.story {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .35s linear;
+}
+.story.on { opacity: 1; }
+/* Same bars as a cutscene, same 13% slide. */
+#story.on .bar { height: 13%; }
+.story .bar { z-index: 2; }
+.story-panel { z-index: 1; opacity: .82; }
+
+.story-box {
+  position: absolute;
+  left: 50%;
+  bottom: 15.5%;
+  transform: translateX(-50%);
+  width: min(58em, 90vw);
+  z-index: 3;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: end;
+  gap: 1.4em;
+}
+.story-portrait {
+  width: 7.2em;
+  height: 7.2em;
+  flex: none;
+  border: 1px solid var(--accent);
+  background: rgba(4, 8, 6, .82);
+  overflow: hidden;
+  /* The idle frame is a head-and-shoulders crop blown up 3x with NEAREST, so
+     the pixels stay square instead of going soft. */
+  image-rendering: pixelated;
+}
+/* The data URL is already the 3x NEAREST blowup, so it is shown 1:1 here. */
+.story-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.story-text { text-align: center; }
+/* The dialogue keeps running on top of a panel, and the panels are painted
+   stills -- panel 04 is bright enough to swallow white type. A soft scrim
+   behind the text block, only while a panel is up, is what makes it readable
+   without putting a box around it. */
+.story.has-panel .story-text {
+  padding: .9em 1.6em 1.1em;
+  background: radial-gradient(ellipse at center, rgba(4, 8, 6, .82) 0%, rgba(4, 8, 6, .62) 55%, rgba(4, 8, 6, 0) 100%);
+}
+#story-speaker {
+  margin: 0 0 .5em;
+  font-size: .74em;
+  letter-spacing: .34em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 400;
+  min-height: 1.2em;
+}
+#story-line {
+  margin: 0;
+  font-size: 1.02em;
+  line-height: 1.72;
+  min-height: 4.4em;
+  color: #e8f4ec;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, .9);
+}
+#story-line::after {
+  content: '_';
+  animation: blink 1s steps(2) infinite;
+  color: var(--accent);
+}
+#story-line.done::after { content: ''; }
+.story-hint {
+  margin: .8em 0 0;
+  font-size: .62em;
+  letter-spacing: .18em;
+  color: #56665f;
+}
 
 .cut-inner {
   position: absolute;

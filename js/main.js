@@ -24,11 +24,26 @@ import { UlBurjo } from './game/boss/ulburjo.js';
 import { PatientOne } from './game/boss/patientone.js';
 
 import { UI } from './ui/hud.js';
-import { Cutscene, buildScript } from './ui/cutscene.js';
+import { Cutscene, buildScript, PanelStage, preloadPanels } from './ui/cutscene.js';
 import { t, loadStoredLang, toggleLang, getLang } from './ui/i18n.js';
 
 const BOSSES = { statue: Statue, ulburjo: UlBurjo, patientone: PatientOne };
 const BOSS_INTRO = { 1: 'intro', 2: 'reveal', 3: 'waking' };
+
+// The deal: in-game dialogue with the level still rendering behind it. `panel`
+// names a still that fades in over the level for that line; null shows the level.
+const DEAL = [
+  { panel: '03', who: 'elder', textKey: 'deal1a' },
+  { panel: '03', who: 'kael',  textKey: 'deal1b' },
+  { panel: null,  who: 'elder', textKey: 'deal2a' },
+  { panel: null,  who: 'elder', textKey: 'deal2b' },
+  { panel: '04', who: 'kael',  textKey: 'deal3a' },
+  { panel: '04', who: 'elder', textKey: 'deal3b' },
+  { panel: '04', who: 'kael',  textKey: 'deal3c' },
+];
+const DEAL_RANGE = 28;      // px between Kael's centre and the elder
+const DEAL_EASE = 0.5;      // camera ease, seconds
+const DEAL_TYPE_CPS = 44;
 const HP_PER_LEVEL = 5;
 // Distance before the arena door that the boss fight starts.
 const BOSS_TRIGGER = 150;
@@ -68,6 +83,8 @@ class Game {
     this.enemies = [];
     this.shards = [];
     this.elder = null;
+    this.story = null;
+    this.storyPanel = new PanelStage(this.ui.storyPanel);
     this.boss = null;
     this.bossDef = null;
     this.bossAwake = false;
@@ -228,7 +245,8 @@ class Game {
     this.governor = new Governor(this.ui.difficultyKey());
     const level = this._loadLevel(0, { silent: true });
     audio.ambient(0);
-    this.playCutscene('intro', () => this.beginPlay());
+    preloadPanels();
+    this.playCutscene('prologue', () => this.beginPlay());
   }
 
   playCutscene(key, onDone) {
@@ -304,6 +322,7 @@ class Game {
     this.boss = null;
     this.bossAwake = false;
     this.elder = null;
+    this.story = null;
     this.model.reset();
 
     for (const def of data.entities) {
@@ -367,6 +386,7 @@ class Game {
     switch (this.machine.state) {
       case S.MENU: this._updateMenu(dt); break;
       case S.CUTSCENE: this._updateCutscene(dt); break;
+      case S.STORY: this._updateStory(dt); break;
       case S.PLAY:
       case S.BOSS: this._updatePlay(dt); break;
       case S.DEAD: this._updateDead(dt); break;
@@ -390,6 +410,8 @@ class Game {
   _updateCutscene(dt) {
     this.cutscene.update(dt);
     this.ui.typeLine.classList.toggle('done', !this.cutscene.typing);
+    // Esc takes the whole scene, not one line per press.
+    if (this.input.consume('pause')) { this.cutscene.skip(); return; }
     if (this.input.consume('confirm') || this.input.consume('attack') || this.input.consume('jump')) {
       this.cutscene.advance();
     }
@@ -512,11 +534,7 @@ class Game {
     if (this.elder) {
       this.elder.update(dt);
       const d = Math.abs(this.elder.x - p.cx);
-      if (!this.elder.talked && d < 22) {
-        this.elder.talked = true;
-        this.ui.showToast(t('cs1a'), 3.0);
-        this.elder.reveal();
-      }
+      if (!this.story && !this.elder.talked && d < DEAL_RANGE) this._startDeal();
     }
 
     // ---- projectiles
@@ -664,6 +682,179 @@ class Game {
       this.bossAwake = false;
       this.ui.setBoss(null);
       this._onBossDefeated();
+    }
+  }
+
+  // ------------------------------------------------------------ the deal
+
+  // Kael stops where he is, turns to face the elder, and the camera eases so
+  // both of them are framed. Only then does the first line start, so the
+  // conversation is never spoken over a camera that is still catching up.
+  _startDeal() {
+    this.elder.talked = true;
+    const p = this.player;
+
+    p.body.vx = 0;
+    p.facing = this.elder.x >= p.cx ? 1 : -1;
+    p.sprite.play('idle');
+
+    const mid = (this.elder.x + p.cx) / 2 - LOW_RES_W / 2;
+    this.story = {
+      index: 0,
+      chars: 0,
+      typing: true,
+      ease: DEAL_EASE,
+      camFrom: this.cam.x,
+      camTo: mid,
+      portraits: false,
+    };
+    this.machine.to(S.STORY);
+    this.ui.showStory(true);
+    this._makePortraits();
+    // Nothing typed yet, so the caret is hidden until the first line lands.
+    this.ui.storyLine.classList.add('done');
+  }
+
+  // Portraits are the idle frame cropped to the head and shoulders and blown up
+  // 3x with smoothing off, so the pixels stay square. Built once per run from
+  // the atlas already in memory.
+  _makePortraits() {
+    if (!this.story || this.story.portraits) return;
+    this.story.portraits = true;
+    this.ui.portraitKael.src = this._portraitDataUrl('kael');
+    this.ui.portraitElder.src = this._portraitDataUrl('goodwitch');
+  }
+
+  _portraitDataUrl(name) {
+    const ch = this.characters[name];
+    const sheet = ch.texture.image;
+    const [cw, chh] = ch.cell;
+    const [fx, fy] = ch.frames.idle[0];
+
+    // Find the figure inside its cell. The sheets pad the cell heavily -- the
+    // goodwitch frame is 40x49 but the figure only fills 26x44 of it -- so a
+    // blind corner crop frames padding and an ear instead of a face.
+    const probe = document.createElement('canvas');
+    probe.width = cw; probe.height = chh;
+    const pctx = probe.getContext('2d', { willReadFrequently: true });
+    pctx.drawImage(sheet, fx, fy, cw, chh, 0, 0, cw, chh);
+    const px = pctx.getImageData(0, 0, cw, chh).data;
+    let x0 = cw, y0 = chh, x1 = -1, y1 = -1;
+    for (let y = 0; y < chh; y++) {
+      for (let x = 0; x < cw; x++) {
+        if (px[(y * cw + x) * 4 + 3] <= 8) continue;
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+    if (x1 < x0) return '';
+
+    // Head and shoulders: the top 55% of the figure, squared up on the figure's
+    // own centre and clipped back inside the cell so no neighbouring frame bleeds
+    // in at the edge.
+    const fw = x1 - x0 + 1, fh = y1 - y0 + 1;
+    const side = Math.min(Math.max(fw, Math.round(fh * 0.55)), cw, chh);
+    const sx = fx + Math.max(0, Math.min(cw - side, x0 - Math.round((side - fw) / 2)));
+    const sy = fy + y0;
+
+    const c = document.createElement('canvas');
+    c.width = side * 3; c.height = side * 3;
+    const ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = false;      // NEAREST: the pixels stay square
+    ctx.drawImage(sheet, sx, sy, side, side, 0, 0, side * 3, side * 3);
+    return c.toDataURL();
+  }
+
+  _dealLine() { return DEAL[this.story.index] || null; }
+
+  _paintStory() {
+    const line = this._dealLine();
+    if (!line) return;
+    this.ui.storySpeaker.textContent = t(line.who === 'elder' ? 'spkElder' : 'spkKael');
+    this.ui.storyLine.textContent = t(line.textKey).slice(0, this.story.chars);
+    this.ui.storyLine.classList.toggle('done', !this.story.typing);
+    // A still fades in for its own lines and back out on the first unmarked one.
+    this.storyPanel.set(line.panel);
+    this.ui.story.classList.toggle('has-panel', !!line.panel);
+  }
+
+  _updateStory(dt) {
+    const p = this.player;
+    const s = this.story;
+    if (!s) { this.machine.to(S.PLAY); return; }
+
+    if (s.ease > 0) {
+      s.ease -= dt;
+      const k = 1 - Math.max(0, s.ease) / DEAL_EASE;
+      const e = 1 - Math.pow(1 - k, 3);
+      this.cam.x = s.camFrom + (s.camTo - s.camFrom) * e;
+      this.pipeline.setView(this.cam.x, this.cam.y);
+      this.parallax.update(this.cam.x, this.cam.y);
+      p.sprite.update(dt);
+      this.elder?.update(dt);
+      if (s.ease <= 0) { s.chars = 0; s.typing = true; this._paintStory(); }
+      return;
+    }
+
+    const line = this._dealLine();
+    if (!line) { this._endDeal(); return; }
+
+    const text = t(line.textKey);
+    if (s.typing && s.chars < text.length) {
+      s.chars = Math.min(text.length, s.chars + DEAL_TYPE_CPS * dt);
+      if (s.chars >= text.length) s.typing = false;
+      this._paintStory();
+    }
+
+    // The two of them keep breathing; nothing else in the level simulates.
+    p.sprite.update(dt);
+    this.elder?.update(dt);
+
+    if (this.input.consume('confirm') || this.input.consume('attack') || this.input.consume('jump')) {
+      if (s.typing) {
+        // First press finishes the line, second advances, same as a cutscene.
+        s.chars = text.length;
+        s.typing = false;
+        this._paintStory();
+      } else {
+        s.index++;
+        s.chars = 0;
+        s.typing = true;
+        if (s.index >= DEAL.length) { this._endDeal(); return; }
+        this._paintStory();
+      }
+    }
+  }
+
+  // The deal hands straight into the theft cutscene, which gives control back
+  // with the elder gone and a puff where he stood.
+  _endDeal() {
+    const gone = this.elder;
+    const at = gone ? gone.x : this.player.cx;
+    this.ui.showStory(false);
+    this.story = null;
+    this.machine.to(S.CUTSCENE);
+    this.ui.show('cutscene');
+    preloadPanels();
+    this.cutscene.play(buildScript('theft'), () => {
+      gone?.remove();
+      this.elder = null;
+      this._puff(at);
+      this.beginPlay();
+    });
+  }
+
+  // Toxic green where he stood. Deliberately given a longer life than a combat
+  // burst: this one is supposed to still be drifting when control comes back.
+  _puff(at) {
+    const r = this.fx.rng;
+    for (let i = 0; i < 16; i++) {
+      this.fx.spawn(at + r.range(-11, 11), FLOOR_Y + r.range(4, 28), {
+        vx: r.range(-18, 18), vy: r.range(20, 56), g: -5,
+        life: r.range(0.9, 1.6), size: r.range(1, 3), color: 0x8fffc0,
+      });
     }
   }
 

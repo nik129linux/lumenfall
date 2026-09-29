@@ -233,6 +233,16 @@ export class Elder {
     this.talked = false;
     this.state = 'idle';
     this.t = 0;
+    // He waits facing the way Kael arrives. goodwitch's sheet is drawn facing
+    // right, so a left-facing elder is a flip, not a different frame.
+    this.sprite.setFacing(def.face ?? 1);
+  }
+
+  // He is gone with the Ember once the theft has played: the mesh comes out of
+  // the scene so nothing draws him for the rest of the level.
+  remove() {
+    this.mesh.parent?.remove(this.mesh);
+    this.removed = true;
   }
 
   update(dt) {

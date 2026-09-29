@@ -70,10 +70,29 @@ export const STRINGS = {
     cs1b: 'Kael no bajó la espada. Nadie lo hace en esa cuesta.',
     cs1c: 'El viejo sonrió con una boca que tenía demasiados dientes.',
 
-    cs2Title: 'El Robo',
-    cs2a: 'El Anciano no pidió permiso. Tomó la Brasa del pueblo',
-    cs2b: 'y la cargó hacia el norte, donde algo muy antiguo respiraba.',
-    cs2c: 'Kael siguió el hueco que dejaba la luz al apagarse.',
+    // ---- prologue (narration only, no speaker)
+    pr1a: 'En lo profundo del bosque, una aldea guardaba la Brasa.',
+    pr1b: 'Su luz no calentaba casas. Mantenía vivo todo el bosque.',
+    pr2a: 'Cada raíz, cada hoja, cada criatura bebía de ella.',
+    pr2b: 'Kael, el guardián de la aldea, la vigilaba cada noche.',
+
+    // ---- the elder's deal
+    spkElder: 'Anciano',
+    spkKael: 'Kael',
+    deal1a: 'Buenas noches, guardián. ¿Otra noche larga?',
+    deal1b: '¿Quién eres? Nadie pasa por este camino.',
+    deal2a: 'Solo un viejo mercader. Y tú, un muchacho cansado de cuidar una luz que no es suya.',
+    deal2b: 'Mira. Oro, joyas... y hay mucho más. Riqueza sin fin.',
+    deal3a: '¿Y qué quieres a cambio?',
+    deal3b: 'Casi nada. Que mires hacia otro lado esta noche. Solo una noche.',
+    deal3c: '...Una noche.',
+
+    // ---- the theft
+    th1a: 'Esa noche, el anciano entró al santuario.',
+    th1b: 'Gracias, guardián. Con esta luz, el Antiguo despertará.',
+    th2a: 'La Brasa se apagó. El bosque empezó a morir.',
+    th2b: 'Fue mi culpa. Voy a traerla de vuelta.',
+
 
     cs3Title: 'La Ofrenda',
     cs3a: 'Ul Burjo abrió la puerta sin cerradura.',
@@ -167,10 +186,29 @@ export const STRINGS = {
     cs1b: 'Kael did not lower his sword. Nobody does, on that slope.',
     cs1c: 'The old man smiled with a mouth that had too many teeth.',
 
-    cs2Title: 'The Theft',
-    cs2a: 'The Elder did not ask. He took the village Ember',
-    cs2b: 'and carried it north, where something very old was breathing.',
-    cs2c: 'Kael followed the hole the light left as it went out.',
+    // ---- prologue (narration only, no speaker)
+    pr1a: 'Deep in the forest, a village kept the Ember.',
+    pr1b: 'Its light did not warm houses. It kept the whole forest alive.',
+    pr2a: 'Every root, every leaf, every creature drank from it.',
+    pr2b: 'Kael, the village warden, watched over it every night.',
+
+    // ---- the elder's deal
+    spkElder: 'Elder',
+    spkKael: 'Kael',
+    deal1a: 'Good evening, warden. Another long night?',
+    deal1b: 'Who are you? No one walks this path.',
+    deal2a: "Just an old merchant. And you, a boy tired of guarding a light that isn't his.",
+    deal2b: 'Look. Gold, jewels... and there is so much more. Endless wealth.',
+    deal3a: 'And what do you want in return?',
+    deal3b: 'Almost nothing. Look the other way tonight. Just one night.',
+    deal3c: '...One night.',
+
+    // ---- the theft
+    th1a: 'That night, the old man entered the shrine.',
+    th1b: 'Thank you, warden. With this light, the Ancient One will wake.',
+    th2a: 'The Ember went out. The forest began to die.',
+    th2b: 'This was my fault. I will bring it back.',
+
 
     cs3Title: 'The Offering',
     cs3a: 'Ul Burjo opened a door that had no lock.',

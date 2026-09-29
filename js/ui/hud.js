@@ -35,6 +35,15 @@ export class UI {
     this.panelArt = el('panel-art');
     this.cutHint = el('cut-hint');
 
+    // In-game dialogue, drawn over the level rather than replacing it.
+    this.story = el('story');
+    this.storyPanel = el('story-panel') || document.querySelector('#story .story-panel');
+    this.storySpeaker = el('story-speaker');
+    this.storyLine = el('story-line');
+    this.storyHint = el('story-hint');
+    this.portraitKael = el('portrait-kael');
+    this.portraitElder = el('portrait-elder');
+
     this.controlsPanel = el('controls-panel');
     this.controlsBody = el('controls-body');
     this.titleEl = el('title-text');
@@ -68,6 +77,7 @@ export class UI {
     el('ending-restart').textContent = t('endingRestart');
     el('ending-menu').textContent = t('endingTitle2');
     el('cut-hint').textContent = `${t('pressAny')} · ${t('skip')}`;
+    el('story-hint').textContent = t('pressAny');
     this._buildControls();
     this._renderMenu();
   }
@@ -137,6 +147,16 @@ export class UI {
     }
     this.hud?.classList.toggle('on', name === 'hud' || name === 'pause');
     this.root?.classList.toggle('playing', name === 'hud' || name === 'pause');
+  }
+
+  // The deal's bars and box fade in over the level; they are not a screen, so
+  // the game keeps rendering and simulating behind them.
+  showStory(on) {
+    this.story?.classList.toggle('on', !!on);
+    if (!on) {
+      this.storyPanel?.querySelectorAll('.panel-layer')
+        .forEach((l) => l.classList.remove('on'));
+    }
   }
 
   showHud() {

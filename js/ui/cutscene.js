@@ -10,9 +10,67 @@ import { audio } from '../core/audio.js';
 
 const TYPE_CHARS_PER_SEC = 46;
 
+const PANEL_DIR = 'assets/cutscenes/';
+const PANEL_IDS = ['01', '02', '03', '04', '05', '06'];
+// An art id of two digits is a real still; anything else is one of the legacy
+// colour fields further down, which later stages still use.
+const isPanelId = (art) => /^[0-9]{2}$/.test(art || '');
+
+const preloaded = new Set();
+
+// All six stills are requested the moment a new game starts, so the first panel
+// is never a pop-in after the typing has already begun.
+export function preloadPanels() {
+  for (const id of PANEL_IDS) {
+    if (preloaded.has(id)) continue;
+    preloaded.add(id);
+    const img = new Image();
+    img.src = `${PANEL_DIR}${id}.png`;
+  }
+  return preloaded.size;
+}
+
+// The still behind a panel: `contain` in the strip between the bars, with the
+// same image again as a blurred `cover` so square panels have no black bars.
+// Two layers crossfade, and each pushes in slowly from alternating sides.
+export class PanelStage {
+  constructor(root) {
+    this.root = root;
+    this.layers = [...root.querySelectorAll('.panel-layer')];
+    this.front = 0;
+    this.parity = 0;
+  }
+
+  set(art) {
+    this.root.dataset.art = art || '';
+    if (!isPanelId(art)) { this.hide(); return; }
+
+    const back = 1 - this.front;
+    const layer = this.layers[back];
+    const [bg, img] = layer.querySelectorAll('img');
+    const src = `${PANEL_DIR}${art}.png`;
+    if (img.getAttribute('src') !== src) {
+      bg.setAttribute('src', src);
+      img.setAttribute('src', src);
+    }
+    layer.classList.toggle('origin-left', this.parity % 2 === 0);
+    // Restart the push-in from 1.00: drop the class, force a reflow so the
+    // browser registers the reverted transform, then re-add it.
+    layer.classList.remove('zoomed');
+    void layer.offsetWidth;
+    layer.classList.add('on', 'zoomed');
+    this.layers[this.front].classList.remove('on');
+    this.front = back;
+    this.parity++;
+  }
+
+  hide() { for (const l of this.layers) l.classList.remove('on'); }
+}
+
 export class Cutscene {
   constructor(ui) {
     this.ui = ui;
+    this.panel = new PanelStage(ui.panelArt);
     this.lines = [];
     this.index = 0;
     this.chars = 0;
@@ -31,6 +89,7 @@ export class Cutscene {
     this.finished = false;
     this.typing = true;
     this.onDone = onDone || null;
+    preloadPanels();
     this.ui.show('cutscene');
     this._paint();
   }
@@ -41,7 +100,7 @@ export class Cutscene {
     const line = this.current;
     if (!line) return;
     this.ui.cutTitle.textContent = line.title || '';
-    this.ui.panelArt.dataset.art = line.art || '';
+    this.panel.set(line.art);
     this.ui.typeLine.textContent = line.text.slice(0, this.chars);
   }
 
@@ -66,9 +125,13 @@ export class Cutscene {
     this._paint();
   }
 
+  // Esc: the whole scene at once, rather than one line per press.
+  skip() { if (this.active) this._finish(); }
+
   _finish() {
     this.active = false;
     this.finished = true;
+    this.panel.hide();
     const done = this.onDone;
     this.onDone = null;
     if (done) done();
@@ -101,15 +164,27 @@ export class Cutscene {
 // Keys into the strings table, so a cutscene never carries its own text.
 
 export const CUTSCENES = {
+  // The opening: narration only, over stills 01 and 02. No speaker name.
+  prologue: [
+    { art: '01', textKey: 'pr1a' },
+    { art: '01', textKey: 'pr1b' },
+    { art: '02', textKey: 'pr2a' },
+    { art: '02', textKey: 'pr2b' },
+  ],
+  // Still 03, 04 and 06 are spoken in-game over the level; see DEAL in main.js.
+  theft: [
+    { art: '05', textKey: 'th1a' },
+    { art: '05', speakerKey: 'spkElder', textKey: 'th1b' },
+    { art: '06', textKey: 'th2a' },
+    { art: '06', speakerKey: 'spkKael', textKey: 'th2b' },
+  ],
+  // `intro` is the level 2 boss cutscene, kept because BOSS_INTRO still plays
+  // it. Its lines predate the deal and are listed in the stage 2 report as
+  // contradicting it.
   intro: [
     { art: 'elder', titleKey: 'cs1Title', textKey: 'cs1a' },
     { art: 'kael', titleKey: 'cs1Title', textKey: 'cs1b' },
     { art: 'elder', titleKey: 'cs1Title', textKey: 'cs1c' },
-  ],
-  theft: [
-    { art: 'ember', titleKey: 'cs2Title', textKey: 'cs2a' },
-    { art: 'ember', titleKey: 'cs2Title', textKey: 'cs2b' },
-    { art: 'kael', titleKey: 'cs2Title', textKey: 'cs2c' },
   ],
   reveal: [
     { art: 'ulburjo', titleKey: 'cs3Title', textKey: 'cs3a' },
@@ -130,10 +205,12 @@ export const CUTSCENES = {
   ],
 };
 
+// Per-line speaker when the script sets one (the theft); otherwise the
+// scene-wide title, which is how the older scripts work.
 export function buildScript(key) {
   return (CUTSCENES[key] || []).map((l) => ({
     art: l.art,
-    title: t(l.titleKey),
+    title: l.speakerKey ? t(l.speakerKey) : (l.titleKey ? t(l.titleKey) : ''),
     text: t(l.textKey),
   }));
 }

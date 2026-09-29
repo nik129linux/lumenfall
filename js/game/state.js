@@ -13,6 +13,7 @@ export const S = {
   CUTSCENE: 'cutscene',
   PLAY: 'play',
   BOSS: 'boss',
+  STORY: 'story',
   DEAD: 'dead',
   PAUSED: 'paused',
   ENDING: 'ending',
@@ -23,8 +24,11 @@ const ALLOWED = {
   [S.BOOT]:     [S.MENU],
   [S.MENU]:     [S.CUTSCENE, S.PLAY],
   [S.CUTSCENE]: [S.PLAY, S.MENU, S.ENDING],
-  [S.PLAY]:     [S.BOSS, S.CUTSCENE, S.DEAD, S.PAUSED, S.ENDING, S.MENU],
-  [S.BOSS]:     [S.CUTSCENE, S.DEAD, S.PAUSED, S.ENDING, S.PLAY, S.MENU],
+  [S.PLAY]:     [S.BOSS, S.CUTSCENE, S.DEAD, S.PAUSED, S.ENDING, S.MENU, S.STORY],
+  [S.BOSS]:     [S.CUTSCENE, S.DEAD, S.PAUSED, S.ENDING, S.PLAY, S.MENU, S.STORY],
+  // The deal plays over the level, so it may hand straight to the theft
+  // cutscene or back to play. Nothing else is reachable from here.
+  [S.STORY]:    [S.PLAY, S.CUTSCENE, S.MENU],
   [S.DEAD]:     [S.PLAY, S.MENU],
   [S.PAUSED]:   [S.PLAY, S.BOSS, S.MENU],
   [S.ENDING]:   [S.MENU],
