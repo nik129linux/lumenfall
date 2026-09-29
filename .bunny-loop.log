@@ -6160,3 +6160,46 @@ ok   load
 --- console errors: 0 ---
 PASS
 [0m
+All 23 checks pass, zero console errors. Signing off.
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && touch .bunny-done && git add -A && git commit -q -m "Sign off: 23 checks, 0 console errors" && git log --oneline | head -8 && echo && ls -la .bunny-done && echo && git status --short | head
+1c8aa64 Sign off: 23 checks, 0 console errors
+335c30e Stop tracking the Python bytecode cache
+9691514 Fix the missed boss trigger, camera overhang and the Marble Mummy's visibility
+634bd0f Clamp the player to the level bounds explicitly
+6128ad5 Ul Burjo phase 2: disguise drop and a paced arena rotation
+d443fe5 Add README and decisions log
+99c1bcd Camera works in world space with a transformed level AABB
+75c87e3 Gameplay, rendering, AI and three levels; headless smoke check passes
+
+-rw-rw-r-- 1 nico nico 0 Sep 28 23:06 .bunny-done
+
+ M .bunny-loop.log
+[0m
+LUMENFALL is built and verified. `.bunny-done` created.
+
+## What shipped
+
+**Run it:** `python3 -m http.server 8000` then open `localhost:8000`. Nothing to install — Three.js is vendored, so it works offline.
+
+**The spec, all of it:** 3 levels with their reference palettes, 3 bosses (statue 1-phase, Ul Burjo 2-phase with the rotating arena, The Patient One 2-phase with light prediction), the 90°/0.6s L2 rotation, dash with i-frames + ghost trail + 1 air dash + 1s cooldown, halo-as-only-light in L3, cutscenes with letterbox and typewriter, ES/EN toggle with all text from one strings table, adaptive AI capped at the difficulty ceiling, green color-bleed ending.
+
+## Decisions worth flagging
+
+Three came from you. The rest are in `docs/DECISIONS.md` with reasons. The two that changed the most:
+
+- **The character refs are reference sheets, not sprite sheets.** Four on magenta, one a labelled design board. So `tools/build-atlas.py` exists — chroma-key, slice, baseline-lock, pack. Row bands are declared rather than inferred because the sheets stack rows close enough that any bucketing mis-orders the clips, and a mis-ordered animation is worse than a missing one.
+- **Palette quantisation had to go.** Implemented literally as specified, it snapped Kael's brown and blue to emerald — the hero was the same value as the shrine behind him. Replaced with a colour-depth posterise plus a per-level grade.
+
+## Bugs the tests didn't catch
+
+Worth knowing, because they shaped the verification:
+
+- A 30-second scripted playthrough found the player walking to x=1746 in a 1520-wide level, standing on phantom solid outside the map. Tile resolution stops you at the wall *most* frames, but a dash-speed step lands in an arbitrary out-of-range column.
+- The same playthrough found bosses triggering on a two-way distance test — you could sprint through the radius and finish the level without ever meeting one.
+
+Neither is reachable by assertion-based checks that only drive the player a few steps. Both are now covered.
+
+One thing I'd call out as unfinished rather than done: **the enemy sprites are the cast.** Wisps use the demon, crawlers the statue, spitters the sorcerer. It keeps everything on one art pipeline, but they're not distinct characters. If you want real enemies, that's new art.
+
+Final state: 23 checks, 0 console errors, stable across six consecutive runs.
+== DONE after 1 rounds
