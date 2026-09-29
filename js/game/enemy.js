@@ -41,6 +41,9 @@ export class Enemy {
     this.patrol = def.patrol || null;
     this.patrolDir = 1;
     this.patrolT = Math.random() * 2;
+    // 'wisp' the type also names the archetype's name prop; the hover flag needs its
+    // own field so a boss cannot accidentally be treated as a floater.
+    this.wisp = def.type === 'wisp';
 
     this.body = new Body(def.x, def.y, this.stats.w, this.stats.h);
     this.hp = this.stats.hp;
@@ -93,7 +96,7 @@ export class Enemy {
 
     // Physics
     this.body.vy = Math.max(-280, this.body.vy - GRAVITY * dt);
-    if (this.type !== 'wisp') {
+    if (!this.wisp) {
       moveX(this.body, level, this.body.vx * dt);
     } else {
       // Wisps hover: they integrate x only, and hold their height.
@@ -101,7 +104,7 @@ export class Enemy {
     }
     moveY(this.body, level, this.body.vy * dt);
 
-    if (this.type === 'wisp') {
+    if (this.wisp) {
       this.body.y = approach(this.body.y, this.def.y, dt * 24);
       this.body.vy = 0;
     }

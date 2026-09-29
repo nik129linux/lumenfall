@@ -3917,3 +3917,88 @@ timeout 250 node .scratch/shot.mjs 2>&1 | grep -v "GPU stall" | head -3
 shots written
 [0m
 [0m→ [0mRead .scratch/shots/B-L3.png
+== round 1 22:22
+[0m
+> build · space-bunny-free
+[0m
+[0m→ [0mRead .scratch/shots/B-L2.png
+L3 reads properly now. Let me check L2 and the menu.
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && python3 - <<'PY'
+p='js/game/level.js'; s=open(p,encoding='utf-8').read()
+s=s.replace("    this.wisp = null;","")
+s=s.replace("""    this.homeX = def.x;
+    this.homeY = def.y;""","""    this.homeX = def.x;
+    this.homeY = def.y;
+    this.wisp = false;""")
+open(p,'w',encoding='utf-8').write(s)
+p='js/game/enemy.js'; s=open(p,encoding='utf-8').read()
+s=s.replace("    if (this.type === 'wisp') {\n      this.body.y = approach(this.body.y, this.def.y, dt * 24);",
+            "    if (this.wisp) {\n      this.body.y = approach(this.body.y, this.def.y, dt * 24);")
+s=s.replace("    if (this.type !== 'wisp') {\n      moveX(this.body, level, this.body.vx * dt);",
+            "    if (!this.wisp) {\n      moveX(this.body, level, this.body.vx * dt);")
+s=s.replace("    this.patrolDir = 1;\n    this.patrolT = Math.random() * 2;",
+            "    this.patrolDir = 1;\n    this.patrolT = Math.random() * 2;\n    // 'wisp' the type also names the archetype's name prop; the hover flag needs its\n    // own field so a boss cannot accidentally be treated as a floater.\n    this.wisp = def.type === 'wisp';")
+open(p,'w',encoding='utf-8').write(s)
+print('wisp flag separated')
+PY
+grep -n "this.wisp" js/game/enemy.js js/game/level.js
+wisp flag separated
+js/game/enemy.js:46:    this.wisp = def.type === 'wisp';
+js/game/enemy.js:99:    if (!this.wisp) {
+js/game/enemy.js:107:    if (this.wisp) {
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && timeout 400 node tools/smoke.mjs 2>&1 | tail -30
+LUMENFALL smoke check -> http://localhost:8765/index.html
+
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:8765/index.html
+Call log:
+[2m  - navigating to "http://localhost:8765/index.html", waiting until "load"[22m
+
+    at /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/tools/smoke.mjs:50:12
+    at step (/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/tools/smoke.mjs:34:9)
+    at /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/tools/smoke.mjs:46:7 {
+  log: [
+    '  - navigating to "http://localhost:8765/index.html", waiting until "load"'
+  ],
+  name: 'Error'
+}
+
+Node.js v22.23.2
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && (python3 -m http.server 8765 >.scratch/server.log 2>&1 &) && sleep 2 && curl -s -o /dev/null -w "server:%{http_code}\n" http://localhost:8765/index.html && timeout 400 node tools/smoke.mjs 2>&1 | tail -30
+server:200
+ ok   new game -> cutscene
+ ok   cutscene typewriter advances
+ ok   skip cutscene -> play
+ ok   player physics + movement
+ ok   jump
+ ok   dash: i-frames, ghost, cooldown
+ ok   sword attack
+      governor: {"difficulty":"normal","base":1,"adapt":0.012,"scalar":1}
+ ok   adaptive AI governor respects the ceiling
+ ok   L1 -> L2 with rotation mechanic
+ ok   L2 rotate: 90deg over ~0.6s, physics suspended
+ ok   L2 -> L3, halo is the only light
+      patient one: {"ok":true,"name":"bossPatient","predicted":true,"pred":{"x":329,"conf":0.72},"counts":{"reposition_hold":126,"null":42,"reposition":54,"bait":36,"fade":36,"strike":6},"los":true,"dist":73,"strikes":6}
+ ok   Patient One predicts the lantern path
+      adaptation: {"dodgeBias":0.65,"aggression":1,"dodgerPick":"approach","dodgerBaitWeight":1.6640000000000001,"maserPick":"retreat","maserApproachWeight":1.9}
+ ok   adaptive AI: counter-dodge raises the bait weight
+ ok   fairness caps: no attack during i-frames
+ ok   boss phase 2 at 55% health
+ ok   defeating the final boss reaches the ending
+      "Pausa" -> "Paused"
+ ok   language toggle switches every string
+ ok   no hardcoded player-facing text in UI layer
+
+--- console errors: 0 ---
+--- console warnings: 4 ---
+  warning: [.WebGL-0x25dc00196e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+  warning: [.WebGL-0x25dc00196e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
+
+PASS
+[0m

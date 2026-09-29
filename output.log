@@ -1,0 +1,16 @@
+002c:fixme:winediag:loader_init wine-staging 11.12 is a testing version containing experimental patches.
+002c:fixme:winediag:loader_init Please mention your exact version when filing bug reports on winehq.org.
+libEGL warning: pci id for fd 40: 10de:25a2, driver (null)
+
+pci id for fd 41: 10de:25a2, driver (null)
+pci id for fd 42: 10de:25a2, driver (null)
+libEGL warning: egl: failed to create dri2 screen
+libEGL warning: pci id for fd 40: 10de:25a2, driver (null)
+
+pci id for fd 41: 10de:25a2, driver (null)
+pci id for fd 42: 10de:25a2, driver (null)
+libEGL warning: egl: failed to create dri2 screen
+libEGL warning: pci id for fd 40: 10de:25a2, driver (null)
+
+0024:fixme:winediag:loader_init wine-staging 11.12 is a testing version containing experimental patches.
+0024:fixme:winediag:loader_init Please mention your exact version when filing bug reports on winehq.org.
