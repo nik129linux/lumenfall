@@ -1,5 +1,5 @@
 import * as THREE from '../vendor/three.module.js';
-import { LOW_RES_W, LOW_RES_H, FLOOR_Y } from '../core/config.js';
+import { LOW_RES_W, LOW_RES_H } from '../core/config.js';
 import { makeRng } from '../core/rng.js';
 
 // Three parallax layers per level.
@@ -27,8 +27,19 @@ const LAYER_PARALLAX = [0.10, 0.40, 1.20];
 // The backdrop canvas. 600x338: 600 = view width + 120px of scroll slack,
 // 338 = 600 / 16:9, which is 68px taller than the view so the whole crop is
 // reachable vertically.
+// 600 x 270. The height is exactly the view height (LOW_RES_H), so the painting
+// is fitted to the view top to bottom and nothing is cut off -- the L1 arch used
+// to be sliced because the canvas was 338 tall, 68px more than the view. The
+// width is the view width plus 120px, which is the slack the horizontal parallax
+// slides through. One canvas texel is one buffer pixel.
 const BACK_W = 600;
-const BACK_H = 338;
+const BACK_H = 270;
+const PAINT_W = 480;   // BACK_H at 16:9: the painting drawn at its natural shape
+const SLACK = (BACK_W - PAINT_W) / 2;
+
+// How far the backdrop slides across a level, as a fraction of the camera's own
+// travel. The brief asks for 0.1.
+const FAR_PARALLAX = 0.10;
 
 // Fractions of source height, full width, centre-cropped to 16:9.
 const FALLBACK_CROP = {
@@ -82,16 +93,54 @@ function newCanvas(w, h) {
 function smoothScale(ctx, img, sx, sy, sw, sh) {
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, BACK_W, BACK_H);
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, PAINT_W, BACK_H);
+}
+
+// The bottom 40% of a painting is floor, steps, a pool, statue bases: things
+// that look walkable but are not, and the reason the playfield read as floating.
+// Graded to 85% black it reads as distant ground instead, leaving our own floor
+// and its coloured lip as the only surface that looks standable.
+function darkenGround(ctx) {
+  const y0 = Math.round(BACK_H * 0.60);
+  const g = ctx.createLinearGradient(0, y0, 0, BACK_H);
+  g.addColorStop(0.00, 'rgba(0,0,0,0)');
+  g.addColorStop(0.50, 'rgba(0,0,0,0.52)');
+  g.addColorStop(1.00, 'rgba(0,0,0,0.85)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, y0, BACK_W, BACK_H - y0);
+}
+
+// The painting is 480 wide in a 600 canvas, so the 60px of slack on each side
+// is filled by mirroring the painting's own edge columns. An edge smear would
+// be visible at 480x270; a mirror is not, and it is still one authored canvas
+// drawn once -- ClampToEdge and repeat 1,1 hold either way.
+function paintBackdrop(source) {
+  const c = newCanvas(BACK_W, BACK_H);
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(source, SLACK, 0);
+  ctx.save();
+  ctx.translate(SLACK * 2, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(source, 0, 0, SLACK, BACK_H, 0, 0, SLACK, BACK_H);
+  ctx.restore();
+  ctx.save();
+  ctx.translate(SLACK, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(source, PAINT_W - SLACK, 0, SLACK, BACK_H, 0, 0, SLACK, BACK_H);
+  ctx.restore();
+  darkenGround(ctx);
+  return c;
 }
 
 function cropFromPainting(img, y0frac, y1frac) {
-  const c = newCanvas(BACK_W, BACK_H);
+  const c = newCanvas(PAINT_W, BACK_H);
   const ctx = c.getContext('2d');
   const top = Math.round(img.height * y0frac);
   const bottom = Math.round(img.height * y1frac);
   let sh = bottom - top;
-  let sw = Math.min(img.width, Math.round(sh * (BACK_W / BACK_H)));
+  let sw = Math.min(img.width, Math.round(sh * (PAINT_W / BACK_H)));
   let sx = Math.round((img.width - sw) / 2);
   smoothScale(ctx, img, sx, top, sw, sh);
   return c;
@@ -147,6 +196,7 @@ function lanternWood() {
       ctx.stroke();
     }
   }
+  darkenGround(ctx);
   return c;
 }
 
@@ -208,8 +258,6 @@ export class Parallax {
     this.currentLevel = -1;
     this._generation = 0;
     this.levelWorldWidth = LOW_RES_W;
-    // Fraction of the painting's height where its dark ground band starts.
-    this.groundLine = 0.8;
   }
 
   async setLevel(level) {
@@ -219,7 +267,6 @@ export class Parallax {
     // generation guard the two interleave and leave doubled layers.
     const gen = ++this._generation;
     this.levelWorldWidth = (level.width || 190) * 8;
-    this.groundLine = level.groundLine ?? 0.8;
 
     for (const l of this.layers) {
       this.group.remove(l.mesh);
@@ -274,17 +321,17 @@ export class Parallax {
     if (custom) {
       const img = await loadImage(`assets/bg/${custom}`);
       if (img) {
-        const c = newCanvas(BACK_W, BACK_H);
+        const c = newCanvas(PAINT_W, BACK_H);
         const ctx = c.getContext('2d');
         // Centre-crop the supplied art to 16:9 rather than stretching it.
-        const target = BACK_W / BACK_H;
+        const target = PAINT_W / BACK_H;
         let sw = img.width, sh = img.height;
         if (img.width / img.height > target) sw = Math.round(img.height * target);
         else sh = Math.round(img.width / target);
         const sx = Math.round((img.width - sw) / 2);
         const sy = Math.round((img.height - sh) / 2);
         smoothScale(ctx, img, sx, sy, sw, sh);
-        return c;
+        return paintBackdrop(c);
       }
     }
 
@@ -295,45 +342,28 @@ export class Parallax {
     const src = { 1: '1.png', 2: '2.jpg' }[level.id];
     const img = await loadImage(src);
     if (!img) return null;
-    return cropFromPainting(img, crop[0], crop[1]);
+    return paintBackdrop(cropFromPainting(img, crop[0], crop[1]));
   }
 
   update(camX, camY) {
-    // The far backdrop pans once across the level: offset runs 0 -> 120px as
-    // the camera crosses the level. Tiling would repeat it, which is what stage
-    // 1 did wrong.
-    const span = Math.max(1, this.levelWorldWidth - LOW_RES_W);
-    const progress = Math.max(0, Math.min(1, camX / span));
-    const farOffset = progress * (BACK_W - LOW_RES_W);
+    // The backdrop is fitted to the view height, so vertically it is simply
+    // centred on the camera: the whole painting is on screen, top to bottom, at
+    // every camera height, and nothing scrolls.
     const cx = camX + LOW_RES_W / 2;
+    const cy = camY + LOW_RES_H / 2;
+
+    // Horizontally it parallaxes at FAR_PARALLAX. The canvas is 120px wider than
+    // the view, so the slide has to be centred in that slack or the crop runs off
+    // an edge and the sky shows through: offsetting by half the slide puts the
+    // pan in the middle of the 120px, which covers a 190-tile level with room
+    // to spare.
+    const travel = Math.max(1, this.levelWorldWidth - LOW_RES_W);
+    const slide = FAR_PARALLAX * travel;
 
     for (const l of this.layers) {
       if (l.isFar) {
-        // Centre the crop on the *view*, not on the camera, so it covers the
-        // full 480px at every pan value: the left edge runs 0 -> -120 and the
-        // right edge 600 -> 480, which always spans the viewport exactly once.
-        l.mesh.position.x = cx + (BACK_W - LOW_RES_W) / 2 - farOffset;
-
-        // Vertically, the crop is planted on the floor instead of being centred
-        // in the view. Each painting's bottom ~35% is an empty dark ground band,
-        // so what has to line up is the painting's ground line and our floor top
-        // -- otherwise the painted ruins float a hundred pixels below the floor
-        // and the band that should be under them is above it.
-        //
-        // The world is y-up and the camera bottom sits at camY, so the crop's
-        // top edge is at mesh.y + BACK_H/2 and the ground line at
-        // mesh.y + BACK_H/2 - groundLine * BACK_H. Solving for the floor puts
-        // mesh.y at groundLine * BACK_H + FLOOR_Y - BACK_H/2.
-        // Clamped so the crop still covers the whole view top to bottom: the
-        // upper bound keeps its top edge above the view top, the lower bound
-        // keeps its bottom edge below the view bottom. L2's ground line sits high
-        // enough in its painting that honouring it exactly would expose sky
-        // along the top edge, so it settles ~4px above the floor instead -- which
-        // the brief allows, and the empty ground band hides the difference.
-        const floorAligned = this.groundLine * BACK_H + FLOOR_Y - BACK_H / 2;
-        const coverTop = camY + LOW_RES_H - BACK_H / 2;
-        const coverBottom = camY + BACK_H / 2;
-        l.mesh.position.y = Math.max(coverTop, Math.min(coverBottom, floorAligned));
+        l.mesh.position.x = cx + slide / 2 - camX * FAR_PARALLAX;
+        l.mesh.position.y = cy;
       } else if (l.isNear) {
         // Foreground, in front of the playfield. Moves faster than the camera.
         l.mesh.position.x = cx - BACK_W / 2 + camX * (l.mult - 1) * 0.5;

@@ -78,7 +78,6 @@ export function moveX(body, level, dx) {
 }
 
 export function moveY(body, level, dy) {
-  const wasOnGround = body.onGround;
   body.onGround = false;
   body.hitCeiling = false;
   if (dy === 0 || !body.enabled) return false;
@@ -109,11 +108,19 @@ export function moveY(body, level, dy) {
         body.onGround = true;
         return true;
       }
-      // One-way platforms only catch a body that was already falling and was
-      // above the tile last frame. Passing `wasOnGround` through as "was
-      // airborne" is what lets you jump up through them and land on top.
-      if (t === PLATFORM && !wasOnGround) {
-        const surface = ty * TILE;
+      // One-way platforms. Two things were wrong here and together they meant
+      // no platform in the game ever held the player:
+      //   * the surface was the BOTTOM of row ty, not its top, so a body landed
+      //     embedded inside the tile -- _buildLips draws the visible top edge at
+      //     (ty+1)*TILE, which is the face you are meant to stand on;
+      //   * the branch was gated on `!wasOnGround`, so it could only ever fire
+      //     on the first frame of contact. That frame set onGround, so every
+      //     frame after it skipped the branch and the body dropped through.
+      // Jumping up through a platform still works, because this is the falling
+      // branch: a rising body is never tested against it, and a body that
+      // arrives from below fails the "was above" test.
+      if (t === PLATFORM) {
+        const surface = (ty + 1) * TILE;
         if (body.bottom - dy >= surface) {
           body.y = surface;
           body.vy = 0;

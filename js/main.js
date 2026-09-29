@@ -739,16 +739,15 @@ class Game {
     }
 
     const b = this._levelWorldBounds();
-    // Keep the view over the level, but allow it to overhang slightly so a wide
-    // room is never letterboxed against the frame edge.
-    // Allow a little overhang so a room larger than the viewport is not pinned
-    // to its edge, but never past the level bounds: beyond them there is nothing
-    // but the clear colour. The slack is proportional to how much room there is,
-    // so a level barely taller than the viewport gets almost none.
+    // Horizontally the view is clamped hard to the level: no overhang at all.
+    // The old 25% slack let the camera sit up to 260px outside a 190-tile level,
+    // which is what put a bare void along the start of L1 -- there is nothing
+    // out there but the clear colour.
+    // Vertically it still gets a little overhang, so a room taller than the
+    // viewport is not pinned to its edge; a level barely taller than the
+    // viewport gets almost none.
     const slack = (span, view) => Math.max(0, (span - view) * 0.25);
-    this.cam.x = clamp(this.cam.x,
-      b.minX - slack(b.maxX - b.minX, LOW_RES_W),
-      b.maxX - LOW_RES_W + slack(b.maxX - b.minX, LOW_RES_W));
+    this.cam.x = clamp(this.cam.x, b.minX, b.maxX - LOW_RES_W);
     this.cam.y = clamp(this.cam.y,
       b.minY - slack(b.maxY - b.minY, LOW_RES_H),
       b.maxY - LOW_RES_H + slack(b.maxY - b.minY, LOW_RES_H));

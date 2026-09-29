@@ -72,7 +72,7 @@ export const LEVEL_DEFS = [
     // Approach to the first gap. The high route skips most of it.
     plat(lv, 54, 10, 6);
     plat(lv, 66, 11, 6);
-    block(lv, 74, 12, 4, 4);
+    plat(lv, 74, 15, 4);
 
     // Mid shrine: stepped terraces.
     plat(lv, 84, 8, 7);
@@ -81,7 +81,7 @@ export const LEVEL_DEFS = [
 
     // Second gap.
     plat(lv, 108, 9, 6);
-    block(lv, 118, 12, 5, 5);
+    plat(lv, 118, 9, 6);
     plat(lv, 128, 8, 6);
 
     // Terraces up to the arena.
@@ -95,7 +95,7 @@ export const LEVEL_DEFS = [
       { type: 'shard', x: 68 * TILE, y: at(11) },
       { type: 'shard', x: 86 * TILE, y: at(8) },
       { type: 'shard', x: 100 * TILE, y: at(12) },
-      { type: 'shard', x: 120 * TILE, y: at(12) + 5 * TILE },
+      { type: 'shard', x: 120 * TILE, y: at(9) + 2 * TILE },
       { type: 'shard', x: 140 * TILE, y: at(10) },
       { type: 'shard', x: 156 * TILE, y: at(9) },
       { type: 'elder', x: 48 * TILE, y: FLOOR_Y },
@@ -128,7 +128,7 @@ export const LEVEL_DEFS = [
     block(lv, 82, 5, 4, 11);
 
     plat(lv, 96, 8, 6);
-    block(lv, 118, 4, 3, 10);
+    block(lv, 122, 4, 3, 10);
     plat(lv, 126, 9, 5);
     plat(lv, 136, 11, 6);
     block(lv, 146, 5, 3, 10);
@@ -164,14 +164,22 @@ export const LEVEL_DEFS = [
     plat(lv, 34, 17, 5);
     block(lv, 44, 4, 3, 18);
 
+    // Bridges the hole at 52..64. Without a landing inside the gap, the far side
+    // is 13 tiles from the last ground you can stand on.
+    plat(lv, 54, 8, 6);
     plat(lv, 66, 8, 5);
     plat(lv, 74, 11, 4);
     plat(lv, 82, 14, 5);
     block(lv, 92, 4, 3, 16);
 
+    // And this one bridges the hole at 98..111.
+    plat(lv, 100, 8, 6);
     plat(lv, 114, 8, 6);
     plat(lv, 124, 11, 5);
     plat(lv, 132, 14, 4);
+    // The block's top is 176, which is 56px above the landing below it -- over
+    // the 48px rule. This is the step that makes it reachable.
+    plat(lv, 136, 17, 3);
     block(lv, 140, 4, 3, 18);
     plat(lv, 150, 11, 5);
     plat(lv, 160, 8, 6);

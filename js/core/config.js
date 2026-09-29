@@ -23,14 +23,17 @@ export const DASH_COOLDOWN = 1.0;   // seconds, per the design
 // Coordinate convention: +y is UP, matching the orthographic camera, so
 // gravity is negative. Getting this backwards once is how the whole level ends
 // up rendered upside down with the player standing on the ceiling.
-export const JUMP_VEL = 250;        // px/s, positive is up
+export const JUMP_VEL = 305;        // px/s, positive is up
 export const JUMP_CUT = 0.45;       // fraction of jump kept when the key is released
 export const GRAVITY = 720;         // px/s^2
 export const MAX_FALL = 300;        // px/s, applied as a negative floor on vy
 // Derived from the two numbers above, and load-bearing for level design:
-// apex is JUMP_VEL^2 / 2*GRAVITY ~= 43px ~= 5.4 tiles, and a full jump covers
-// ~9 tiles horizontally. No platform may sit more than ~5 tiles above whatever it
-// is jumped from.
+// apex is JUMP_VEL^2 / 2*GRAVITY ~= 64.6px ~= 8 tiles, and a full jump covers
+// ~9 tiles horizontally. Level layouts are held to a stricter rule than the
+// apex: no surface more than 48px (6 tiles) above the one it is jumped from, and
+// no horizontal gap over 7 tiles. tools/reach.mjs proves both on every level.
+// At JUMP_VEL 250 the apex was 43px, which was under the 48px rule, so the rule
+// was unsatisfiable and platforms were decoration.
 export const RUN_SPEED = 105;       // px/s
 export const GROUND_ACCEL = 900;
 export const AIR_ACCEL = 520;
@@ -42,12 +45,6 @@ export const ATTACK_ACTIVE = 0.10; // seconds where the blade is live
 export const ATTACK_REACH = 26;
 export const ATTACK_DMG = 1;
 export const IFRAMES_ON_HIT = 0.9;  // seconds
-
-// Standing surface, in world pixels (the world is y-up, so this is the highest
-// point of the ground). Mirrors level.js: the ground occupies the lowest GROUND
-// rows, so the floor top is (GROUND + 1) * TILE = 4 * 8. The parallax layer
-// uses it to plant the painted backdrops on the floor.
-export const FLOOR_Y = 32;
 
 export const ROTATE_TIME = 0.6;     // seconds for the L2 level rotation
 
@@ -62,7 +59,6 @@ export const LEVELS = [
     width: 190,
     // L1 Shrine of Ember
     sky: [0x030806, 0x061209, 0x08190f],
-    fog: 0x16382a,
     accent: 0x54f0a8,
     light: 0x9fffc8,
     // Platforms are near-black with a 1-2px accent top edge. The previous
@@ -70,10 +66,6 @@ export const LEVELS = [
     tile: 0x0b0f0e,
     platform: 0x0b0f0e,
     lip: 0x4fd18b,
-    // Where the painting's empty dark ground band starts, as a fraction of its
-    // height. The parallax layer plants this on the floor so the painted ruins
-    // stand on our floor instead of floating above it.
-    groundLine: 0.80,
     // parallax layer tint + scroll multiplier
     layers: [
       { mult: 0.10, tint: 0x0c2018, y: 0.10 },
@@ -87,7 +79,6 @@ export const LEVELS = [
     width: 170,
     // L2 Rotting Reliquary
     sky: [0x070512, 0x0d0718, 0x140c22],
-    fog: 0x2a1a44,
     accent: 0xa86cf0,
     light: 0xd8a8ff,
     // Same rule as L1/L3: near-black body, accent only on the 1-2px top lip.
@@ -96,9 +87,6 @@ export const LEVELS = [
     tile: 0x1a0f22,
     platform: 0x1a0f22,
     lip: 0x9be34a,
-    // Higher than the others: this painting's cathedral sits on a shorter
-    // ground band.
-    groundLine: 0.68,
     layers: [
       { mult: 0.10, tint: 0x1a0f2b, y: 0.10 },
       { mult: 0.28, tint: 0x26163c, y: 0.02 },
@@ -111,14 +99,12 @@ export const LEVELS = [
     width: 180,
     // L3 Lantern Wood
     sky: [0x0a0502, 0x140a04, 0x1e1006],
-    fog: 0x2e1a0a,
     accent: 0xff9a3c,
     light: 0xffb060,
     // Almost no ambient: the sword halo is the only light in L3.
     tile: 0x1a0f06,
     platform: 0x1a0f06,
     lip: 0xe0772e,
-    groundLine: 0.78,
     layers: [
       { mult: 0.10, tint: 0x1d0f05, y: 0.10 },
       { mult: 0.28, tint: 0x2e180a, y: 0.02 },

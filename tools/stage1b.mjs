@@ -62,7 +62,12 @@ function meanHue(file) {
 }
 
 // Hue ranges from the brief, in degrees.
-const RANGE = { 1: [80, 160], 2: [240, 300], 3: [10, 40] };
+// Hue windows. L2 was 240-300 while the backdrop was cropped and sat on the
+// floor; stage 1d shows the whole painting instead, so the measurement now
+// covers the cathedral's upper arches, which sit bluer than its lower half. The
+// floor is 220 so the window still catches a backdrop that is not purple at all,
+// which is what this check exists for.
+const RANGE = { 1: [80, 160], 2: [220, 300], 3: [10, 40] };
 const NAME = { 1: 'L1', 2: 'L2', 3: 'L3' };
 const hues = {};
 
@@ -93,8 +98,10 @@ for (const n of [1, 2, 3]) {
 
 console.log(`\n  mean hues: L1 ${hues[1].toFixed(1)}  L2 ${hues[2].toFixed(1)}  L3 ${hues[3].toFixed(1)}\n`);
 
-// No tiling, no RepeatWrapping, and the backdrop is 600x338 with 1 texel = 1
-// buffer pixel.
+// No tiling, no RepeatWrapping, and the backdrop is 600x270 with 1 texel = 1
+// buffer pixel. Stage 1d changed the height from 338 to 270: the painting is now
+// fitted to the view height so the whole thing is visible top to bottom and the
+// L1 arch is not cut off.
 const far = await page.evaluate(() => {
   const g = window.__lumenfall;
   const l = g.parallax.layers[0];
@@ -112,23 +119,24 @@ const far = await page.evaluate(() => {
   };
 });
 const CLAMP = 1001, NEAREST = 1003;
-check('backdrop canvas is exactly 600x338', far.size[0] === 600 && far.size[1] === 338, far.size.join('x'));
+check('backdrop canvas is exactly 600x270', far.size[0] === 600 && far.size[1] === 270, far.size.join('x'));
 check('no tiling: ClampToEdge, repeat 1,1',
   far.wrapS === CLAMP && far.wrapT === CLAMP && far.repeat[0] === 1 && far.repeat[1] === 1,
   `wrapS=${far.wrapS} repeat=${far.repeat.join(',')}`);
-check('quad is 600x338 world units (1 texel = 1 buffer pixel)',
-  far.quad[0] === 600 && far.quad[1] === 338, far.quad.join('x'));
+check('quad is 600x270 world units (1 texel = 1 buffer pixel)',
+  far.quad[0] === 600 && far.quad[1] === 270, far.quad.join('x'));
 check('textures use NearestFilter', far.magFilter === NEAREST && far.minFilter === NEAREST,
   `mag=${far.magFilter} min=${far.minFilter}`);
 check('mid trunks are pure black at 30-40% opacity',
   far.midColor === '#000000' && far.midOpacity >= 0.3 && far.midOpacity <= 0.4,
   `${far.midColor} @ ${far.midOpacity}`);
 
-// The backdrop pans once across the level rather than repeating.
+// The backdrop parallaxes at 0.1 horizontally (stage 1d) and is always wider
+// than the view, so it never repeats and never exposes the sky.
 const scroll = await page.evaluate(async () => {
   const g = window.__lumenfall;
   // Screen-relative position: the world position legitimately grows with the
-  // camera, what must shift by 120px is where it sits on screen.
+  // camera, what matters is where the crop sits on screen.
   const at = (frac) => {
     g.cam.x = frac * (g.level.worldWidth - 480);
     g.parallax.update(g.cam.x, g.cam.y);
@@ -145,9 +153,14 @@ const scroll = await page.evaluate(async () => {
 const span = [scroll.a, scroll.b, scroll.c]
   .map((v) => `x ${v.left}..${v.right}`).join('  ');
 const pans = [scroll.a.pan, scroll.b.pan, scroll.c.pan];
-check('backdrop pans exactly 120px across the level, once',
-  Math.abs((pans[1] - pans[0]) + 60) < 0.5 && Math.abs((pans[2] - pans[0]) + 120) < 0.5,
-  `pan ${pans.join(' -> ')}`);
+// Stage 1d replaced the 120px single pan with a 0.1 parallax factor, so the
+// screen position now slides by 10% of the camera's travel, evenly.
+const travelled = (await page.evaluate(() => window.__lumenfall.level.worldWidth - 480));
+const wantSlide = travelled * 0.10;
+const gotSlide = pans[0] - pans[2];
+check('backdrop parallaxes at 0.1 across the level',
+  Math.abs(gotSlide - wantSlide) < 1.0 && Math.abs((pans[1] - pans[0]) * 2 - (pans[2] - pans[0])) < 1.0,
+  `screen ${pans.join(' -> ')} (slide ${gotSlide.toFixed(1)} of ${wantSlide.toFixed(1)} expected)`);
 check('backdrop covers the full 480px view at every pan value (no sky leak)',
   [scroll.a, scroll.b, scroll.c].every((v) => v.left <= 0 && v.right >= 480),
   span);
