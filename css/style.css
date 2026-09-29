@@ -298,9 +298,11 @@ kbd {
   position: absolute;
   left: 0; right: 0;
   top: 13%; bottom: 13%;
-  opacity: .5;
   overflow: hidden;
 }
+/* A full-screen cutscene panel sits at half strength, so the still reads as a
+   composed frame rather than a wall of art. */
+.panel-art { opacity: .5; }
 .panel-layer {
   position: absolute;
   inset: 0;
@@ -364,7 +366,11 @@ kbd {
 /* Same bars as a cutscene, same 13% slide. */
 #story.on .bar { height: 13%; }
 .story .bar { z-index: 2; }
-.story-panel { z-index: 1; opacity: .82; }
+/* Opaque. At .82 the level showed through the panel and the painting stopped
+   reading as a still; the only partial state allowed is the 400ms crossfade
+   between two layers. The blurred cover copy fills the sides, so nothing of the
+   level is needed behind it. */
+.story-panel { z-index: 1; opacity: 1; }
 
 .story-box {
   position: absolute;
@@ -378,23 +384,31 @@ kbd {
   align-items: end;
   gap: 1.4em;
 }
+/* Portraits are crops of the cutscene paintings, not the 48px idle sprites --
+   blown up 3x those were a blob of noise. `background-size` is the painting
+   rendered at that many px, and the negative position slides it so the face
+   lands centred in the 96px frame.
+     Kael  04.png, background-size 320  -> window x 30-60%, y 14-44%
+     Elder 03.png, background-size 560  -> window x 57-74%, y 37-54%
+   image-rendering stays auto: these are paintings, not sprites. */
 .story-portrait {
-  width: 7.2em;
-  height: 7.2em;
+  width: 96px;
+  height: 96px;
   flex: none;
   border: 1px solid var(--accent);
-  background: rgba(4, 8, 6, .82);
-  overflow: hidden;
-  /* The idle frame is a head-and-shoulders crop blown up 3x with NEAREST, so
-     the pixels stay square instead of going soft. */
-  image-rendering: pixelated;
+  background-repeat: no-repeat;
+  background-color: rgba(4, 8, 6, .82);
+  image-rendering: auto;
 }
-/* The data URL is already the 3x NEAREST blowup, so it is shown 1:1 here. */
-.story-portrait img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
+.story-portrait.left {
+  background-image: url(../assets/cutscenes/04.png);
+  background-size: 320px 320px;
+  background-position: -96px -46px;
+}
+.story-portrait.right {
+  background-image: url(../assets/cutscenes/03.png);
+  background-size: 560px 560px;
+  background-position: -320px -205px;
 }
 .story-text { text-align: center; }
 /* The dialogue keeps running on top of a panel, and the panels are painted

@@ -61,8 +61,15 @@ const dom = (page) => page.evaluate(() => {
     storySpeaker: document.getElementById('story-speaker').textContent,
     storyLine: document.getElementById('story-line').textContent,
     storyPanelArt: document.getElementById('story-panel')?.dataset.art || '',
-    portraitKael: (document.getElementById('portrait-kael')?.getAttribute('src') || '').slice(0, 22),
-    portraitElder: (document.getElementById('portrait-elder')?.getAttribute('src') || '').slice(0, 22),
+    // Portraits are CSS background crops of the cutscene paintings, so what
+    // matters is the resolved background image and the frame's real size.
+    portrait: ['portrait-kael', 'portrait-elder'].map((id) => {
+      const n = document.getElementById(id);
+      if (!n) return null;
+      const cs = getComputedStyle(n);
+      const r = n.getBoundingClientRect();
+      return { img: cs.backgroundImage.split('/').pop().replace('")', ''), w: Math.round(r.width), h: Math.round(r.height) };
+    }),
     barH: on('#cutscene.on .bar.top') ? on('#cutscene.on .bar.top').getBoundingClientRect().height : 0,
     storyBarH: on('#story.on .bar.top') ? on('#story.on .bar.top').getBoundingClientRect().height : 0,
     panelImg: layer ? (layer.querySelector('.panel-img')?.getAttribute('src') || '') : '',
@@ -124,11 +131,12 @@ check('   (deal triggers on proximity within 28px)', reached === 'story', `state
 await new Promise((r) => setTimeout(r, 1500));   // camera ease + typing
 d = await dom(page);
 await page.screenshot({ path: `${OUT}/deal-portraits.png` });
-check('3 in-game deal shows both portraits, a speaker name and letterbox bars',
-  d.state === 'story' && d.storyOn && d.storyBarH > 10
-  && d.portraitKael.startsWith('data:image/png') && d.portraitElder.startsWith('data:image/png')
+const portraitsOk = d.portrait.length === 2
+  && d.portrait.every((p) => p && /0[34]\.png/.test(p.img) && p.w === 96 && p.h === 96);
+check('3 in-game deal shows both painted portraits at 96x96, a speaker name and letterbox bars',
+  d.state === 'story' && d.storyOn && d.storyBarH > 10 && portraitsOk
   && d.storySpeaker.length > 0 && d.storyLine.length > 10,
-  `speaker="${d.storySpeaker}" line="${d.storyLine.slice(0, 30)}..." portraits=${d.portraitKael ? 'both' : 'MISSING'} bar=${Math.round(d.storyBarH)}px`);
+  `speaker="${d.storySpeaker}" line="${d.storyLine.slice(0, 30)}..." portraits=${d.portrait.map((p) => p && `${p.img.replace('")','')}@${p.w}x${p.h}`).join(' ')} bar=${Math.round(d.storyBarH)}px`);
 
 // ---- 4. panel 04 over the level, on a Kael line
 // Walk the deal forward until a panel-04 line is showing.

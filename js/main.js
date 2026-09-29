@@ -261,7 +261,9 @@ class Game {
     this.ui.setHealth(this.hp, HP_PER_LEVEL);
     this.ui.setEmber(this.ember);
     this.hintTimer = 3.0;
-    this.ui.showToast(t('level' + (this.levelIndex + 1)) + ' — ' + t(LEVELS[this.levelIndex].nameKey), 2.2);
+    // The level number string and the zone name are the same string, so joining
+    // them printed "Santuario de la Brasa — Santuario de la Brasa". One name.
+    this.ui.showToast(t(LEVELS[this.levelIndex].nameKey), 2.2);
   }
 
   setPaused(on) {
@@ -706,65 +708,11 @@ class Game {
       ease: DEAL_EASE,
       camFrom: this.cam.x,
       camTo: mid,
-      portraits: false,
     };
     this.machine.to(S.STORY);
     this.ui.showStory(true);
-    this._makePortraits();
     // Nothing typed yet, so the caret is hidden until the first line lands.
     this.ui.storyLine.classList.add('done');
-  }
-
-  // Portraits are the idle frame cropped to the head and shoulders and blown up
-  // 3x with smoothing off, so the pixels stay square. Built once per run from
-  // the atlas already in memory.
-  _makePortraits() {
-    if (!this.story || this.story.portraits) return;
-    this.story.portraits = true;
-    this.ui.portraitKael.src = this._portraitDataUrl('kael');
-    this.ui.portraitElder.src = this._portraitDataUrl('goodwitch');
-  }
-
-  _portraitDataUrl(name) {
-    const ch = this.characters[name];
-    const sheet = ch.texture.image;
-    const [cw, chh] = ch.cell;
-    const [fx, fy] = ch.frames.idle[0];
-
-    // Find the figure inside its cell. The sheets pad the cell heavily -- the
-    // goodwitch frame is 40x49 but the figure only fills 26x44 of it -- so a
-    // blind corner crop frames padding and an ear instead of a face.
-    const probe = document.createElement('canvas');
-    probe.width = cw; probe.height = chh;
-    const pctx = probe.getContext('2d', { willReadFrequently: true });
-    pctx.drawImage(sheet, fx, fy, cw, chh, 0, 0, cw, chh);
-    const px = pctx.getImageData(0, 0, cw, chh).data;
-    let x0 = cw, y0 = chh, x1 = -1, y1 = -1;
-    for (let y = 0; y < chh; y++) {
-      for (let x = 0; x < cw; x++) {
-        if (px[(y * cw + x) * 4 + 3] <= 8) continue;
-        if (x < x0) x0 = x;
-        if (x > x1) x1 = x;
-        if (y < y0) y0 = y;
-        if (y > y1) y1 = y;
-      }
-    }
-    if (x1 < x0) return '';
-
-    // Head and shoulders: the top 55% of the figure, squared up on the figure's
-    // own centre and clipped back inside the cell so no neighbouring frame bleeds
-    // in at the edge.
-    const fw = x1 - x0 + 1, fh = y1 - y0 + 1;
-    const side = Math.min(Math.max(fw, Math.round(fh * 0.55)), cw, chh);
-    const sx = fx + Math.max(0, Math.min(cw - side, x0 - Math.round((side - fw) / 2)));
-    const sy = fy + y0;
-
-    const c = document.createElement('canvas');
-    c.width = side * 3; c.height = side * 3;
-    const ctx = c.getContext('2d');
-    ctx.imageSmoothingEnabled = false;      // NEAREST: the pixels stay square
-    ctx.drawImage(sheet, sx, sy, side, side, 0, 0, side * 3, side * 3);
-    return c.toDataURL();
   }
 
   _dealLine() { return DEAL[this.story.index] || null; }

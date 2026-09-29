@@ -41,8 +41,6 @@ export class UI {
     this.storySpeaker = el('story-speaker');
     this.storyLine = el('story-line');
     this.storyHint = el('story-hint');
-    this.portraitKael = el('portrait-kael');
-    this.portraitElder = el('portrait-elder');
 
     this.controlsPanel = el('controls-panel');
     this.controlsBody = el('controls-body');
