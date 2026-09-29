@@ -2,3 +2,4 @@
 __pycache__/
 node_modules/
 output.log
+tools/__pycache__/

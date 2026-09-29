@@ -5916,3 +5916,135 @@ decisions doc updated
 0
 230:22 checks, 0 console errors. Verified stable across six consecutive runs.
 [0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && git add -A && git commit -q -F - <<'MSG' && git log --oneline | head -3
+Fix the missed boss trigger, camera overhang and the Marble Mummy's visibility
+
+Bosses triggered on a two-way distance test, so a player at full speed passed
+through the radius and finished the level without meeting one. Found by a
+30-second scripted playthrough, not the smoke suite -- an assertion-based check
+that only drives the player a few steps never gets fast enough to hit it. Now
+fires on entering the arena, and the suite covers the bounds case.
+
+Camera overhang past the level is proportional to the available room rather
+than a fixed screen fraction; these levels are barely taller than the viewport,
+so they were showing a band of void under the floor.
+
+The Marble Mummy rendered as a faint ghost: the atlas was graded too dark and
+the 1px outline flooded its low-alpha body. Fixed at the source (brighter
+atlas, outline threshold 0.6 -> 0.85) rather than in the shader.
+MSG
+9691514 Fix the missed boss trigger, camera overhang and the Marble Mummy's visibility
+634bd0f Clamp the player to the level bounds explicitly
+6128ad5 Ul Burjo phase 2: disguise drop and a paced arena rotation
+[0m
+Let me verify the ending's color-bleed payoff renders.
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && cat > .scratch/endcheck.mjs <<'EOF'
+import { chromium } from 'playwright';
+const b = await chromium.launch({args:['--use-gl=swiftshader','--enable-unsafe-swiftshader','--no-sandbox']});
+const p = await b.newPage({viewport:{width:960,height:540}});
+p.on('pageerror',e=>console.log('[pageerror]',e.message));
+await p.goto('http://localhost:8765/index.html',{waitUntil:'load'});
+await p.waitForFunction(()=>window.__lumenfall?.machine?.state==='menu',null,{timeout:20000});
+await p.evaluate(async ()=>{
+  const g=window.__lumenfall;
+  g.ui.hideAll(); g.levelIndex=2; g._loadLevel(2,{silent:true});
+  g.cutscene.active=false; g.machine.state='play';
+  g._onBossDefeated();
+});
+await p.waitForTimeout(1500);
+const state1 = await p.evaluate(()=>({s:window.__lumenfall.machine.state, lines:window.__lumenfall.cutscene.lines.length}));
+// skip the 'return' cutscene
+for(let i=0;i<16;i++){
+  const s=await p.evaluate(()=>window.__lumenfall.machine.state);
+  if(s==='ending') break;
+  await p.keyboard.press('Enter'); await p.waitForTimeout(150);
+  await p.keyboard.press('Enter'); await p.waitForTimeout(150);
+}
+await p.waitForTimeout(1800);
+const r = await p.evaluate(()=>({state:window.__lumenfall.machine.state,
+  endingOn: document.getElementById('ending').classList.contains('on'),
+  bleedParticles: window.__lumenfall._bleed ? window.__lumenfall._bleed.length : 0,
+  title: document.getElementById('ending-title').textContent,
+  sub: document.getElementById('ending-sub').textContent}));
+console.log('after boss:', JSON.stringify(state1));
+console.log('ending:', JSON.stringify(r));
+await p.screenshot({path:'.scratch/shots/I-ending.png'});
+await b.close();
+EOF
+timeout 250 node .scratch/endcheck.mjs 2>&1 | grep -v "GPU stall" | head -12
+after boss: {"s":"cutscene","lines":5}
+ending: {"state":"ending","endingOn":true,"bleedParticles":90,"title":"FIN","sub":"La luz ha vuelto"}
+[0m
+[0m→ [0mRead .scratch/shots/I-ending.png
+The ending's green color-bleed payoff renders. Let me do a final state check before signing off.
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && echo "=== tracked files ===" && git ls-files | grep -v node_modules && echo && echo "=== sizes ===" && du -sh assets/atlases js/vendor 2>/dev/null && echo && echo "=== git status ===" && git status --short
+=== tracked files ===
+.bunny-loop.log
+.bunny-loop.sh
+.bunny-prompt.txt
+.bunny-reply.txt
+.gitignore
+1.png
+2.jpg
+3.jpg
+README.md
+assets/atlases/badwitch.png
+assets/atlases/demon.png
+assets/atlases/goodwitch.png
+assets/atlases/kael.png
+assets/atlases/manifest.json
+assets/atlases/statue.png
+assets/badwitch.jpeg
+assets/bg/manifest.json
+assets/demon.jpeg
+assets/goodwitch.jpeg
+assets/kael.jpeg
+assets/statue.jpeg
+css/style.css
+docs/DECISIONS.md
+docs/superpowers/specs/2026-09-28-lumenfall-design.md
+index.html
+js/core/assets.js
+js/core/audio.js
+js/core/config.js
+js/core/input.js
+js/core/rng.js
+js/game/ai.js
+js/game/boss/base.js
+js/game/boss/patientone.js
+js/game/boss/statue.js
+js/game/boss/ulburjo.js
+js/game/enemy.js
+js/game/fx.js
+js/game/level.js
+js/game/physics.js
+js/game/player.js
+js/game/state.js
+js/main.js
+js/render/materials.js
+js/render/parallax.js
+js/render/pipeline.js
+js/render/sprite.js
+js/ui/cutscene.js
+js/ui/hud.js
+js/ui/i18n.js
+js/ui/strings.js
+js/vendor/three.module.js
+tools/__pycache__/build-atlas.cpython-314.pyc
+tools/build-atlas.py
+tools/smoke.mjs
+
+=== sizes ===
+284K	assets/atlases
+1.3M	js/vendor
+
+=== git status ===
+ M .bunny-loop.log
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && git rm -r --cached tools/__pycache__ -q && rm -rf tools/__pycache__ && git ls-files | grep -E "bunny-loop|bunny-reply" && echo "--- these are harness files, not project content ---"
+.bunny-loop.log
+.bunny-loop.sh
+.bunny-reply.txt
+--- these are harness files, not project content ---
+[0m
