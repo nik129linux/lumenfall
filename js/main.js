@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three.module.js';
 
-import { LOW_RES_W, LOW_RES_H, LEVELS, CAM, DASH_COOLDOWN, ROTATE_TIME } from './core/config.js';
+import { LOW_RES_W, LOW_RES_H, LEVELS, CAM, DASH_COOLDOWN, ROTATE_TIME, PIT_DEATH_Y } from './core/config.js';
 import { loadAssets } from './core/assets.js';
 import { Input } from './core/input.js';
 import { audio } from './core/audio.js';
@@ -44,6 +44,7 @@ const DEAL = [
 const DEAL_RANGE = 28;      // px between Kael's centre and the elder
 const DEAL_EASE = 0.5;      // camera ease, seconds
 const DEAL_TYPE_CPS = 44;
+const ROTATE_HINT_TILES = 6;   // how close to a hole before the hint repeats
 const HP_PER_LEVEL = 5;
 // Distance before the arena door that the boss fight starts.
 const BOSS_TRIGGER = 150;
@@ -279,6 +280,7 @@ class Game {
   }
 
   retryLevel() {
+    this._resetPitFlash();
     this.hp = HP_PER_LEVEL;
     this.model.reset();
     this.governor.adapt = 0;
@@ -302,6 +304,9 @@ class Game {
     this.levelDef = LEVELS[index];
     const data = this.level.load(index);
 
+    this._resetPitFlash();
+    this._hintOnEntry = false;
+    this._hintNearHole = false;
     this.sky.setLevel(this.levelDef);
     this.pipeline.setLevelLook(this.levelDef);
     this.parallax.setLevel(this.levelDef);
@@ -398,6 +403,7 @@ class Game {
     }
 
     this.fx.update(dt);
+    this.level.updateRunes(this.machine.time);
     this.pipeline.updateSky(this.sky);
     this.input.endFrame(dt);
     this.pipeline.render();
@@ -510,7 +516,10 @@ class Game {
     // ---- enemies
     this.governor.update(this.model);
     for (const e of this.enemies) e.update(dt, p, data);
+    // Anything that falls into a pit is gone. Same rule as the player, so a
+    // crawler walking off a ledge does not stand on the void forever.
     for (const e of this.enemies) {
+      if (!e.dead && e.body && e.body.top < PIT_DEATH_Y) { e.body.enabled = false; e.dead = true; e.deathTimer = 0; }
       if (e.dead && e.deathTimer > 0.45 && e.mesh.parent) {
         e.mesh.parent.remove(e.mesh);
         e.mesh = null;
@@ -529,6 +538,21 @@ class Game {
         this.ui.setEmber(this.ember);
         audio.sfxEmber();
         this.fx.burst(s.x, s.y, 0x8fffc0, 8, 45);
+      }
+    }
+
+    // ---- rotation hint. On entering L2, and again the first time the player
+    // gets near one of its holes: the holes are the one mechanic in the game
+    // with nothing on screen saying they exist.
+    if (this.level.canRotate) {
+      if (!this._hintOnEntry) { this._hintOnEntry = true; this.ui.showToast(t('rotateWorld'), 4.0); }
+      else if (!this._hintNearHole) {
+        for (const [hx] of (this.level.data.holes || [])) {
+          if (Math.abs(p.cx - hx * TILE) > ROTATE_HINT_TILES * TILE) continue;
+          this._hintNearHole = true;
+          this.ui.showToast(t('rotateWorld'), 4.0);
+          break;
+        }
       }
     }
 
@@ -552,6 +576,10 @@ class Game {
       this.cam.shake = Math.max(this.cam.shake, 4);
       audio.sfxHurt();
     }
+    // A fall out of a pit gets its own short sequence: red flash, then a
+    // fall-out fade, then the normal death flow. The player is already dead
+    // when this starts, so the generic path is held off until the fade is done.
+    if (p.dead && p.pitDeath) { this._pitSequence(dt); return; }
     if (p.dead) { this._onDeath(); return; }
 
     // ---- falling out of the world
@@ -828,6 +856,38 @@ class Game {
     this.endingHold = 1.0;
     this._bleedInit();
     audio.ambient(0);
+  }
+
+  // 0.12s of red flash, then 0.4s of fade to black, then the existing flow.
+  // Held on the game rather than on the player, because it is a presentation
+  // beat and the player's own state is already "dead".
+  _pitSequence(dt) {
+    if (this._pitTimer === undefined || this._pitTimer < 0) {
+      this._pitTimer = 0;
+      audio.sfxDie();
+      this.cam.shake = 8;
+    }
+    this._pitTimer += dt;
+    const FLASH = 0.12, FADE = 0.4;
+    this.pipeline.setHurt(Math.max(0, 1 - this._pitTimer / FLASH) * 0.6);
+    const after = Math.max(0, this._pitTimer - FLASH);
+    this.pipeline.setFade(Math.max(0, 1 - after / FADE));
+
+    this.fx.update(dt);
+    this._updateCamera(dt);
+    this.parallax.update(this.pipeline.viewX || 0, this.pipeline.viewY || 0);
+
+    if (after >= FADE) {
+      this._resetPitFlash();
+      this.player.pitDeath = false;
+      this._onDeath();
+    }
+  }
+
+  _resetPitFlash() {
+    this._pitTimer = -1;
+    this.pipeline.setHurt(0);
+    this.pipeline.setFade(1);
   }
 
   _onDeath() {

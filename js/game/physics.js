@@ -34,8 +34,15 @@ export const SPIKE = 3;
 export const DECOR = 4;
 
 export function tileAt(level, tx, ty) {
-  if (ty < 0 || ty >= level.height) return SOLID;   // ceiling and floor are solid
   if (tx < 0 || tx >= level.width) return SOLID;
+  if (ty >= level.height) return SOLID;             // ceiling stays solid
+  if (ty < 0) {
+    // Below the grid is normally a solid floor, so nothing can leave the level
+    // sideways or upwards. Directly under a hole it is open instead: the pit is
+    // bottomless and the fall-out is what kills. The player crosses the death
+    // line long before reaching anything down there.
+    return (level.holeCol && level.holeCol[tx]) ? 0 : SOLID;
+  }
   return level.grid[ty * level.width + tx];
 }
 

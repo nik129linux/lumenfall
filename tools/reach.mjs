@@ -8,14 +8,18 @@
 //   1. Support     every distinct standable run holds the player. Teleport 20px
 //                  above the middle of the run, wait, assert onGround and that
 //                  the body bottom came to rest exactly on the run's top.
-//   2. Reach       BFS from the spawn over standable surfaces, where B is
-//                  reachable from A if B.top - A.top <= 48 and the horizontal
-//                  gap is <= 7 tiles. Drops are always allowed. Every platform,
-//                  shard and the boss arena must be reached. The L2 rotation
-//                  gaps are the one documented exception and are listed as
-//                  such rather than silently skipped.
+//   2. Reach       the required path (spawn -> boss arena) is solved with rises
+//                  of at most 40px; every other surface, plus all shards and the
+//                  arena, is reachable with rises of at most 48px. Drops are
+//                  free, the horizontal gap is at most 7 tiles, and a solid
+//                  column taller than the jump blocks the straight path across
+//                  it. The L2 rotation holes are the one documented exception.
+//                  The required path is printed as a list of surfaces.
 //   3. Jump        a real jump: hold Right, press Jump every 0.5s for 6s, and
 //                  the max body height must clear floor + 55.
+//   4. Pit death   dropped into an L1 hole, Kael must be dead and in the death
+//                  state within 1.5s, and the normal respawn must then work.
+//                  Added by stage 2c.
 //
 // Exits 1 on any failure.
 
@@ -23,9 +27,15 @@ import { chromium } from 'playwright';
 
 const URL = process.argv[2] || 'http://localhost:8765/index.html';
 
-// From the brief. JUMP_VEL 305 over GRAVITY 720 is a 64.6px apex; the layout
-// rule leaves headroom at 48.
-const MAX_RISE_PX = 48;
+// JUMP_VEL 305 over GRAVITY 720 gives a 64.6px apex, rounded down to 64 for
+// wall clearance. Two rise limits, from docs/stage2c.md:
+//   REQUIRED_RISE  any climb the player MUST make to finish the level
+//   OPTIONAL_RISE  optional platforms, e.g. the ones holding shards
+// A column taller than the jump blocks the straight path across it, which is
+// what made the L2 columns impassable in practice.
+const JUMP_APEX_PX = 64;
+const REQUIRED_RISE_PX = 40;
+const OPTIONAL_RISE_PX = 48;
 const MAX_GAP_TILES = 7;
 const JUMP_MARGIN_PX = 55;
 const TILE = 8;
@@ -65,7 +75,7 @@ async function runs(level) {
         x += w - 1;
       }
     }
-    return { runs: out, width: d.width, height: d.height, id: d.id };
+    return { runs: out, width: d.width, height: d.height, id: d.id, grid: Array.from(d.grid) };
   });
 }
 
@@ -86,7 +96,7 @@ for (const n of [1, 2, 3]) {
   await new Promise((r) => setTimeout(r, 800));
   await muteStory();
 
-  const { runs: all, width } = await runs(n);
+  const { runs: all, width, height, grid } = await runs(n);
   console.log(`  ${all.length} standable runs, level width ${width} tiles`);
 
   // ---------------------------------------------------------------- 1. support
@@ -172,32 +182,80 @@ for (const n of [1, 2, 3]) {
     return holes.some(([h0, h1]) => lo >= h0 && hi <= h1);
   };
 
-  const seen = new Set([spawn]);
-  const queue = [spawn];
-  const blocked = [];
-  while (queue.length) {
-    const a = queue.shift();
-    for (const b of all) {
-      if (seen.has(b)) continue;
-      const rise = b.top - a.top;
-      if (rise > MAX_RISE_PX) continue;
-      const gap = b.x0 > a.x1 ? b.x0 - a.x1 - 1 : (a.x0 > b.x1 ? a.x0 - b.x1 - 1 : 0);
-      const rotationHop = n === 2 && spansHole(a, b);
-      if (gap > MAX_GAP_TILES && !rotationHop) { blocked.push({ a, b, gap, rise }); continue; }
-      seen.add(b); queue.push(b);
+  const tileAt = (tx, ty) => {
+    if (ty < 0 || ty >= levelH || tx < 0 || tx >= levelW) return 1;   // edges are solid
+    return grid[ty * levelW + tx];
+  };
+  const levelH = height; const levelW = width;
+
+  // Solid column tops between two runs. If one stands taller than a jump above
+  // the higher of the two surfaces, you cannot get across it: that is the whole
+  // reason the L2 columns read as impassable.
+  const blockingColumn = (a, b) => {
+    const lo = a.x1 < b.x0 ? a.x1 + 1 : b.x1 + 1;
+    const hi = a.x1 < b.x0 ? b.x0 - 1 : a.x0 - 1;
+    if (hi < lo) return 0;
+    const ceil = Math.max(a.top, b.top) + JUMP_APEX_PX;
+    let worst = 0;
+    for (let tx = lo; tx <= hi; tx++) {
+      for (let ty = 0; ty < levelH; ty++) {
+        if (tileAt(tx, ty) !== 1) continue;
+        worst = Math.max(worst, (ty + 1) * 8);
+      }
     }
+    return worst > ceil ? worst : 0;
+  };
+
+  // BFS from the spawn, returning the reachable set and the parent links so the
+  // required path can be printed.
+  const solve = (riseLimit) => {
+    const seen = new Set([spawn]);
+    const from = new Map();
+    const queue = [spawn];
+    while (queue.length) {
+      const a = queue.shift();
+      for (const b of all) {
+        if (seen.has(b)) continue;
+        if (b.top - a.top > riseLimit) continue;
+        const gap = b.x0 > a.x1 ? b.x0 - a.x1 - 1 : (a.x0 > b.x1 ? a.x0 - b.x1 - 1 : 0);
+        // L2 rotation holes are meant to be crossed only after the room turns.
+        if (gap > MAX_GAP_TILES && !(n === 2 && spansHole(a, b))) continue;
+        if (blockingColumn(a, b)) continue;
+        seen.add(b); from.set(b, a); queue.push(b);
+      }
+    }
+    return { seen, from };
+  };
+
+  // The arena is the standable surface under the boss.
+  const bossTx = await page.evaluate(() => {
+    const g = window.__lumenfall;
+    const b = g.level.data.entities.find((e) => e.type === 'boss');
+    return b ? Math.floor(b.x / 8) : -1;
+  });
+  const arena = all.find((r) => bossTx >= r.x0 && bossTx <= r.x1) || null;
+
+  const req = solve(REQUIRED_RISE_PX);
+  if (!arena || !req.seen.has(arena)) {
+    fail(`required path to the boss arena is not solvable with ${REQUIRED_RISE_PX}px rises`
+      + (arena ? ` (arena at x=${arena.x0} ty=${arena.ty} top=${arena.top})` : ' (no arena surface)'));
+  } else {
+    const path = [];
+    for (let cur = arena; cur; cur = req.from.get(cur)) { path.unshift(cur); if (path.length > 200) break; }
+    console.log(`  required path (spawn -> arena), ${path.length} surfaces, rises <= ${REQUIRED_RISE_PX}px:`);
+    console.log('    ' + path.map((r) => `x${r.x0}${r.x1 === r.x0 ? '' : '-' + r.x1}@${r.top}`).join(' -> '));
   }
 
-  // The L2 rotation holes are meant to be crossed only after the room turns, so
-  // they are the documented exception.
+  // Optional surfaces, with the wider 48px limit, seeded from what the required
+  // path already reaches so a shard ladder is judged from the real floor.
+  const opt = solve(OPTIONAL_RISE_PX);
+  for (const r of req.seen) opt.seen.add(r);
   const isRotationGap = (r) => n === 2 && r.ty === 3;
-  const unreachable = all.filter((r) => !seen.has(r) && !isRotationGap(r));
+  const unreachable = all.filter((r) => !opt.seen.has(r) && !isRotationGap(r));
   if (unreachable.length) {
-    for (const r of unreachable) {
-      fail(`unreachable surface plat@x=${r.x0} ty=${r.ty} top=${r.top}`);
-    }
+    for (const r of unreachable) fail(`unreachable surface plat@x=${r.x0} ty=${r.ty} top=${r.top}`);
   } else {
-    const excepted = all.filter((r) => !seen.has(r) && isRotationGap(r)).length;
+    const excepted = all.filter((r) => !opt.seen.has(r) && isRotationGap(r)).length;
     console.log(`  reach: all ${all.length - excepted} surfaces reachable from spawn`
       + (excepted ? ` (${excepted} L2 rotation gaps excepted)` : ''));
   }
@@ -216,7 +274,7 @@ for (const n of [1, 2, 3]) {
   let ptsBad = 0;
   for (const p of pts) {
     // A point is served by any reachable run whose span contains its column.
-    const served = all.some((r) => seen.has(r) && p.tx >= r.x0 && p.tx <= r.x1);
+    const served = all.some((r) => opt.seen.has(r) && p.tx >= r.x0 && p.tx <= r.x1);
     if (!served) { ptsBad++; fail(`${p.type} at tile x=${p.tx} is not on a reachable surface`); }
   }
   if (ptsBad === 0) console.log(`  reach: all ${pts.length} shards/boss arenas on a reachable surface`);
@@ -270,6 +328,62 @@ for (const n of [1, 2, 3]) {
   const need = FLOOR_Y + JUMP_MARGIN_PX;
   if (apex > need) console.log(`  jump: max body.y ${apex.toFixed(1)} > floor+${JUMP_MARGIN_PX} (${need}) OK`);
   else fail(`jump: max body.y ${apex.toFixed(1)} did not exceed ${need}`);
+}
+
+// ---------------------------------------------------------------- 4. pit death
+// A pit is bottomless: dropped in, Kael must die within 1.5s and the existing
+// respawn flow must then take over. Checked on L1, which has no rotation to
+// complicate the "which way is down" question.
+console.log('\n=== pit death (L1) ===');
+{
+  const page2 = await browser.newPage({ viewport: { width: 480, height: 270 } });
+  page2.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  page2.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+  await page2.goto(`${URL}?level=1`, { waitUntil: 'load' });
+  await page2.waitForFunction(
+    () => ['play', 'boss'].includes(window.__lumenfall?.machine?.state), { timeout: 20000 });
+  await new Promise((r) => setTimeout(r, 600));
+
+  const hole = await page2.evaluate(() => {
+    const h = window.__lumenfall.level.data.holes || [];
+    return h.length ? h[0][0] + Math.floor(h[0][1] / 2) : -1;
+  });
+  if (hole < 0) {
+    fail('L1 has no hole to test pit death with');
+  } else {
+    // Dropped in from just under the lip, with no floor under the body.
+    await page2.evaluate((tx) => {
+      const b = window.__lumenfall.player.body;
+      b.vx = 0; b.vy = 0; b.x = tx * 8 + 1; b.y = 22; b.onGround = false;
+    }, hole);
+
+    const died = await page2.waitForFunction(
+      () => {
+        const g = window.__lumenfall;
+        return g.player.dead && g.machine.state === 'dead';
+      }, { timeout: 1500 }).then(() => true, () => false);
+    const st = await page2.evaluate(() => ({
+      dead: window.__lumenfall.player.dead,
+      pitDeath: window.__lumenfall.player.pitDeath,
+      state: window.__lumenfall.machine.state,
+    }));
+    if (died && st.pitDeath) {
+      console.log(`  pit: hole at tile ${hole} -> dead in the death state (pitDeath=${st.pitDeath}) OK`);
+    } else {
+      fail(`falling into a pit did not kill within 1.5s: dead=${st.dead} pitDeath=${st.pitDeath} state=${st.state}`);
+    }
+
+    // And the existing flow still respawns.
+    await new Promise((r) => setTimeout(r, 800));
+    await page2.keyboard.press('KeyZ');
+    const back = await page2.waitForFunction(
+      () => window.__lumenfall.machine.state === 'play' && !window.__lumenfall.player.dead,
+      { timeout: 8000 }).then(() => true, () => false);
+    const after2 = await page2.evaluate(() => window.__lumenfall.machine.state);
+    if (back) console.log(`  pit: respawn returned to ${after2} OK`);
+    else fail(`the normal death/respawn flow did not take over: state=${after2}`);
+  }
+  await page2.close();
 }
 
 if (errors.length) {

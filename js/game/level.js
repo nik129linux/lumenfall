@@ -44,8 +44,16 @@ const GROUND = 3;
 // room turns.
 function ground(lv, holes = []) {
   fill(lv, 0, 0, lv.width, GROUND + 1);
+  // Kept on the level so the bottomless void can be drawn under each hole.
+  lv.holes = holes;
+  // Per-column flag so the physics knows which columns have no floor under
+  // them. Without it a body falls into a hole, lands on the phantom solid that
+  // tileAt reports below row 0, and stands there at y=0 -- which is exactly the
+  // "Kael just stands in the pit" this stage is about.
+  lv.holeCol = new Uint8Array(lv.width);
   for (const [hx, hw] of holes) {
     fill(lv, hx, 0, hw, 8, 0);
+    for (let x = hx; x < hx + hw; x++) lv.holeCol[x] = 1;
   }
 }
 
@@ -53,6 +61,8 @@ const plat = (lv, tx, ty, tw) => fill(lv, tx, ty, tw, 1, PLATFORM);
 const block = (lv, tx, ty, tw, th) => fill(lv, tx, ty, tw, th);
 
 const FLOOR_Y = (GROUND + 1) * TILE;   // standing surface, in pixels
+const VOID_H = 240;                   // depth of the black under a pit
+const RUNE_LEAD = 3;                   // tiles before a hole the rune is drawn
 const at = (ty) => ty * TILE + TILE;   // top face of a platform row, in pixels
 
 // The elder waits at x=30. Stage 2 wants that spot to be a safe place to stop
@@ -165,25 +175,34 @@ export const LEVEL_DEFS = [
     plat(lv, 10, 8, 5);
     plat(lv, 20, 10, 5);
     // A standing wall: harmless seen from above, a bridge seen from the side.
+    // A step in front of the column at 30: ground 32 -> 72 -> the top at 112.
+    plat(lv, 26, 8, 3);
     block(lv, 30, 4, 3, 10);
     plat(lv, 36, 8, 4);
 
     plat(lv, 58, 7, 5);
     block(lv, 62, 4, 3, 9);
-    plat(lv, 72, 9, 6);
+    // Two steps for the column at 82: 72, then 88, then its top at 128. Each
+    // rise is 40, 16 and 40 -- the direct 80 -> 128 was 48, over the rule.
+    plat(lv, 72, 8, 6);
+    plat(lv, 78, 10, 4);
     block(lv, 82, 5, 4, 11);
 
     plat(lv, 96, 8, 6);
+    plat(lv, 118, 8, 3);
     block(lv, 122, 4, 3, 10);
     plat(lv, 126, 9, 5);
     plat(lv, 136, 11, 6);
+    // 72 then 88 then the top at 120; 72 -> 120 alone is 48.
+    plat(lv, 142, 8, 2);
+    plat(lv, 144, 10, 2);
     block(lv, 146, 5, 3, 10);
 
     lv.entities.push(
       { type: 'shard', x: 12 * TILE, y: at(8) },
       { type: 'shard', x: 22 * TILE, y: at(10) },
       { type: 'shard', x: 60 * TILE, y: at(7) },
-      { type: 'shard', x: 74 * TILE, y: at(9) },
+      { type: 'shard', x: 74 * TILE, y: at(8) },
       { type: 'shard', x: 98 * TILE, y: at(8) },
       { type: 'shard', x: 128 * TILE, y: at(9) },
       { type: 'shard', x: 138 * TILE, y: at(11) },
@@ -278,6 +297,10 @@ export class Level {
   }
 
   get canRotate() { return this.data && this.data.id === 2; }
+
+  // Read by _buildRunes while the tiles are being built, before canRotate can be
+  // trusted on a fresh load.
+  get levelCanRotate() { return !!this.data && this.data.id === 2; }
   get isRotating() { return this.rotating; }
 
   // ---- coordinate conversion
@@ -367,6 +390,63 @@ export class Level {
     // .concat, not +. `+` on two arrays coerces both to strings, so
     // `solids + plats` yielded "0,0,1,1,..." and every platform lost its lip.
     this._buildLips(solids.concat(plats), pal.lip);
+    this._buildVoid();
+    this._buildRunes(pal);
+  }
+
+  // A rune on the ground three tiles before each rotation hole, in the level's
+  // accent colour. The holes are the one thing in the game with no visual tell
+  // that they are meant to be crossed by turning the room, so something has to
+  // say so at the player's feet. Pulses in updateRunes.
+  _buildRunes(pal) {
+    this.runes = [];
+    const holes = this.data.holes || [];
+    if (!this.levelCanRotate || !holes.length) return;
+    const mat = new THREE.MeshBasicMaterial({
+      color: pal.accent, transparent: true, opacity: 0.85,
+      depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    this.runeMat = mat;
+    for (const [hx] of holes) {
+      const tx = hx - RUNE_LEAD;
+      if (tx < 0) continue;
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(TILE * 1.6, TILE * 1.6), mat);
+      mesh.position.set(tx * TILE + TILE / 2, FLOOR_Y + 1, 1);
+      mesh.renderOrder = 3;
+      mesh.frustumCulled = false;
+      this.tilesGroup.add(mesh);
+      this.runes.push(mesh);
+    }
+  }
+
+  // Sine pulse, so the runes breathe rather than blink. One shared material, so
+  // they beat together.
+  updateRunes(t) {
+    if (!this.runeMat) return;
+    this.runeMat.opacity = 0.25 + 0.6 * (0.55 + 0.45 * Math.sin(t * 3.4));
+  }
+
+  // The bottom of a pit. Nothing is drawn below the floor line inside a hole,
+  // so without this the parallax backdrop shows through and the pit reads as a
+  // painted floor you could land on -- which is exactly what it must not do.
+  // renderOrder 0 puts it after the mid trunks (-10) and before the tiles (1),
+  // and transparent so it lands in the same pass as everything else that sorts
+  // by hand.
+  _buildVoid() {
+    const holes = this.data.holes || [];
+    if (!holes.length) return;
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0x000000, transparent: true, opacity: 1, depthTest: false, depthWrite: false,
+    });
+    for (const [hx, hw] of holes) {
+      const w = hw * TILE;
+      const geo = new THREE.PlaneGeometry(w, VOID_H);
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(hx * TILE + w / 2, FLOOR_Y - VOID_H / 2, -1);
+      mesh.renderOrder = 0;
+      mesh.frustumCulled = false;
+      this.tilesGroup.add(mesh);
+    }
   }
 
   _inst(geo, list, color, opacity, lip = false) {

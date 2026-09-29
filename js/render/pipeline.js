@@ -23,6 +23,7 @@ const POST_FRAG = /* glsl */`
   uniform vec2  lightPos;   // in buffer pixels
   uniform float lightRadius;
   uniform float fade;       // global fade to black, for transitions
+  uniform float hurt;       // red flash, for the pit fall-out
 
   varying vec2 vUv;
 
@@ -47,6 +48,13 @@ const POST_FRAG = /* glsl */`
     // Vignette only.
     float v = 1.0 - dot(centred, centred) * vignette;
     col *= clamp(v, 0.0, 1.0);
+
+    // Red flash, before the fade: it has to survive being multiplied down, or
+    // the last thing you see of a fall is grey.
+    if (hurt > 0.001) {
+      float lum = dot(col, vec3(0.299, 0.587, 0.114));
+      col = mix(col, vec3(lum * 1.15, lum * 0.06, lum * 0.06), hurt);
+    }
 
     col *= fade;
 
@@ -108,6 +116,7 @@ export class Pipeline {
       lightPos: { value: new THREE.Vector2(LOW_RES_W / 2, LOW_RES_H / 2) },
       lightRadius: { value: 120 },
       fade: { value: 1 },
+      hurt: { value: 0 },
     };
 
     this.postScene = new THREE.Scene();
@@ -161,6 +170,8 @@ export class Pipeline {
   }
 
   setFade(v) { this.postUniforms.fade.value = v; }
+
+  setHurt(v) { this.postUniforms.hurt.value = v; }
 
   // The sky is a fullscreen backdrop pinned to the camera, not a quad sitting at
   // a fixed world position. Without this it only covers the 0..LOW_RES_W corner

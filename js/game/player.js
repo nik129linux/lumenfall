@@ -3,7 +3,7 @@ import { Sprite, Ghost } from '../render/sprite.js';
 import { Body, moveX, moveY, TILE, SOLID, SPIKE, tileAt } from './physics.js';
 import {
   PLAYER_W, PLAYER_H, DASH_TIME, DASH_SPEED, DASH_COOLDOWN, JUMP_VEL, JUMP_CUT,
-  GRAVITY, MAX_FALL, RUN_SPEED, GROUND_ACCEL, AIR_ACCEL, GROUND_FRICTION, AIR_FRICTION,
+  GRAVITY, MAX_FALL, RUN_SPEED, PIT_DEATH_Y, GROUND_ACCEL, AIR_ACCEL, GROUND_FRICTION, AIR_FRICTION,
   ATTACK_TIME, ATTACK_ACTIVE, ATTACK_REACH, ATTACK_DMG, IFRAMES_ON_HIT,
 } from '../core/config.js';
 import { clamp, approach } from '../core/rng.js';
@@ -41,6 +41,7 @@ export class Player {
     this.hurtTimer = 0;
     this.dead = false;
     this.deadTimer = 0;
+    this.pitDeath = false;   // set when the death was a fall out of a pit
     this.squash = 0;
     this.coyote = 0;
     this.jumpHeld = false;
@@ -154,6 +155,7 @@ export class Player {
     this._animate(dt);
     this._updateLight();
     this._checkSpikes(level);
+    this._checkVoid();
   }
 
   // Hard guarantee that the body stays inside the level, horizontally.
@@ -234,6 +236,18 @@ export class Player {
       this.lightX = this.cx + this.facing * 8;
       this.lightY = this.cy + 2;
     }
+  }
+
+  // A pit is bottomless. Physics runs in the level's local frame, and in that
+  // frame "down" is always -Y even after the L2 room turns, so this one test
+  // covers a rotated room without knowing anything about the rotation.
+  _checkVoid() {
+    if (this.dead) return;
+    if (this.body.top >= PIT_DEATH_Y) return;
+    // A body below the floor line can only be inside a hole: everywhere else the
+    // ground occupies the lowest rows and nothing gets under it.
+    this.pitDeath = true;
+    this.die();
   }
 
   _checkSpikes(level) {

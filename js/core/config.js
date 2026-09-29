@@ -46,6 +46,15 @@ export const ATTACK_REACH = 26;
 export const ATTACK_DMG = 1;
 export const IFRAMES_ON_HIT = 0.9;  // seconds
 
+// The standing surface, in world pixels. The ground occupies the lowest tile
+// rows, so its top face is (GROUND + 1) * TILE = 4 * 8. Lives here because the
+// pit-death test needs it in the player's update, not just in the level builder.
+export const FLOOR_Y = 32;
+
+// Below this, a body is entirely under the floor line and has fallen out of the
+// world. Eight pixels of grace so a body brushing the lip does not count.
+export const PIT_DEATH_Y = FLOOR_Y - 8;
+
 export const ROTATE_TIME = 0.6;     // seconds for the L2 level rotation
 
 // Per-level look. Palettes sampled from the reference art:
