@@ -6,7 +6,7 @@ FX in `js/game/fx.js`. Commit and stop. Do not create `.bunny-done`.
 ## 1. Use the new background paintings
 
 Nico added purpose-made 16:9 backgrounds:
-`assets/bg/l1.png` (1024x572), `assets/bg/l2.png` (1672x941), `assets/bg/l3.png` (1024x572).
+`assets/bg/l1.png` (1376x768), `assets/bg/l2.png` (1672x941), `assets/bg/l3.png` (1376x768).
 Register them in `assets/bg/manifest.json` so the far layer uses them whole (source
 priority 1 from stage 1b). Keep the crops/procedural only as fallback when a file is
 missing. Same scaling rules as stage 1b: one high-quality downscale to 600x338 canvas,
