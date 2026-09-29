@@ -1,5 +1,5 @@
 import * as THREE from '../vendor/three.module.js';
-import { makeSpriteMaterial, setPalette, setLift } from './materials.js';
+import { makeSpriteMaterial } from './materials.js';
 
 // An animated sprite driven by the frame tables emitted by the asset pipeline.
 //
@@ -24,6 +24,7 @@ export class Sprite {
     });
     this.mesh = new THREE.Mesh(geo, this.material);
     this.mesh.frustumCulled = false;
+    this.mesh.renderOrder = 10;
 
     this.cell = character.cell;
     // The mesh is scaled to the cell size, and scale multiplies the geometry's
@@ -35,13 +36,9 @@ export class Sprite {
     this.mesh.scale.set(this.cell[0], this.cell[1], 1);
 
     this._uv = new THREE.Vector2();
+    this._applyFlip();
     this.applyFrame(0);
-    if (opts.paletteLevel) setPalette(this.material, opts.paletteLevel);
   }
-
-  setPaletteLevel(id) { setPalette(this.material, id); }
-
-  setLift(v) { setLift(this.material, v); }
 
   get frameCount() {
     const list = this.char.frames[this.clip];
@@ -57,10 +54,25 @@ export class Sprite {
     if (speed !== null) this.speed = speed;
   }
 
+  // `facing` is the world direction the character should LOOK: +1 = screen
+  // right, -1 = screen left.
+  //
+  // The flip is expressed once, here, as a scale sign. It used to also be
+  // expressed in applyFrame() as a U-coordinate swap, and the two cancelled --
+  // characters could never actually turn around. There is exactly one mechanism
+  // now: scale, relative to whichever way the sheet is natively drawn.
   setFacing(dir) {
-    if (dir === 0) return;
-    this.facing = dir < 0 ? -1 : 1;
-    this.mesh.scale.x = this.cell[0] * this.facing;
+    if (!dir) return;
+    this.facing = dir > 0 ? 1 : -1;
+    this._applyFlip();
+  }
+
+  _applyFlip() {
+    const native = this.char.nativeFacing ?? 1;
+    // Same direction as the sheet means no mirror; opposite means mirror.
+    const flip = this.facing === native ? 1 : -1;
+    this.mesh.scale.x = this.cell[0] * flip;
+    this.flipped = flip < 0;
   }
 
   applyFrame(i) {
@@ -71,13 +83,10 @@ export class Sprite {
     const w = this.cell[0], h = this.cell[1];
     const u0 = idx[0] / tex.image.width;
     const u1 = (idx[0] + w) / tex.image.width;
-    // Flip by swapping the u ends, which is cheaper and exact at this
-    // resolution than negating scale on the whole object.
+    // U runs left-to-right always. The mirror is the scale, not the UVs.
     const uv = this.mesh.geometry.attributes.uv;
-    const l = this.facing < 0 ? u1 : u0;
-    const r = this.facing < 0 ? u0 : u1;
-    uv.setXY(0, l, 1); uv.setXY(1, r, 1);
-    uv.setXY(2, l, 0); uv.setXY(3, r, 0);
+    uv.setXY(0, u0, 1); uv.setXY(1, u1, 1);
+    uv.setXY(2, u0, 0); uv.setXY(3, u1, 0);
     uv.needsUpdate = true;
   }
 
@@ -120,6 +129,7 @@ export class Ghost {
     this.material = makeSpriteMaterial(character.texture, { outline: 0x0a1420, dither: 0 });
     this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.material);
     this.mesh.frustumCulled = false;
+    this.mesh.renderOrder = 11;
     // Same feet-at-origin anchor as Sprite; see the note there.
     this.mesh.geometry.translate(0, 0.5, 0);
     this.active = false;
@@ -128,7 +138,11 @@ export class Ghost {
 
   spawn(x, y, facing, clip, frameIndex, tint = 0x6fe0ff) {
     this.mesh.position.set(x, y, 0);
-    this.mesh.scale.set(this.cell[0] * facing, this.cell[1], 1);
+    // Same single flip mechanism as Sprite: scale relative to nativeFacing.
+    // This previously ALSO swapped the UVs, which cancelled the scale again.
+    const native = this.char.nativeFacing ?? 1;
+    const dir = facing > 0 ? 1 : -1;
+    this.mesh.scale.set(this.cell[0] * (dir === native ? 1 : -1), this.cell[1], 1);
     const list = this.char.frames[clip];
     if (!list || !list.length) { this.active = false; return; }
     const idx = list[Math.max(0, Math.min(list.length - 1, frameIndex))];
@@ -136,8 +150,8 @@ export class Ghost {
     const w = this.cell[0], h = this.cell[1];
     const u0 = idx[0] / tex.image.width, u1 = (idx[0] + w) / tex.image.width;
     const uv = this.mesh.geometry.attributes.uv;
-    uv.setXY(0, facing < 0 ? u1 : u0, 1); uv.setXY(1, facing < 0 ? u0 : u1, 1);
-    uv.setXY(2, facing < 0 ? u1 : u0, 0); uv.setXY(3, facing < 0 ? u0 : u1, 0);
+    uv.setXY(0, u0, 1); uv.setXY(1, u1, 1);
+    uv.setXY(2, u0, 0); uv.setXY(3, u1, 0);
     uv.needsUpdate = true;
     this.material.userData.uniforms.tint.value.set(
       ((tint >> 16) & 255) / 255, ((tint >> 8) & 255) / 255, (tint & 255) / 255, 1);

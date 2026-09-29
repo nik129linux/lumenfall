@@ -3,25 +3,29 @@
 
 Turns the reference sheets in assets/ into gameplay sprite atlases.
 
-The character refs are reference *sheets*, not atlases: four of the five sit on
-#FF00FF (74-80% coverage) and statue.jpeg is a labeled Spanish concept board.
+Stage 1 rebuilt this. The previous version was wrong in three ways that all
+showed up on screen:
 
-Pipeline per character:
-  1. chroma-key the background to alpha
-  2. find frames (connected components, or hardcoded crops for statue)
-  3. normalise to a shared cell, feet-baseline aligned
-  4. pack into one atlas + emit a frame manifest
+  * statue.jpeg was keyed with a global colour distance plus a luminance gate.
+    Its figures sit only ~50 luminance units above the board, so the gate ate
+    the interior and the sprite came out as white outlines. It is now keyed with
+    a flood fill from the border of each crop box, which cannot leak inward.
+  * the magenta sheets kept a pink fringe. Now keyed by chroma distance, then
+    eroded 1px and stripped of any surviving magenta-hue pixel.
+  * frames were downscaled with BOX and then graded. BOX blends, which smears
+    pixel art, and the grade is why Kael's teal cloak rendered brown. Now a
+    single NEAREST scale per character and no grade at all.
 
-Step 3 is not optional. Every frame gets a tight crop, and tight crops animate
-with a visible wobble because each figure sits at a slightly different height.
-Snapping every figure to a common baseline is what makes the animation read as
-one character instead of a pile of separate drawings.
+Frames are baseline-locked into a shared cell. Per-frame tight crops sit at
+slightly different heights and the animation wobbles; the baseline is what makes
+it read as one character.
 
 Usage:
-    python3 tools/build-atlas.py            # build all
-    python3 tools/build-atlas.py --probe    # dump contact sheets for review
+    python3 tools/build-atlas.py            # build atlases + contact sheet
+    python3 tools/build-atlas.py --probe    # contact sheet only
 """
 
+import colorsys
 import json
 import os
 import sys
@@ -34,369 +38,407 @@ from scipy import ndimage
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS = os.path.join(ROOT, "assets")
 OUT = os.path.join(ASSETS, "atlases")
+PROBE_DIR = os.path.join(ROOT, ".scratch", "stage1")
 
-# #FF00FF, with tolerance for jpeg ringing around the silhouette edge.
-KEY_RGB = np.array([255.0, 0.0, 255.0])
-KEY_TOL = 118.0
+MAGENTA = np.array([255.0, 0.0, 255.0])
 
-# ---------------------------------------------------------------- per-character
-# cell     = atlas cell size in pixels (== low-res buffer pixels, 1:1)
-# figure   = height the figure is scaled to inside the cell
-# baseline = y inside the cell that the figure's feet rest on
-# frames   = which detected components map to which animation clip, in order
-
-# Row bands are given explicitly rather than inferred. The sheets put their
-# rows close enough together (sometimes under 90px apart) that any centre-based
-# bucketing drifts and mis-orders the clips, and a mis-ordered animation is
-# worse than a missing one. Each band is (y0, y1, count) and the N largest
-# components in it are taken, left to right -- which is also what drops the
-# non-body frames, like the green projectile sitting among the sorcerer's poses.
-
-CHARACTERS = OrderedDict()
-
-CHARACTERS["kael"] = {
-    "src": "kael.jpeg",
-    "cell": (48, 48),
-    "figure": 40,
-    "baseline": 44,
-    "bands": [
-        (80, 135, 6),      # idle x2, run x4
-        (375, 425, 2),     # jump
-        (460, 500, 2),     # dash
-        (670, 790, 4),     # attack x3, hurt
-        (850, 900, 1),     # down
-    ],
-    "clips": OrderedDict([
-        ("idle", 2),
-        ("run", 4),
-        ("jump", 2),
-        ("dash", 2),
-        ("attack", 3),
-        ("hurt", 1),
-        ("dead", 1),
-    ]),
-}
-
-CHARACTERS["goodwitch"] = {
-    "src": "goodwitch.jpeg",
-    "cell": (48, 56),
-    "figure": 46,
-    "baseline": 52,
-    "bands": [
-        (40, 75, 2),       # idle
-        (330, 365, 4),     # walk
-        (635, 665, 2),     # talk
-        (910, 945, 4),     # offer -- the last one is the green-eyed reveal
-    ],
-    "clips": OrderedDict([
-        ("idle", 2),
-        ("walk", 4),
-        ("talk", 2),
-        ("offer", 4),
-    ]),
-}
-
-CHARACTERS["badwitch"] = {
-    "src": "badwitch.jpeg",
-    "cell": (48, 56),
-    "figure": 46,
-    "baseline": 52,
-    "min_w": 110,
-    "bands": [
-        (20, 65, 3),
-        (300, 330, 2),
-        (550, 600, 3),     # the 4th candidate here is the projectile, not a body
-        (795, 855, 3),
-        (1045, 1080, 1),
-    ],
-    "clips": OrderedDict([
-        ("idle", 3),
-        ("cast", 2),
-        ("sway", 3),
-        ("attack", 3),
-        ("kneel", 1),
-    ]),
-}
-
-CHARACTERS["demon"] = {
-    "src": "demon.jpeg",
-    "cell": (84, 84),
-    "figure": 76,
-    "baseline": 78,
-    "bands": [
-        (25, 60, 4),       # idle
-        (340, 380, 4),     # walk x2, lantern raised x2
-        (655, 700, 3),     # the swirl frames
-        (975, 995, 1),     # vanish
-    ],
-    "clips": OrderedDict([
-        ("idle", 4),
-        ("walk", 2),
-        ("raise", 2),
-        ("teleport", 3),
-        ("vanish", 1),
-    ]),
-}
-
-# statue.jpeg is a labeled board, so connected components are useless here: the
-# Spanish captions and the section rules are foreground as far as CC is
-# concerned. Crops are hardcoded from the board layout instead.
-CHARACTERS["statue"] = {
-    "src": "statue.jpeg",
-    "cell": (72, 80),
-    "figure": 72,
-    "baseline": 76,
-    "levels": (0.10, 0.70),
-    "bands": [
-        # Section 1 is one wide row of 12 evenly-laid-out poses, so the band
-        # subdivides its x range rather than detecting 12 separate components:
-        # neighbouring poses touch and merge into single blobs.
-        (150, 398, 24, 1516, 12),
-        # Section 4 - Acciones y Ataques
-        (748, 900, 505, 715, 1),
-        (748, 900, 665, 890, 1),
-    ],
-    "clips": OrderedDict([
-        ("idle", 4),
-        ("walk", 4),
-        ("run", 4),
-        ("sweep", 1),
-        ("roots", 1),
-    ]),
-}
+# The board colour sampled from statue.jpeg's own background.
+STATUE_BG_TOL = 28
 
 
-# ----------------------------------------------------------------- key + slice
-def key_magenta(im):
-    """#FF00FF -> alpha. Returns RGBA plus the raw alpha mask."""
-    rgb = np.asarray(im.convert("RGB")).astype(np.float64)
-    # Distance to the key colour, weighted so the green channel (which carries
-    # almost all of the separation) dominates.
-    d = np.sqrt(((rgb - KEY_RGB) ** 2 * np.array([1.0, 2.2, 1.0])).sum(axis=2))
-    alpha = np.clip((d - KEY_TOL) / 150.0, 0.0, 1.0)
-    out = np.dstack([rgb, alpha * 255.0]).astype(np.uint8)
-    return Image.fromarray(out, "RGBA"), alpha
+# --------------------------------------------------------------------- keying
+def key_magenta(rgb, chroma_tol=70):
+    """#FF00FF -> alpha, by chroma distance, then de-fringe.
 
-
-def key_dark(im):
-    """Dark-board key, for statue.jpeg. Returns RGBA plus alpha mask.
-
-    Distance-from-background only. An earlier version also gated on luminance,
-    which quietly ate the statue's interior: the figure's median tone is 82
-    against a 27 background, so a luminance gate erased most of the body and
-    left only the rim light. Brightness is fixed later, in grade().
+    Two extra steps, both needed to get a clean edge out of a JPEG:
+      * erode one pixel of alpha, which eats the half-transparent halo the
+        encoder leaves around the silhouette
+      * strip any pixel still within 25 degrees of magenta hue at saturation
+        above 0.5, which is the fringe that survives erosion
     """
-    rgb = np.asarray(im.convert("RGB")).astype(np.float64)
-    bg = np.array([22.0, 32.0, 31.0])
-    lum = rgb @ np.array([0.299, 0.587, 0.114])
-    d = np.sqrt(((rgb - bg) ** 2).sum(axis=2))
-    # Distance from the board colour, gated on brightness. The gate is low
-    # (33) on purpose: the statue's median tone is 82 against a 27 background,
-    # so a high gate erases the body and leaves only the rim light. At 33 it
-    # still rejects jpeg chroma ringing, which moves in colour but not in
-    # luminance, and that ringing is what leaves red speckle on the sprites.
-    alpha = np.clip((d - 12.0) / 40.0, 0.0, 1.0) * np.clip((lum - 33.0) / 14.0, 0.0, 1.0)
-    out = np.dstack([rgb, alpha * 255.0]).astype(np.uint8)
-    return Image.fromarray(out, "RGBA"), alpha
+    d = np.sqrt(((rgb - MAGENTA) ** 2).sum(axis=2))
+    alpha = (d > chroma_tol).astype(np.float32)
+
+    alpha = ndimage.binary_erosion(alpha > 0.5, structure=np.ones((3, 3)))
+    alpha = alpha.astype(np.float32)
+
+    # Hue-based de-fringe. Motion smears and sword trails are left alone: they
+    # are part of the frame, and they are not magenta.
+    hsv = np.array([colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
+                    for r, g, b in rgb.reshape(-1, 3)], dtype=np.float32)
+    hsv = hsv.reshape(rgb.shape)
+    hue = hsv[..., 0] * 360.0
+    sat = hsv[..., 1]
+    # Magenta sits at 300 deg. Test a 25-degree window around it, wrapping.
+    delta = np.abs(hue - 300.0)
+    delta = np.minimum(delta, 360.0 - delta)
+    alpha[(delta < 25.0) & (sat > 0.5)] = 0.0
+    return np.dstack([rgb, alpha * 255.0]).astype(np.uint8)
 
 
-def components(alpha, min_w, min_h, min_px):
-    """All components above the size floor, as bboxes."""
+def flood_key(rgb, box, tol=STATUE_BG_TOL):
+    """Key statue.jpeg by flooding the board colour in from a crop box's border.
+
+    The board background is near-uniform but the figures are only slightly
+    lighter than it, so a global distance threshold either keeps the background
+    or eats the sprite. Flood filling from the border cannot leak inward past the
+    silhouette, so it is the only approach that holds both the grey stone and the
+    dark red roots.
+    """
+    x0, y0, x1, y1 = box
+    sub = rgb[y0:y1, x0:x1].astype(np.float32)
+    # Reference colour = median of the border ring, not the single top-left
+    # corner. A corner can land on a section divider or the edge of a figure --
+    # the 'dead' crop's corner is (6,4,7), near black -- and keying against that
+    # makes the whole crop read as one solid silhouette.
+    ring = np.concatenate([
+        sub[0, :], sub[-1, :], sub[:, 0], sub[:, -1]], axis=0)
+    ref = np.median(ring, axis=0)
+    d = np.sqrt(((sub - ref) ** 2).sum(axis=2))
+    near = d <= tol
+    lab, n = ndimage.label(near)
+    if n == 0:
+        return np.dstack([sub, np.full(sub.shape[:2], 255.0, np.float32)])
+    border = set(lab[0, :]) | set(lab[-1, :]) | set(lab[:, 0]) | set(lab[:, -1])
+    border.discard(0)
+    bg = np.isin(lab, list(border))
+    alpha = (~bg).astype(np.float32)
+    return np.dstack([sub, alpha * 255.0]).astype(np.uint8)
+
+
+# --------------------------------------------------------------------- slicing
+def components(alpha, min_px=1500):
     solid = alpha > 0.5
     lab, n = ndimage.label(solid)
-    if n == 0:
-        return []
     sizes = ndimage.sum(solid, lab, range(1, n + 1))
     objs = ndimage.find_objects(lab)
-    boxes = []
+    out = []
     for i, size in enumerate(sizes):
         if size < min_px:
             continue
         sl = objs[i]
-        y0, y1 = sl[0].start, sl[0].stop
-        x0, x1 = sl[1].start, sl[1].stop
-        if (x1 - x0) < min_w or (y1 - y0) < min_h:
-            continue
-        boxes.append({"x0": x0, "y0": y0, "x1": x1, "y1": y1,
-                      "area": size, "cx": (x0 + x1) / 2})
-    return boxes
+        out.append((sl[1].start, sl[0].start, sl[1].stop, sl[0].stop))
+    return out
 
 
-def frames_from_bands(alpha, bands, min_w, min_h, min_px, width):
-    """Resolve bands to frame boxes.
+def in_row(box, y0, y1):
+    """Component counts as part of a row if its top edge is in the band."""
+    return y0 <= box[1] < y1
 
-    Two band shapes:
-      (y0, y1, count)              -- detect `count` components inside the row
-      (y0, y1, x0, x1, count)      -- divide that x range into `count` columns
+
+def slice_rows(keyed, rows, want, min_px=1500):
+    """For each (y0, y1, count) band, take `count` components left to right.
+
+    Magenta sheets are used here rather than per-crop flood fill: their figures
+    are well separated, so connected components is both simpler and exact.
     """
-    allb = components(alpha, min_w, min_h, min_px)
+    arr = np.asarray(keyed)
+    alpha = arr[..., 3].astype(np.float32) / 255.0
+    boxes = components(alpha, min_px)
     out = []
-    for band in bands:
-        if len(band) == 5:
-            y0, y1, x0, x1, n = band
-            pitch = (x1 - x0) / float(n)
-            for i in range(n):
-                cx0 = int(round(x0 + i * pitch))
-                cx1 = int(round(x0 + (i + 1) * pitch)) if i < n - 1 else x1
-                out.append({"x0": cx0, "y0": y0, "x1": cx1, "y1": y1, "area": 1, "cx": (cx0 + cx1) / 2})
-            continue
-        y0, y1, n = band
-        inband = [b for b in allb if y0 <= b["y0"] < y1]
-        inband.sort(key=lambda b: -b["area"])
-        inband = sorted(inband[:n], key=lambda b: b["x0"])
-        if len(inband) < n:
-            print("  ! band %d-%d wanted %d, found %d" % (y0, y1, n, len(inband)))
-        out.extend(inband)
+    for y0, y1, n in rows:
+        band = [b for b in boxes if in_row(b, y0, y1)]
+        band.sort(key=lambda b: b[0])
+        if len(band) < n:
+            print(f"    ! band {y0}-{y1} wanted {n}, found {len(band)}")
+        out.extend(band[:n])
     return out
 
 
-# ----------------------------------------------------------------- normalise
-def grade(arr, exposure=1.0, levels=None):
-    """Levels, then contrast/saturation, then quantise.
+def slice_columns(keyed, spans, tol=STATUE_BG_TOL):
+    """Even x-division of a section, flood-filled per box.
 
-    Keeps the painted source readable at 40px without it turning to mud.
-    `levels` is a (black, white) pair in 0..1 for art whose tonal range does
-    not reach the ends of the range, which is the case for the dim statue board.
+    statue.jpeg's poses touch, so they merge into one component and cannot be
+    separated that way. The board lays them out evenly, so the boxes are derived
+    by division -- and each is keyed on its own, per the design.
     """
-    rgb = arr[..., :3].astype(np.float32) / 255.0
-    if levels:
-        lo, hi = levels
-        rgb = np.clip((rgb - lo) / max(1e-4, hi - lo), 0.0, 1.0)
-    rgb = np.clip(rgb * exposure, 0.0, 1.0)
-    lum = rgb @ np.array([0.299, 0.587, 0.114], dtype=np.float32)
-    rgb = lum[..., None] + (rgb - lum[..., None]) * 0.86
-    rgb = np.clip((rgb - 0.5) * 1.16 + 0.5, 0.0, 1.0)
-    rgb = np.floor(rgb * 31.0 + 0.5) / 31.0
-    return rgb
-
-
-def normalise(cell_img, cell, figure_h, baseline, exposure=1.0, levels=None):
-    """Scale one figure into a shared cell with its feet on the baseline."""
-    cw, ch = cell
-    trim = cell_img.crop(cell_img.getbbox())
-    if trim.width == 0 or trim.height == 0:
-        return Image.new("RGBA", (cw, ch), (0, 0, 0, 0))
-    scale = figure_h / trim.height
-    w = max(1, int(round(trim.width * scale)))
-    h = max(1, int(round(trim.height * scale)))
-    small = trim.resize((w, h), Image.BOX)
-    arr = np.asarray(small).copy()
-    arr[..., :3] = (grade(arr, exposure, levels) * 255.0).astype(np.uint8)
-    small = Image.fromarray(arr, "RGBA")
-    out = Image.new("RGBA", (cw, ch), (0, 0, 0, 0))
-    out.paste(small, ((cw - w) // 2, baseline - h), small)
+    out = []
+    for y0, y1, x0, x1, n in spans:
+        pitch = (x1 - x0) / float(n)
+        for i in range(n):
+            bx0 = int(round(x0 + i * pitch))
+            bx1 = int(round(x0 + (i + 1) * pitch))
+            out.append(((bx0, y0, bx1, y1), keyed[y0:y1, bx0:bx1]))
     return out
 
 
-# ---------------------------------------------------------------------- build
-def build(name, spec, probe=False):
-    path = os.path.join(ASSETS, spec["src"])
-    im = Image.open(path)
+# ---------------------------------------------------------------- normalising
+def to_rgba(arr):
+    return Image.fromarray(arr.astype(np.uint8), "RGBA")
 
-    if name == "statue":
-        keyed, alpha = key_dark(im)
-    else:
-        keyed, alpha = key_magenta(im)
-    boxes = frames_from_bands(alpha, spec["bands"], spec.get("min_w", 60),
-                              spec.get("min_h", 80), 500, im.width)
 
-    exp = spec.get("exposure", 1.0)
-    lev = spec.get("levels")
+def scale_all(frames, figure_h):
+    """One NEAREST scale for the whole character.
+
+    Scaling each frame to the same height would make the character breathe as it
+    animates. A single shared factor keeps the proportions the sheet author drew.
+    """
+    trimmed = [f.crop(f.getbbox()) for f in frames]
+    tallest = max(f.height for f in trimmed)
+    scale = figure_h / float(tallest)
+    out = []
+    for f in trimmed:
+        w = max(1, int(round(f.width * scale)))
+        h = max(1, int(round(f.height * scale)))
+        out.append(f.resize((w, h), Image.NEAREST))
+    return out
+
+
+def pack(frames, baseline_pad=3):
+    """Shared cell, feet on a common baseline."""
+    cell_w = max(f.width for f in frames) + 2
+    cell_h = max(f.height for f in frames) + baseline_pad
+    baseline = cell_h - baseline_pad
     cells = []
-    for b in boxes:
-        cells.append(normalise(keyed.crop((b["x0"], b["y0"], b["x1"], b["y1"])),
-                               spec["cell"], spec["figure"], spec["baseline"], exp, lev))
-
-    if probe:
-        contact_sheet(cells, spec["cell"], os.path.join(OUT, "_probe_%s.png" % name))
-        return {"frames": len(cells)}
-
-    # Clip lengths must line up with what the detector actually found, or the
-    # animation silently runs off the end of the atlas.
-    if name != "statue":
-        want = sum(spec["clips"].values())
-        if len(cells) != want:
-            print("  ! %s: found %d frames, clips expect %d" % (name, len(cells), want))
-            spec = dict(spec)
-            spec["clips"] = trim_clips(spec["clips"], len(cells))
-
-    manifest, atlas = pack(cells, spec)
-    os.makedirs(OUT, exist_ok=True)
-    atlas.save(os.path.join(OUT, "%s.png" % name))
-    return manifest
+    for f in frames:
+        cell = Image.new("RGBA", (cell_w, cell_h), (0, 0, 0, 0))
+        cell.paste(f, ((cell_w - f.width) // 2, baseline - f.height), f)
+        cells.append(cell)
+    return cells, (cell_w, cell_h), baseline
 
 
-def trim_clips(clips, available):
-    clips = OrderedDict()
-    for k, n in clips.items():
-        if available <= 0:
-            break
-        take = min(n, available)
-        clips[k] = take
-        available -= take
-    return clips
-
-
-def pack(cells, spec):
-    cw, ch = spec["cell"]
-    frames = {}
-    x = y = rowh = 0
-    placed = []
+def pack_atlas(cells, cell):
+    cw, ch = cell
+    per_row = max(1, 2048 // cw)
+    placed, x, y, rowh = [], 0, 0, 0
     for c in cells:
-        if x + cw > 2048:
+        if x + cw > per_row * cw:
             x = 0
             y += rowh
             rowh = 0
         placed.append((x, y))
         x += cw
         rowh = max(rowh, ch)
-    atlas = Image.new("RGBA", (max(1, x), y + rowh), (0, 0, 0, 0))
+    atlas = Image.new("RGBA", (per_row * cw, y + rowh), (0, 0, 0, 0))
     for c, (px, py) in zip(cells, placed):
         atlas.paste(c, (px, py), c)
+    return atlas, placed
 
-    i = 0
-    for clip, n in spec["clips"].items():
-        idx = []
-        for _ in range(n):
-            if i >= len(placed):
-                break
-            idx.append(list(placed[i]))
-            i += 1
-        frames[clip] = idx
+
+# ------------------------------------------------------------------ characters
+CHARACTERS = OrderedDict()
+
+CHARACTERS["kael"] = {
+    "src": "kael.jpeg",
+    "figure": 44,
+    "nativeFacing": 1,          # the sheet faces right
+    "key": "magenta",
+    # Row bands, then clips cut across them. Order is the sheet's own:
+    # left to right, top to bottom.
+    "rows": [(80, 340, 6), (375, 650, 4), (675, 970, 5)],
+    # Sheet order is row1 1-6, row2 1-4, row3 1-5, numbered from zero.
+    "clips": OrderedDict([
+        ("idle",   [0, 1]),
+        ("run",    [2, 3, 4, 5]),
+        ("jump",   [6]),
+        ("fall",   [7]),
+        ("dash",   [8, 9]),
+        ("attack", [10, 11, 12]),
+        ("hurt",   [13]),
+        ("dead",   [14]),
+    ]),
+}
+
+CHARACTERS["goodwitch"] = {
+    "src": "goodwitch.jpeg",
+    "figure": 46,
+    "nativeFacing": 1,          # the elder faces right
+    "key": "magenta",
+    "rows": [(40, 315, 2), (330, 610, 4), (635, 895, 2), (910, 1200, 4)],
+    "clips": OrderedDict([
+        ("idle",  [0, 1]),
+        ("walk",  [2, 3, 4, 5]),
+        ("talk",  [6, 7]),
+        ("offer", [8, 9, 10, 11]),   # last frame is the green-eyed reveal
+    ]),
+}
+
+CHARACTERS["badwitch"] = {
+    "src": "badwitch.jpeg",
+    "figure": 52,
+    "nativeFacing": -1,         # staff is held out to the left: faces left
+    "key": "magenta",
+    # 19 components, but 6 of them are effects or dithered dissolve frames
+    # rather than bodies. Listed explicitly by component index so the wrong
+    # frames cannot drift in when a threshold changes.
+    "rows": [(20, 290, 3), (300, 560, 1), (550, 765, 4),
+             (795, 1040, 5), (1050, 1225, 2)],
+    # 15 components survive keying, but not all are bodies: index 6 is the green
+    # projectile and 11 is a loose magic fragment. Two frames also arrive split
+    # (a lantern detached from its figure), which is why 8/9 and 10/11 are
+    # adjacent pairs -- both halves are kept so the figure reassembles.
+    # 15 components survive keying. 6, 8, 9 and 11 are not whole figures: 6 is
+    # the green projectile, 8 is a lantern detached from its owner, 9 is the
+    # body half of that pair, and 11 is a narrow spell shard. The rest are
+    # complete bodies and are the only ones usable as sprites.
+    "pick": [0, 1, 2, 3, 4, 5, 7, 10, 12, 13, 14],
+    "clips": OrderedDict([
+        ("idle",   [0, 1, 2]),
+        ("cast",   [3, 4]),
+        ("sway",   [5, 6]),
+        ("attack", [7, 8]),
+        ("kneel",  [9]),
+        ("dead",   [10]),
+    ]),
+}
+
+CHARACTERS["demon"] = {
+    "src": "demon.jpeg",
+    "figure": 96,
+    "nativeFacing": -1,         # lantern hangs in its left hand: faces left
+    "key": "magenta",
+    "rows": [(25, 310, 4), (340, 620, 4), (655, 945, 3), (975, 1235, 1)],
+    "clips": OrderedDict([
+        ("idle",     [0, 1, 2, 3]),
+        ("walk",     [4, 5]),
+        ("raise",    [6, 7]),
+        ("teleport", [8, 9, 10]),
+        ("vanish",   [11]),
+    ]),
+}
+
+# statue.jpeg is a labelled design board, so its poses are addressed by box.
+# Section 1 is one wide row of 12 evenly laid out poses; neighbouring poses touch
+# and merge, so the boxes are derived by division rather than by detection.
+# Section 4 supplies the two attacks. The three damage-state figures at bottom
+# right become hurt/dead. Sections 2 and 3 (detail studies, a tree) are ignored.
+CHARACTERS["statue"] = {
+    "src": "statue.jpeg",
+    "figure": 70,
+    "nativeFacing": -1,         # faces right on the sheet -> store as drawn
+    "key": "flood",
+    # (y0, y1, x0, x1, count, flood_whole_section[, explicit_x_boundaries])
+    "spans": [
+        # Section 1's 12 poses. Boundaries read off the board: Idle 1 stands
+        # alone, then Idle 2-4 are evenly packed, then a gap, then Caminar 1-4
+        # and Correr 1-4 in a run of eight.
+        # Boundaries are midpoints between the stone bases at x = 83, 195, 310,
+        # 424 | 566, 674, 787, 897 | 1143, 1263, 1379, 1481 -- the 12 poses the
+        # board labels. (There is a 13th figure at x~1009 with no label; it is
+        # not one of the labelled poses and is skipped.)
+        (136, 394, 0, 1536, 12, True, [0, 139, 252, 367, 495, 620, 730, 842,
+                                       1020, 1203, 1321, 1430, 1536]),
+        (752, 950, 630, 830, 1, False),    # Ataque Barrido
+        (752, 950, 838, 1010, 1, False),   # Invocacion de Raices
+    ],
+    "boxes": [
+        (1236, 748, 1320, 950),     # damage figure 1
+        (1324, 748, 1408, 950),     # damage figure 2
+        (1404, 800, 1512, 990),     # collapsed
+    ],
+    "clips": OrderedDict([
+        ("idle",  [0, 1, 2, 3]),
+        ("walk",  [4, 5, 6, 7]),
+        ("run",   [8, 9, 10, 11]),
+        ("sweep", [12]),
+        ("roots", [13]),
+        ("hurt",  [14, 15]),
+        ("dead",  [16]),
+    ]),
+}
+
+
+# ---------------------------------------------------------------------- build
+def build(name, spec):
+    """Slice, key, scale and pack one character. Returns (manifest, atlas)."""
+    im = Image.open(os.path.join(ASSETS, spec["src"]))
+    rgb = np.asarray(im.convert("RGB")).astype(np.float32)
+
+    if spec["key"] == "magenta":
+        keyed = to_rgba(key_magenta(rgb))
+        boxes = slice_rows(keyed, spec["rows"], sum(r[2] for r in spec["rows"]))
+        if "pick" in spec:
+            boxes = [boxes[i] for i in spec["pick"] if i < len(boxes)]
+        frames = [keyed.crop(b) for b in boxes]
+    else:
+        frames = []
+        for span in spec["spans"]:
+            y0, y1, x0, x1, n, whole = span[:6]
+            cols = span[6] if len(span) > 6 else None
+            if whole:
+                # Section 1's poses are drawn OVERLAPPING -- Caminar and Correr
+                # have robes that run into their neighbours, so the figures merge
+                # into a single blob and no per-box border can separate them.
+                # Flood the section once, then partition the resulting mask by
+                # nearest label centre. Keying is still a flood fill from the
+                # border, which is the part that preserves the grey stone; only
+                # the split is done by position.
+                sub = rgb[y0:y1, x0:x1]
+                m = flood_key(sub, (0, 0, x1 - x0, y1 - y0))[..., 3] > 127
+                # Boundaries are explicit, not even. The board groups the poses
+                # (Idle x4, then a gap, then Caminar x4, Correr x4) so an even
+                # division lands mid-figure and every walk frame comes out as two
+                # half figures.
+                edges = cols or [x0 + (x1 - x0) * i / float(n) for i in range(n + 1)]
+                for i in range(n):
+                    lo = max(0, int(round(edges[i] - x0)))
+                    hi = min(m.shape[1], int(round(edges[i + 1] - x0)))
+                    keep = np.zeros_like(m)
+                    keep[:, lo:hi] = m[:, lo:hi]
+                    rgba = np.dstack([sub, (keep * 255.0)]).astype(np.uint8)
+                    frames.append(to_rgba(rgba))
+            else:
+                rgba = flood_key(rgb, (x0, y0, x1, y1))
+                frames.append(to_rgba(rgba))
+        for box in spec["boxes"]:
+            frames.append(to_rgba(flood_key(rgb, box)))
+
+    if len(frames) != max(max(i) for i in spec["clips"].values()) + 1:
+        print("    ! %d frames extracted but clips index up to %d"
+              % (len(frames), max(max(i) for i in spec["clips"].values())))
+
+    scaled = scale_all(frames, spec["figure"])
+    cells, cell, baseline = pack(scaled)
+    atlas, placed = pack_atlas(cells, cell)
+
+    out = OrderedDict()
+    for clip, idx in spec["clips"].items():
+        out[clip] = [list(placed[i]) for i in idx if i < len(placed)]
 
     return {
-        "cell": [cw, ch],
-        "baseline": spec["baseline"],
+        "cell": list(cell),
+        "baseline": baseline,
         "figure": spec["figure"],
+        "nativeFacing": spec["nativeFacing"],
         "size": [atlas.width, atlas.height],
-        "frames": frames,
+        "frames": out,
     }, atlas
 
 
-def contact_sheet(cells, cell, path):
-    os.makedirs(OUT, exist_ok=True)
-    cols = 8
-    cw, ch = cell
-    rows = (len(cells) + cols - 1) // cols
-    pad = 6
-    sheet = Image.new("RGBA", (cols * (cw + pad) + pad, rows * (ch + pad) + pad), (40, 40, 46, 255))
-    for n, c in enumerate(cells):
-        r, col = divmod(n, cols)
-        sheet.alpha_composite(c, (pad + col * (cw + pad), pad + r * (ch + pad)))
+def contact_sheet(atlases, path):
+    """Mid-grey so both dark and light pixels are visible."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    pad = 8
+    ims = [a for _, a in atlases]
+    W = sum(i.width for i in ims) + pad * (len(ims) + 1)
+    H = max(i.height for i in ims) + pad * 2
+    sheet = Image.new("RGBA", (W, H), (128, 128, 128, 255))
+    x = pad
+    for i in ims:
+        sheet.alpha_composite(i, (x, pad))
+        x += i.width + pad
     sheet.save(path)
-    print("  probe %s -> %s (%d frames)" % (os.path.basename(path), path, len(cells)))
+    print("  contact sheet ->", path)
 
 
 def main():
     probe = "--probe" in sys.argv
-    manifest = {}
+    os.makedirs(OUT, exist_ok=True)
+    manifest = OrderedDict()
+    built = []
     for name, spec in CHARACTERS.items():
-        print("%s:" % name)
-        m = build(name, spec, probe)
+        print(name + ":")
+        m, atlas = build(name, spec)
+        manifest[name] = m
+        built.append((name, atlas))
         if not probe:
-            manifest[name] = m
-            print("  -> assets/atlases/%s.png  cell=%s  clips=%s"
-                  % (name, m["cell"], {k: len(v) for k, v in m["frames"].items()}))
+            atlas.save(os.path.join(OUT, name + ".png"))
+        clips = {c: len(f) for c, f in m["frames"].items()}
+        print("  cell=%s figure=%d nativeFacing=%+d clips=%s"
+              % (m["cell"], m["figure"], m["nativeFacing"], clips))
+
+    contact_sheet(built, os.path.join(PROBE_DIR, "atlases.png"))
+
     if not probe:
         with open(os.path.join(OUT, "manifest.json"), "w") as f:
             json.dump(manifest, f, indent=1)

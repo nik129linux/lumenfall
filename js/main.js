@@ -9,6 +9,7 @@ import { clamp, damp, makeRng } from './core/rng.js';
 import { Pipeline } from './render/pipeline.js';
 import { Parallax, Sky } from './render/parallax.js';
 import { Sprite } from './render/sprite.js';
+import { MinionArt, MinionSprite } from './render/minions.js';
 
 import { Level } from './game/level.js';
 import { Player } from './game/player.js';
@@ -31,6 +32,8 @@ const BOSS_INTRO = { 1: 'intro', 2: 'reveal', 3: 'waking' };
 const HP_PER_LEVEL = 5;
 // Distance before the arena door that the boss fight starts.
 const BOSS_TRIGGER = 150;
+// Floor height in world px: the ground occupies the lowest tile rows.
+const FLOOR_Y = 4 * 8;
 
 class Game {
   constructor() {
@@ -109,7 +112,10 @@ class Game {
     setTimeout(() => boot.remove(), 500);
     this.machine.to(S.MENU);
     this.ui.show('menu');
+    this._onMenuOpen();      // after show(): focus() on a display:none node is a no-op
     this.fadeTarget = 1;
+    // Last, so it overrides the menu that was just set up.
+    this._applyUrlParams();
 
     this.last = performance.now();
     requestAnimationFrame(this.frame);
@@ -124,13 +130,80 @@ class Game {
     on('pause-resume', () => this.setPaused(false));
     on('pause-retry', () => this.retryLevel());
     on('pause-title-btn', () => this.toTitle());
-    on('ending-restart', () => { this.machine.to(S.MENU); this.ui.show('menu'); this._loadLevel(0, { silent: true }); });
-    on('ending-menu', () => { this.machine.to(S.MENU); this.ui.show('menu'); this._loadLevel(0, { silent: true }); });
+    on('ending-restart', () => { this.machine.to(S.MENU); this.ui.show('menu'); this._loadLevel(0, { silent: true }); this._onMenuOpen(); });
+    on('ending-menu', () => { this.machine.to(S.MENU); this.ui.show('menu'); this._loadLevel(0, { silent: true }); this._onMenuOpen(); });
+
+  }
+
+  // ?level=1|2|3 and ?boss=1 drop straight into a level or its boss fight.
+  // Stage 1's acceptance checks use these to reach the later levels and the
+  // bosses without playing through them.
+  _applyUrlParams() {
+    const q = new URLSearchParams(location.search);
+    const lv = parseInt(q.get('level') || '', 10);
+    const boss = q.get('boss') === '1';
+    if (!lv && !boss) return;
+    const index = lv >= 1 && lv <= 3 ? lv - 1 : 0;
+    this.ui.hideAll();
+    this._loadLevel(index, { silent: true });
+    this.cutscene.active = false;
+    this.cutscene.onDone = null;
+    // BOOT may only go to MENU, so the skip has to pass through it.
+    this.machine.to(S.MENU);
+    this.machine.to(S.PLAY);
+    this.ui.showHud();
+    this.ui.setZone(this.levelDef.nameKey);
+    this.ui.setHealth(this.hp, HP_PER_LEVEL);
+    this.ui.setEmber(this.ember);
+    if (boss) {
+      this.player.body.x = this.bossDef.x - 110;
+      this.player.body.y = 32;
+      this._startBoss();
+    }
+  }
+
+  // Menu keyboard navigation.
+  //
+  // Previously Enter did nothing on the title screen: the buttons only responded
+  // to clicks. Focus starts on "Nueva partida" when the menu opens, Up/Down (and
+  // W/S) move it, and Enter/Space activates.
+  _menuNav() {
+    const order = ['menu-new', 'menu-continue', 'menu-controls'];
+    return order.map((id) => document.getElementById(id)).filter(Boolean);
+  }
+
+  _focusMenu(delta) {
+    const items = this._menuNav();
+    if (!items.length) return;
+    const cur = items.findIndex((b) => b === document.activeElement);
+    const next = cur < 0
+      ? (delta > 0 ? 0 : items.length - 1)
+      : (cur + delta + items.length) % items.length;
+    items[next].focus();
+    audio.sfxUi();
+  }
+
+  _activateMenu() {
+    const b = document.activeElement;
+    if (b && b.tagName === 'BUTTON' && this.machine.is(S.MENU)) b.click();
+  }
+
+  _onMenuOpen() {
+    const items = this._menuNav();
+    if (items[0]) items[0].focus();
   }
 
   _wireMenuKeys() {
     // Global keys that must work regardless of state.
     window.addEventListener('keydown', (e) => {
+      // Menu navigation, before anything else can swallow the key.
+      if (this.machine.is(S.MENU)) {
+        if (e.code === 'ArrowDown' || e.code === 'KeyS') { e.preventDefault(); this._focusMenu(1); return; }
+        if (e.code === 'ArrowUp' || e.code === 'KeyW') { e.preventDefault(); this._focusMenu(-1); return; }
+        if (e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyJ' || e.code === 'KeyZ') {
+          e.preventDefault(); this._activateMenu(); return;
+        }
+      }
       if (e.code === 'KeyL' && !e.repeat) {
         toggleLang();
         this.ui.refreshStrings();
@@ -199,6 +272,7 @@ class Game {
     this.setPaused(false);
     this.machine.to(S.MENU);
     this.ui.show('menu');
+    this._onMenuOpen();
     this._loadLevel(0, { silent: true });
   }
 
@@ -229,12 +303,10 @@ class Game {
         this.pipeline.scene.add(s.mesh);
       } else if (def.type === 'wisp' || def.type === 'crawler' || def.type === 'spitter') {
         const en = new Enemy(def, this.model, this.governor, (type) => this._bodySprite(type));
-        en.setPaletteLevel(this.levelDef.id);
         this.pipeline.scene.add(en.mesh);
         this.enemies.push(en);
       } else if (def.type === 'elder') {
         const el = new Elder(def, () => this._charSprite('goodwitch', 3.2));
-        el.setPaletteLevel(this.levelDef.id);
         this.pipeline.scene.add(el.mesh);
         this.elder = el;
       } else if (def.type === 'boss') {
@@ -244,7 +316,6 @@ class Game {
 
     if (this.player) {
       this.player.reset();
-      this.player.setPaletteLevel(this.levelDef.id);
       for (const g of this.player.ghosts) g.object.visible = false;
     }
 
@@ -258,15 +329,13 @@ class Game {
     return new Sprite(this.characters[name], { speed, outline: 0x05080a });
   }
 
-  // Enemies have no dedicated sheets, so they are assembled from the cast. It
-  // keeps the whole game on one art pipeline instead of shipping placeholder
-  // art for four enemy types.
+  // Minions are drawn procedurally. They used to be assembled from the cast --
+  // wisps wore the demon, crawlers the statue, spitters Ul Burjo -- which put the
+  // level 3 boss on screen in level 1.
   _bodySprite(type) {
-    const map = { wisp: 'demon', crawler: 'statue', spitter: 'badwitch' };
-    const speed = { wisp: 5, crawler: 6, spitter: 4 }[type] ?? 5;
-    const s = this._charSprite(map[type] || 'statue', speed);
-    s.enemyType = type;
-    return s;
+    if (!this.minionArt) this.minionArt = new MinionArt();
+    const scale = { wisp: 0.8, crawler: 1.0, spitter: 1.0 }[type] ?? 1;
+    return new MinionSprite(this.minionArt, type, this.levelDef?.accent ?? 0x54f0a8, { scale });
   }
 
   // ------------------------------------------------------------------ frame
@@ -543,6 +612,10 @@ class Game {
     const spriteName = { statue: 'statue', ulburjo: 'goodwitch', patientone: 'demon' }[this.bossDef.boss];
     this.boss = new Cls({
       x: this.bossDef.x,
+      // Without this the boss body had y=undefined, which became NaN after one
+      // physics step and the sprite was never drawn at all -- the fight ran
+      // with a health bar and an invisible opponent.
+      y: this.bossDef.y ?? FLOOR_Y,
       character: this.characters,
       model: this.model,
       governor: this.governor,
@@ -551,7 +624,6 @@ class Game {
       level: this.level,
       makeSprite: () => {
         const s = this._charSprite(spriteName, 4);
-        s.setPaletteLevel(this.levelDef.id);
         return s;
       },
     });
@@ -559,10 +631,8 @@ class Game {
     // on the alternate sheet to swap into.
     if (this.bossDef.boss === 'ulburjo') {
       const alt = this._charSprite('badwitch', 4);
-      alt.setPaletteLevel(this.levelDef.id);
       this.boss.characterSet = { badwitch: { char: alt.char, material: alt.material, paletteLevel: this.levelDef.id } };
     }
-    this.boss.setPaletteLevel(this.levelDef.id);
     this.pipeline.scene.add(this.boss);
 
     const keys = { statue: 'bossStatue', ulburjo: 'bossUlBurjo', patientone: 'bossPatient' };

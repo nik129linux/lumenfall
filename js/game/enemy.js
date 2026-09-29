@@ -198,7 +198,6 @@ export class Enemy {
     this.sprite.update(dt);
   }
 
-  setPaletteLevel(id) { this.sprite.setPaletteLevel(id); }
 }
 
 // -------------------------------------------------------------- the shard pickup
@@ -250,5 +249,4 @@ export class Elder {
     this.state = 'offer';
   }
 
-  setPaletteLevel(id) { this.sprite.setPaletteLevel(id); }
 }

@@ -145,5 +145,4 @@ export class Boss extends THREE.Object3D {
     });
   }
 
-  setPaletteLevel(id) { this.sprite.setPaletteLevel(id); this.sprite.setLift(0.26); }
 }

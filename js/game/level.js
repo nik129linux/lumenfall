@@ -307,13 +307,28 @@ export class Level {
 
     // A lip along the top of every floor tile reads as a highlight edge and
     // makes the platform tops findable in a dark level without any lighting.
-    this._buildLips(solids, pal.lip);
+    // Platforms too, not just solids -- they were built as PLATFORM tiles and
+    // never appeared in `solids`, so every floating platform had no accent
+    // edge and read as a plain black bar.
+    // .concat, not +. `+` on two arrays coerces both to strings, so
+    // `solids + plats` yielded "0,0,1,1,..." and every platform lost its lip.
+    this._buildLips(solids.concat(plats), pal.lip);
   }
 
-  _inst(geo, list, color, opacity) {
+  _inst(geo, list, color, opacity, lip = false) {
     if (!list.length) return null;
-    const mat = new THREE.MeshBasicMaterial({ color, transparent: opacity < 1, opacity });
+    // transparent:true on purpose, even at full opacity. Three renders the
+    // opaque pass before the transparent pass, and the parallax layers are
+    // transparent -- so opaque tiles drew FIRST and the backdrop painted over
+    // the playfield. In the transparent pass these sort by z and land between
+    // the far backdrop (z=-40) and the foreground band (z=+6), which is the
+    // order they need to be in.
+    const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity });
     const mesh = new THREE.InstancedMesh(geo, mat, list.length);
+    // Explicit render order. Everything shares z=0, so the sort falls through to
+    // object ids and the 2px accent lip lost the tie-break against the tile
+    // boxes and never showed. Ordering by hand is the only reliable way here.
+    mesh.renderOrder = lip ? 2 : 1;
     const m = new THREE.Matrix4();
     list.forEach(([tx, ty], i) => {
       m.makeTranslation(tx * TILE + TILE / 2, ty * TILE + TILE / 2, 0);
@@ -330,8 +345,9 @@ export class Level {
     const tops = solids.filter(([x, y]) => !set.has(`${x},${y + 1}`));
     if (!tops.length) return;
     const geo = new THREE.PlaneGeometry(TILE, 2);
-    const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85 });
+    const mat = new THREE.MeshBasicMaterial({ color, transparent: true });
     const mesh = new THREE.InstancedMesh(geo, mat, tops.length);
+    mesh.renderOrder = 2;
     const m = new THREE.Matrix4();
     tops.forEach(([tx, ty], i) => {
       m.makeTranslation(tx * TILE + TILE / 2, ty * TILE + TILE - 1, 0);

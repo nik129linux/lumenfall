@@ -2,9 +2,15 @@ import * as THREE from '../vendor/three.module.js';
 import { LOW_RES_W, LOW_RES_H } from '../core/config.js';
 
 // Renders the game into a 480x270 buffer, then upscales it with a fullscreen
-// pass that adds grain, vignette, scanlines and a touch of chromatic
-// aberration. The low-res buffer is the whole reason the game looks like this:
-// it forces every sprite, particle and gradient to land on a coarse pixel grid.
+// pass.
+//
+// Stage 1 removed film grain, scanlines and chromatic aberration from this pass.
+// They were actively fighting the art: the source sheets are carefully painted
+// pixel art, and a grain field over a 480x270 buffer turns every clean sprite
+// into noise. The pixel look comes from the low-res buffer and NEAREST upscale
+// alone, which is all it ever needed. What remains is the vignette, the L3
+// light falloff, and the linear->sRGB encode (without which the raw ShaderMaterial
+// output renders about a stop and a half dark).
 
 const POST_FRAG = /* glsl */`
   precision mediump float;
@@ -12,10 +18,7 @@ const POST_FRAG = /* glsl */`
   uniform sampler2D scene;
   uniform vec2  resolution;
   uniform float time;
-  uniform float grainAmount;
   uniform float vignette;
-  uniform float aberration;
-  uniform float scanline;
   uniform float darkness;   // L3: how much to crush everything outside the light
   uniform vec2  lightPos;   // in buffer pixels
   uniform float lightRadius;
@@ -23,31 +26,12 @@ const POST_FRAG = /* glsl */`
 
   varying vec2 vUv;
 
-  float hash(vec2 p) {
-    p = fract(p * vec2(443.897, 441.423));
-    p += dot(p, p + 19.19);
-    return fract((p.x + p.y) * p.x);
-  }
-
   void main() {
     vec2 uv = vUv;
     vec2 centred = uv - 0.5;
 
-    // Chromatic aberration grows toward the edges, so the middle of the screen
-    // stays crisp and the corners smear the way a cheap lens would.
-    float ab = aberration * dot(centred, centred);
-    vec2 dir = normalize(centred + 1e-6);
-    vec3 col;
-    col.r = texture2D(scene, uv - dir * ab * 0.0016).r;
-    col.g = texture2D(scene, uv).g;
-    col.b = texture2D(scene, uv + dir * ab * 0.0016).b;
+    vec3 col = texture2D(scene, uv).rgb;
 
-    // Scanlines, locked to buffer rows so they read as a CRT and not as moire.
-    float row = floor(uv.y * resolution.y);
-    col *= 1.0 - scanline * mod(row, 2.0);
-
-    // In L3 the sword halo is the only light: crush everything outside its
-    // radius. Done here rather than with scene lights so it costs one pass.
     // L3: the sword halo is the only light. Two terms, not one: a tight core
     // that falls off hard, plus a wide soft ambient so the level is navigable
     // rather than a black rectangle with a torch in it.
@@ -60,12 +44,7 @@ const POST_FRAG = /* glsl */`
       col *= mix(1.0, light, darkness);
     }
 
-    // Film grain, animated. Sampled at buffer resolution so the grain is chunky
-    // and stays chunky after the upscale.
-    float g = hash(floor(uv * resolution) + floor(time * 24.0));
-    col += (g - 0.5) * grainAmount;
-
-    // Vignette.
+    // Vignette only.
     float v = 1.0 - dot(centred, centred) * vignette;
     col *= clamp(v, 0.0, 1.0);
 
@@ -117,10 +96,7 @@ export class Pipeline {
       scene: { value: this.target.texture },
       resolution: { value: new THREE.Vector2(LOW_RES_W, LOW_RES_H) },
       time: { value: 0 },
-      grainAmount: { value: 0.055 },
-      vignette: { value: 0.85 },
-      aberration: { value: 1.0 },
-      scanline: { value: 0.05 },
+      vignette: { value: 0.35 },
       darkness: { value: 0 },
       lightPos: { value: new THREE.Vector2(LOW_RES_W / 2, LOW_RES_H / 2) },
       lightRadius: { value: 120 },
@@ -166,11 +142,9 @@ export class Pipeline {
   }
 
   setLevelLook(level) {
-    this.postUniforms.grainAmount.value = level.id === 3 ? 0.055 : 0.04;
-    // A strong vignette on a 480px buffer eats most of the frame. Kept mild
-    // except in L3, where crushing the edges is the point.
-    this.postUniforms.vignette.value = level.id === 3 ? 0.75 : 0.55;
-    this.postUniforms.aberration.value = level.id === 3 ? 1.4 : 0.8;
+    // Vignette is capped low: at 480x270 a strong one eats a third of the frame
+    // and dims the art it is supposed to be framing.
+    this.postUniforms.vignette.value = level.id === 3 ? 0.55 : 0.35;
     this.postUniforms.darkness.value = level.id === 3 ? 1 : 0;
   }
 

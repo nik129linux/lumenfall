@@ -50,6 +50,11 @@ export async function loadAssets(onProgress) {
       cell: def.cell,
       baseline: def.baseline,
       figure: def.figure,
+      // Which way the sheet is natively drawn. The flip is expressed relative to
+      // this, so a character drawn facing left is mirrored to face right -- and
+      // only once. Assumed rather than recorded and the sprites face the wrong
+      // way on exactly the sheets that disagree.
+      nativeFacing: def.nativeFacing ?? 1,
       // Flattened clip index lists, resolved lazily by frameRect.
       frames: def.frames,
       frameRect,

@@ -1,6 +1,5 @@
 import * as THREE from '../../vendor/three.module.js';
 import { Boss } from './base.js';
-import { setPalette } from '../../render/materials.js';
 import { Projectile } from '../fx.js';
 import { AI } from '../../core/config.js';
 import { audio } from '../../core/audio.js';
@@ -151,7 +150,6 @@ export class UlBurjo extends Boss {
     this.sprite.char = next.char;
     this.sprite.cell = next.char.cell;
     this.sprite.mesh.scale.set(next.char.cell[0], next.char.cell[1], 1);
-    setPalette(this.sprite.material, next.paletteLevel);
   }
 
   // Asks the level to turn. The level owns the tween, so the rotation is exactly

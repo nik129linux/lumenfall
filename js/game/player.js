@@ -275,5 +275,4 @@ export class Player {
 
   updateGhosts(dt) { for (const g of this.ghosts) g.update(dt); }
 
-  setPaletteLevel(id) { this.sprite.setPaletteLevel(id); }
 }

@@ -52,15 +52,15 @@ export const LEVELS = [
     id: 1,
     nameKey: 'level1',
     // L1 Shrine of Ember
-    sky: [0x08130d, 0x0f2b1d, 0x164a30],
+    sky: [0x030806, 0x061209, 0x08190f],
     fog: 0x16382a,
     accent: 0x54f0a8,
     light: 0x9fffc8,
-    // Tile, platform, lip. These are what the player actually stands on, so they
-    // are the values that decide whether the level is readable.
-    tile: 0x2c4136,
-    platform: 0x44654f,
-    lip: 0x8fd9a0,
+    // Platforms are near-black with a 1-2px accent top edge. The previous
+    // mid-green body read as a grey slab and fought the background for attention.
+    tile: 0x0b0f0e,
+    platform: 0x0b0f0e,
+    lip: 0x4fd18b,
     // parallax layer tint + scroll multiplier
     layers: [
       { mult: 0.10, tint: 0x0c2018, y: 0.10 },
@@ -72,13 +72,13 @@ export const LEVELS = [
     id: 2,
     nameKey: 'level2',
     // L2 Rotting Reliquary
-    sky: [0x120a1e, 0x241141, 0x3a1f5c],
+    sky: [0x070512, 0x0d0718, 0x140c22],
     fog: 0x2a1a44,
     accent: 0xa86cf0,
     light: 0xd8a8ff,
-    tile: 0x352a4c,
-    platform: 0x503d6b,
-    lip: 0xc9a6f0,
+    tile: 0x7a3fa0,
+    platform: 0x7a3fa0,
+    lip: 0x9be34a,
     layers: [
       { mult: 0.10, tint: 0x1a0f2b, y: 0.10 },
       { mult: 0.28, tint: 0x26163c, y: 0.02 },
@@ -89,14 +89,14 @@ export const LEVELS = [
     id: 3,
     nameKey: 'level3',
     // L3 Lantern Wood
-    sky: [0x170c04, 0x351905, 0x5a2d09],
+    sky: [0x0a0502, 0x140a04, 0x1e1006],
     fog: 0x2e1a0a,
     accent: 0xff9a3c,
     light: 0xffb060,
     // Almost no ambient: the sword halo is the only light in L3.
-    tile: 0x4a2c14,
-    platform: 0x7a4a1e,
-    lip: 0xffb060,
+    tile: 0x1a0f06,
+    platform: 0x1a0f06,
+    lip: 0xe0772e,
     layers: [
       { mult: 0.10, tint: 0x1d0f05, y: 0.10 },
       { mult: 0.28, tint: 0x2e180a, y: 0.02 },
