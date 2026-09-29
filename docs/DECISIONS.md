@@ -126,10 +126,48 @@ size lands the figure at `baseline/2 * cellHeight` — roughly 48× its own cell
 off-screen. The geometry is shifted into the 0..1 range *before* the scale, which
 puts the feet at the origin in world units. Same change in `Ghost`.
 
+### Camera clamps against the transformed level AABB
+
+After the L2 rotation the group is turned, so the level's local frame no longer
+maps to screen axes. The camera transforms the level's four corners and clamps
+against their bounds, which is correct at any rotation angle. It also follows the
+player in world space throughout, so during the 0.6s turn the room swings around
+Kael instead of the camera swinging around the room.
+
+The overhang past the level bounds is **proportional to how much room there is**,
+not a fixed fraction of the screen. A level barely taller than the viewport — all
+three of these are ~272px against a 270px view — gets almost none, so the camera
+cannot show a band of void below the floor.
+
+### The boss triggers on entering the arena, not on proximity
+
+The original check was a two-way distance test against the boss. A player
+sprinting at full speed passed clean through the trigger radius and finished the
+level without ever meeting him — the playthrough found it, not the smoke suite.
+It now fires on crossing a line in front of the boss.
+
+### The player is clamped to the level bounds explicitly
+
+`tileAt()` reports out-of-range columns as SOLID, which stops the body at the
+wall most frames — but the resolved position depends on *which* out-of-range
+column the body happens to land in, so a fast step (the dash, or a long frame)
+left the player standing on phantom solid outside the level, at x=1746 in a
+1520-wide level. The body is now clamped horizontally after every integration.
+Y is deliberately left free: the gaps in these levels are real pits, and falling
+out of one is what fires the death check.
+
+### The Marble Mummy needed a source-level fix, not a shader fix
+
+It rendered as a faint ghost. Two causes: the atlas was keyed and graded too dark
+(its `levels` window was `(0.13, 0.82)`, now `(0.10, 0.70)`), and the 1px outline
+flooded it — the sprite is low-alpha in places, so a `> 0.6` neighbour threshold
+outlined most of the body. Both fixed at the source: brighter atlas, outline
+threshold raised to `0.85`, boss lift up to `0.26`.
+
 ### Bosses get a brightness lift
 
 They are the largest dark shapes on screen and the source art is painted dark.
-Without `setLift(0.16)` they read as holes in the level rather than as
+Without `setLift(0.26)` they read as holes in the level rather than as
 characters. The lift is applied once, in `Boss.setPaletteLevel`.
 
 ### L3's darkness has an ambient floor
@@ -140,13 +178,18 @@ which produced a black rectangle with a torch in it. It is now a tight core
 the light still matters, but the platforms are navigable. The trade-off is
 explicit in the shader comment.
 
-### Camera clamps against the transformed level AABB
+### The boot overlay is removed from the DOM
 
-After the L2 rotation the group is turned, so the level's local frame no longer
-maps to screen axes. The camera transforms the level's four corners and clamps
-against their bounds, which is correct at any rotation angle. It also follows the
-player in world space throughout, so during the 0.6s turn the room swings around
-Kael instead of the camera swinging around the room.
+The 400ms fade left the overlay painting its title across the menu for the whole
+time it existed in the DOM. It is removed after the fade instead.
+
+### Two smoke checks were order-dependent
+
+The Patient One check left the weighted action roll to chance and could pick
+non-attacking actions for 300 ticks; and the ending check assumed the step before
+it had left the game in L3. Both now set up their own state. The Patient One
+check pins the weights to strike-only, so it tests the prediction rather than the
+dice.
 
 ### UI is DOM, not in-canvas text
 
@@ -170,12 +213,13 @@ reachable from the adaptive weights — attacking is only ever offered through
 ## Verification
 
 `tools/smoke.mjs` drives a headless Chromium through a full run and fails on any
-console error: title → cutscene → movement, jump, dash (i-frames, ghost trail,
-cooldown gating a second dash), sword, the adaptive governor staying under its
-ceiling, L1→L2→L3, the 0.6s rotation including local/world drift, the halo-only
-light, The Patient One's prediction, counter-dodge biasing the weights, the
-fairness gates (no attack during i-frames, no attack inside the 0.8s gap, no
-attack without line of sight), phase 2 at 55%, the ending, and the language
+console error. It covers the state machine, movement, jump, dash (i-frames, ghost
+trail, cooldown gating a second dash), sword, the adaptive governor staying under
+its ceiling, the level bounds clamp, L1→L2→L3, the 0.6s rotation including
+local/world drift, the halo-only light, The Patient One's prediction,
+counter-dodge biasing the weights, the fairness gates (no attack during i-frames,
+no attack inside the 0.8s gap, no attack without line of sight), phase 2 at 55%,
+Ul Burjo's disguise drop and paced arena rotation, the ending, and the language
 toggle.
 
 ```
@@ -183,4 +227,11 @@ python3 -m http.server 8765
 node tools/smoke.mjs
 ```
 
-20 checks, 0 console errors.
+22 checks, 0 console errors. Verified stable across six consecutive runs.
+
+A second, longer scripted playthrough was kept alongside it (hold right, jump,
+dash, attack, for thirty seconds of real frames). It is what caught the bounds
+escape and the missed boss trigger — both of which the assertion-based suite had
+walked straight past, because a check that only drives the player a few steps
+never gets fast enough to leave the level. There is a check for the bounds now;
+the playthrough lives in `.scratch/` and is not committed.

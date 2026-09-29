@@ -29,6 +29,8 @@ import { t, loadStoredLang, toggleLang, getLang } from './ui/i18n.js';
 const BOSSES = { statue: Statue, ulburjo: UlBurjo, patientone: PatientOne };
 const BOSS_INTRO = { 1: 'intro', 2: 'reveal', 3: 'waking' };
 const HP_PER_LEVEL = 5;
+// Distance before the arena door that the boss fight starts.
+const BOSS_TRIGGER = 150;
 
 class Game {
   constructor() {
@@ -472,9 +474,11 @@ class Game {
       this.pipeline.setLight(b.x, b.y, 95);
     }
 
-    // ---- exit into the boss
-    if (this.boss && !this.bossAwake && this.bossDef &&
-        Math.abs(p.cx - this.bossDef.x) < 130) {
+    // ---- boss trigger: fires on ENTERING the arena, not on being near the boss.
+    // A distance check both ways let a player sprinting at full speed run clean
+    // past the trigger radius and finish the level without ever meeting him.
+    if (this.bossDef && !this.bossAwake && this.machine.is(S.PLAY, S.BOSS) &&
+        p.cx > this.bossDef.x - BOSS_TRIGGER) {
       this._startBoss();
     }
   }
@@ -657,8 +661,17 @@ class Game {
     const b = this._levelWorldBounds();
     // Keep the view over the level, but allow it to overhang slightly so a wide
     // room is never letterboxed against the frame edge.
-    this.cam.x = clamp(this.cam.x, b.minX - LOW_RES_W * 0.5, b.maxX - LOW_RES_W * 0.5);
-    this.cam.y = clamp(this.cam.y, b.minY - LOW_RES_H * 0.5, b.maxY - LOW_RES_H * 0.5);
+    // Allow a little overhang so a room larger than the viewport is not pinned
+    // to its edge, but never past the level bounds: beyond them there is nothing
+    // but the clear colour. The slack is proportional to how much room there is,
+    // so a level barely taller than the viewport gets almost none.
+    const slack = (span, view) => Math.max(0, (span - view) * 0.25);
+    this.cam.x = clamp(this.cam.x,
+      b.minX - slack(b.maxX - b.minX, LOW_RES_W),
+      b.maxX - LOW_RES_W + slack(b.maxX - b.minX, LOW_RES_W));
+    this.cam.y = clamp(this.cam.y,
+      b.minY - slack(b.maxY - b.minY, LOW_RES_H),
+      b.maxY - LOW_RES_H + slack(b.maxY - b.minY, LOW_RES_H));
 
     this.cam.shake = Math.max(0, this.cam.shake - dt * CAM.shakeDecay * 3);
     if (this.cam.shake > 0.01) {

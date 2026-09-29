@@ -5565,3 +5565,354 @@ PASS
  "finalState": "play"
 errors: none
 [0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && git add -A && git commit -q -F - <<'MSG' && git log --oneline | head -2
+Clamp the player to the level bounds explicitly
+
+A 30-second scripted playthrough had the player walking to x=1746 in a
+1520-wide level and standing on the phantom solid outside it. tileAt() reports
+out-of-range columns as SOLID, which stops the body at the wall most frames --
+but the resolved position depends on which out-of-range column the body lands
+in, so a fast step (dash, or a long frame) can leave them outside. The body is
+now clamped horizontally after every integration. Y stays free because the gaps
+are real pits and falling out of one is how the death check fires.
+
+Found by the playthrough, not by the smoke suite; added a check so it stays
+found.
+MSG
+634bd0f Clamp the player to the level bounds explicitly
+6128ad5 Ul Burjo phase 2: disguise drop and a paced arena rotation
+[0m
+[0m→ [0mRead .scratch/shots/G-playthrough.png
+Two issues visible: the boss never triggers (the player runs past it) and the camera overhangs into void at the level edge. Let me fix both.
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && python3 - <<'PY'
+p='js/main.js'; s=open(p,encoding='utf-8').read()
+old = """    // ---- exit into the boss
+    if (this.boss && !this.bossAwake && this.bossDef &&
+        Math.abs(p.cx - this.bossDef.x) < 130) {
+      this._startBoss();
+    }"""
+new = """    // ---- boss trigger: fires on ENTERING the arena, not on being near the boss.
+    // A distance check both ways let a player sprinting at full speed run clean
+    // past the trigger radius and finish the level without ever meeting him.
+    if (this.bossDef && !this.bossAwake && this.machine.is(S.PLAY, S.BOSS) &&
+        p.cx > this.bossDef.x - BOSS_TRIGGER) {
+      this._startBoss();
+    }"""
+assert old in s
+s = s.replace(old, new)
+s = s.replace("const HP_PER_LEVEL = 5;", "const HP_PER_LEVEL = 5;\n// Distance before the arena door that the boss fight starts.\nconst BOSS_TRIGGER = 150;")
+# camera: don't overhang past the level edge
+s = s.replace("""    this.cam.x = clamp(this.cam.x, b.minX - LOW_RES_W * 0.5, b.maxX - LOW_RES_W * 0.5);
+    this.cam.y = clamp(this.cam.y, b.minY - LOW_RES_H * 0.5, b.maxY - LOW_RES_H * 0.5);""",
+"""    // Overhang a little so a wide room is not letterboxed, but never past the
+    // level edge: past it there is nothing but the clear colour.
+    const slackX = Math.min(LOW_RES_W * 0.5, Math.max(0, (b.maxX - b.minX) - LOW_RES_W) * 0.5 + LOW_RES_W * 0.15);
+    this.cam.x = clamp(this.cam.x, b.minX - slackX, b.maxX - LOW_RES_W + slackX);
+    this.cam.y = clamp(this.cam.y, b.minY - LOW_RES_H * 0.5, b.maxY - LOW_RES_H + LOW_RES_H * 0.5);""")
+open(p,'w',encoding='utf-8').write(s)
+print('boss trigger + camera clamp')
+PY
+grep -n "BOSS_TRIGGER" js/main.js && node --input-type=module --check < js/main.js && echo "parses"
+boss trigger + camera clamp
+33:const BOSS_TRIGGER = 150;
+481:        p.cx > this.bossDef.x - BOSS_TRIGGER) {
+parses
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && cat > .scratch/bossreach.mjs <<'EOF'
+import { chromium } from 'playwright';
+const b = await chromium.launch({args:['--use-gl=swiftshader','--enable-unsafe-swiftshader','--no-sandbox']});
+const p = await b.newPage({viewport:{width:960,height:540}});
+p.on('pageerror',e=>console.log('[pageerror]',e.message));
+await p.goto('http://localhost:8765/index.html',{waitUntil:'load'});
+await p.waitForFunction(()=>window.__lumenfall?.machine?.state==='menu',null,{timeout:20000});
+const r = await p.evaluate(async ()=>{
+  const g=window.__lumenfall;
+  g.ui.hideAll(); g._loadLevel(0,{silent:true});
+  g.cutscene.active=false; g.machine.state='play'; g.ui.showHud();
+  const input=g.input;
+  let fired=null;
+  for(let i=0;i<1400;i++){
+    input.down.add('KeyD');
+    if(i%31===0) input.buffer.set('jump',0.12);
+    if(i%173===0) input.buffer.set('dash',0.12);
+    await new Promise(r=>requestAnimationFrame(r));
+    if(g.bossAwake && fired===null) fired={i, x:Math.round(g.player.body.x), bossX:g.bossDef.x, state:g.machine.state, name:g.boss?.nameKey};
+    if(fired && g.machine.state==='boss') break;
+  }
+  input.down.delete('KeyD');
+  await new Promise(r=>setTimeout(r,500));
+  return {fired, finalState:g.machine.state, bossAlive:!!g.boss, hp:g.boss?.hp, playerX:Math.round(g.player.body.x),
+          camView:[Math.round(g.pipeline.viewX),Math.round(g.pipeline.viewY)], levelW:g.level.worldWidth};
+});
+console.log(JSON.stringify(r,null,1));
+await p.screenshot({path:'.scratch/shots/H-bossreached.png'});
+await b.close();
+EOF
+timeout 300 node .scratch/bossreach.mjs 2>&1 | grep -v "GPU stall" | head -25
+{
+ "fired": {
+  "i": 342,
+  "x": 1205,
+  "bossX": 1360,
+  "state": "boss",
+  "name": "bossStatue"
+ },
+ "finalState": "boss",
+ "bossAlive": true,
+ "hp": 12,
+ "playerX": 1228,
+ "camView": [
+  1016,
+  -76
+ ],
+ "levelW": 1520
+}
+[0m
+Boss now triggers correctly on arena entry. But the camera is showing 76px below the level. Let me apply proportional slack to Y too.
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && python3 - <<'PY'
+p='js/main.js'; s=open(p,encoding='utf-8').read()
+s=s.replace("""    // Overhang a little so a wide room is not letterboxed, but never past the
+    // level edge: past it there is nothing but the clear colour.
+    const slackX = Math.min(LOW_RES_W * 0.5, Math.max(0, (b.maxX - b.minX) - LOW_RES_W) * 0.5 + LOW_RES_W * 0.15);
+    this.cam.x = clamp(this.cam.x, b.minX - slackX, b.maxX - LOW_RES_W + slackX);
+    this.cam.y = clamp(this.cam.y, b.minY - LOW_RES_H * 0.5, b.maxY - LOW_RES_H + LOW_RES_H * 0.5);""",
+"""    // Allow a little overhang so a room larger than the viewport is not pinned
+    // to its edge, but never past the level bounds: beyond them there is nothing
+    // but the clear colour. The slack is proportional to how much room there is,
+    // so a level barely taller than the viewport gets almost none.
+    const slack = (span, view) => Math.max(0, (span - view) * 0.25);
+    this.cam.x = clamp(this.cam.x,
+      b.minX - slack(b.maxX - b.minX, LOW_RES_W),
+      b.maxX - LOW_RES_W + slack(b.maxX - b.minX, LOW_RES_W));
+    this.cam.y = clamp(this.cam.y,
+      b.minY - slack(b.maxY - b.minY, LOW_RES_H),
+      b.maxY - LOW_RES_H + slack(b.maxY - b.minY, LOW_RES_H));""")
+open(p,'w',encoding='utf-8').write(s)
+print('proportional camera slack')
+PY
+timeout 300 node .scratch/bossreach.mjs 2>&1 | grep -v "GPU stall" | grep -E "camView|finalState|fired" 
+proportional camera slack
+ "fired": {
+ "finalState": "boss",
+ "camView": [
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && timeout 300 node .scratch/bossreach.mjs 2>&1 | grep -v "GPU stall" | tail -22
+{
+ "fired": {
+  "i": 356,
+  "x": 1204,
+  "bossX": 1360,
+  "state": "boss",
+  "name": "bossStatue"
+ },
+ "finalState": "boss",
+ "bossAlive": true,
+ "hp": 12,
+ "playerX": 1217,
+ "camView": [
+  1008,
+  0
+ ],
+ "levelW": 1520
+}
+[0m
+[0m→ [0mRead .scratch/shots/H-bossreached.png
+The Marble Mummy is too dark to read as a character. Let me brighten it at the source and push the boss lift.
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && python3 - <<'PY'
+p='tools/build-atlas.py'; s=open(p,encoding='utf-8').read()
+s=s.replace('    "levels": (0.13, 0.82),','    "levels": (0.10, 0.70),')
+open(p,'w',encoding='utf-8').write(s)
+print('statue atlas levels raised')
+PY
+python3 tools/build-atlas.py 2>&1 | tail -3 && python3 -c "
+from PIL import Image
+import numpy as np
+a=np.asarray(Image.open('assets/atlases/statue.png').convert('RGBA'))
+op=a[...,3]>200; lum=a[...,:3]@np.array([0.299,0.587,0.114])
+print('statue opaque px',op.sum(),'lum pct',[int(np.percentile(lum[op],p)) for p in (5,25,50,75,95)])
+"
+statue atlas levels raised
+  -> assets/atlases/statue.png  cell=[72, 80]  clips={'idle': 4, 'walk': 4, 'run': 4, 'sweep': 1, 'roots': 1}
+
+wrote assets/atlases/manifest.json
+statue opaque px 2206 lum pct [59, 104, 151, 218, 255]
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && sed -i 's/this.sprite.setLift(0.16);/this.sprite.setLift(0.26);/' js/game/boss/base.js && python3 - <<'PY'
+# the statue source is very low-alpha in places, so the 1px outline floods it.
+# Gate the outline on a stronger neighbour threshold and skip it entirely for
+# sprites whose art is already pale.
+p='js/render/materials.js'; s=open(p,encoding='utf-8').read()
+s=s.replace("        if (a > 0.6) {","        if (a > 0.85) {")
+open(p,'w',encoding='utf-8').write(s)
+print('outline threshold raised')
+PY
+timeout 300 node .scratch/bossreach.mjs 2>&1 | grep -v "GPU stall" | grep -E "finalState|camView"
+outline threshold raised
+ "finalState": "boss",
+ "camView": [
+[0m
+[0m→ [0mRead .scratch/shots/H-bossreached.png
+The boss is now readable. Let me run the final full verification.
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && timeout 400 node tools/smoke.mjs 2>&1 | tail -14
+ul burjo: {"ok":true,"beforeSprite":"goodwitch","afterSprite":"badwitch","phase":2,"rotCount":1,"rot":1.571}
+ ok   Ul Burjo: phase 2 drops the disguise and rotates the arena
+ ok   defeating the final boss reaches the ending
+      "Pausa" -> "Paused"
+ ok   language toggle switches every string
+ ok   no hardcoded player-facing text in UI layer
+
+--- console errors: 0 ---
+--- console warnings: 4 ---
+  warning: [.WebGL-0x305400195000]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+  warning: [.WebGL-0x305400195000]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
+
+PASS
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && timeout 400 node .scratch/playthrough.mjs 2>&1 | grep -v "GPU stall" | grep -E "travelled|maxX|deaths|finalState|errors|bossAwake" | head
+"maxX": 1506,
+ "travelled": 1482,
+ "deaths": 0,
+ "bossAwake": true,
+ "finalState": "boss"
+errors: none
+[0m
+[0m← [0mEdit docs/DECISIONS.md
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/docs/DECISIONS.md
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/docs/DECISIONS.md
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/docs/DECISIONS.md
+@@ -147,8 +147,65 @@
+ against their bounds, which is correct at any rotation angle. It also follows the
+ player in world space throughout, so during the 0.6s turn the room swings around
+ Kael instead of the camera swinging around the room.
+ 
++The overhang past the level bounds is **proportional to how much room there is**,
++not a fixed fraction of the screen. A level barely taller than the viewport — all
++three of these are ~272px against a 270px view — gets almost none, so the camera
++cannot show a band of void below the floor.
++
++### The boss triggers on entering the arena, not on proximity
++
++The original check was a two-way distance test against the boss. A player
++sprinting at full speed passed clean through the trigger radius and finished the
++level without ever meeting him — the playthrough found it, not the smoke suite.
++It now fires on crossing a line in front of the boss.
++
++### The player is clamped to the level bounds explicitly
++
++`tileAt()` reports out-of-range columns as SOLID, which stops the body at the
++wall most frames — but the resolved position depends on *which* out-of-range
++column the body happens to land in, so a fast step (the dash, or a long frame)
++left the player standing on phantom solid outside the level, at x=1746 in a
++1520-wide level. The body is now clamped horizontally after every integration.
++Y is deliberately left free: the gaps in these levels are real pits, and falling
++out of one is what fires the death check.
++
++### The Marble Mummy needed a source-level fix, not a shader fix
++
++It rendered as a faint ghost. Two causes: the atlas was keyed and graded too dark
++(its `levels` window was `(0.13, 0.82)`, now `(0.10, 0.70)`), and the 1px outline
++flooded it — the sprite is low-alpha in places, so a `> 0.6` neighbour threshold
++outlined most of the body. Both fixed at the source: brighter atlas, outline
++threshold raised to `0.85`, boss lift up to `0.26`.
++
++### Bosses get a brightness lift
++
++They are the largest dark shapes on screen and the source art is painted dark.
++Without `setLift(0.26)` they read as holes in the level rather than as
++characters. The lift is applied once, in `Boss.setPaletteLevel`.
++
++### L3's darkness has an ambient floor
++
++"Sword halo is the only light" was implemented as a hard falloff to near-black,
++which produced a black rectangle with a torch in it. It is now a tight core
++(`core²`), a wide soft halo, and a **0.30 ambient floor**. The level is dark and
++the light still matters, but the platforms are navigable. The trade-off is
++explicit in the shader comment.
++
++### The boot overlay is removed from the DOM
++
++The 400ms fade left the overlay painting its title across the menu for the whole
++time it existed in the DOM. It is removed after the fade instead.
++
++### Two smoke checks were order-dependent
++
++The Patient One check left the weighted action roll to chance and could pick
++non-attacking actions for 300 ticks; and the ending check assumed the step before
++it had left the game in L3. Both now set up their own state. The Patient One
++check pins the weights to strike-only, so it tests the prediction rather than the
++dice.
++
+ ### UI is DOM, not in-canvas text
+ 
+ The plan said "all HUD text from a strings table" but not where it renders. DOM
+ overlays: crisp type at any window size without shipping a bitmap font, and the
+
+[0m
+Full loop now works: title → cutscene → play → boss, no errors. Let me record the last round of findings in the decisions log.
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && python3 - <<'PY'
+p='docs/DECISIONS.md'; s=open(p,encoding='utf-8').read()
+s=s.replace("""### Bosses get a brightness lift
+
+They are the largest dark shapes on screen and the source art is painted dark.
+Without `setLift(0.16)` they read as holes in the level rather than as
+characters. The lift is applied once, in `Boss.setPaletteLevel`.
+
+### L3's darkness has an ambient floor
+
+"Sword halo is the only light" was implemented as a hard falloff to near-black,
+which produced a black rectangle with a torch in it. It is now a tight core
+(`core²`), a wide soft halo, and a **0.30 ambient floor**. The level is dark and
+the light still matters, but the platforms are navigable. The trade-off is
+explicit in the shader comment.
+
+### Camera clamps""", "### Camera clamps", 1)
+s=s.replace("""`tools/smoke.mjs` drives a headless Chromium through a full run and fails on any
+console error: title → cutscene → movement, jump, dash (i-frames, ghost trail,
+cooldown gating a second dash), sword, the adaptive governor staying under its
+ceiling, L1→L2→L3, the 0.6s rotation including local/world drift, the halo-only
+light, The Patient One's prediction, counter-dodge biasing the weights, the
+fairness gates (no attack during i-frames, no attack inside the 0.8s gap, no
+attack without line of sight), phase 2 at 55%, the ending, and the language
+toggle.
+
+```
+python3 -m http.server 8765
+node tools/smoke.mjs
+```
+
+20 checks, 0 console errors.""",
+"""`tools/smoke.mjs` drives a headless Chromium through a full run and fails on any
+console error. It covers the state machine, movement, jump, dash (i-frames, ghost
+trail, cooldown gating a second dash), sword, the adaptive governor staying under
+its ceiling, the level bounds clamp, L1→L2→L3, the 0.6s rotation including
+local/world drift, the halo-only light, The Patient One's prediction,
+counter-dodge biasing the weights, the fairness gates (no attack during i-frames,
+no attack inside the 0.8s gap, no attack without line of sight), phase 2 at 55%,
+Ul Burjo's disguise drop and paced arena rotation, the ending, and the language
+toggle.
+
+```
+python3 -m http.server 8765
+node tools/smoke.mjs
+```
+
+22 checks, 0 console errors. Verified stable across six consecutive runs.
+
+A second, longer scripted playthrough was kept alongside it (hold right, jump,
+dash, attack, for thirty seconds of real frames). It is what caught the bounds
+escape and the missed boss trigger — both of which the assertion-based suite had
+walked straight past, because a check that only drives the player a few steps
+never gets fast enough to leave the level. There is a check for the bounds now;
+the playthrough lives in `.scratch/` and is not committed.""")
+open(p,'w',encoding='utf-8').write(s)
+print('decisions doc updated')
+PY
+grep -c "setLift(0.16)" docs/DECISIONS.md; grep -n "22 checks" docs/DECISIONS.md
+decisions doc updated
+0
+230:22 checks, 0 console errors. Verified stable across six consecutive runs.
+[0m

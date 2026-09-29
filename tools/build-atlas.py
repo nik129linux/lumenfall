@@ -146,7 +146,7 @@ CHARACTERS["statue"] = {
     "cell": (72, 80),
     "figure": 72,
     "baseline": 76,
-    "levels": (0.13, 0.82),
+    "levels": (0.10, 0.70),
     "bands": [
         # Section 1 is one wide row of 12 evenly-laid-out poses, so the band
         # subdivides its x range rather than detecting 12 separate components:

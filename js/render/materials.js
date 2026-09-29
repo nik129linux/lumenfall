@@ -67,7 +67,7 @@ const FRAG = /* glsl */`
         a += src(vUv + vec2(-t.x, 0.0)).a;
         a += src(vUv + vec2(0.0,  t.y)).a;
         a += src(vUv + vec2(0.0, -t.y)).a;
-        if (a > 0.6) {
+        if (a > 0.85) {
           gl_FragColor = vec4(outlineColor, 1.0);
           return;
         }
