@@ -4710,3 +4710,34 @@ server:200
 
 PASS
 [0m
+All 20 checks pass. Let me commit and write the docs.
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && git add -A && git commit -q -F - <<'MSG' && git log --oneline | head -3
+Camera works in world space with a transformed level AABB
+
+Following and clamping the camera in the level's local frame broke the moment
+the L2 group rotated: local no longer maps to screen axes, so the local clamp
+pinned the view to a spot the player was no longer at and they left the frame.
+Now the level's four corners are transformed and their bounds drive the clamp,
+which stays correct at any rotation angle.
+
+Menu: _renderMenu was gated on a menuList element that does not exist in the
+markup, so the difficulty and language rows never built. Removed the dead
+vestigial reference, and the unwired duplicate rows in the pause screen.
+
+Boot overlay is removed from the DOM after its fade instead of sitting there
+painting its title across the menu.
+
+Bosses get a brightness lift; they are the largest dark shapes on screen and
+read as holes in the level without it.
+MSG
+99c1bcd Camera works in world space with a transformed level AABB
+75c87e3 Gameplay, rendering, AI and three levels; headless smoke check passes
+8683570 WIP: LUMENFALL engine, game, UI and smoke test (bunny loop stopped mid-round)
+[0m
+[0m← [0mWrite docs/DECISIONS.md
+Wrote file successfully.
+[0m
+Now the decisions log and README.
+[0m← [0mWrite README.md
+Wrote file successfully.
+[0m
