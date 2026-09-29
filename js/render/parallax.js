@@ -4,25 +4,50 @@ import { makeRng } from '../core/rng.js';
 
 // Three parallax layers per level.
 //
-// Stage 1 replaced the procedural tree-sticks with the level paintings
-// themselves: 1.png (emerald shrine), 2.jpg (purple/toxic), 3.jpg
-// (burnt-orange/black) as the far layer, darkened and desaturated so they read
-// as backdrop and never compete with the playfield.
+// Stage 1b rewrote the far layer. Stage 1 scaled the whole painting to cover the
+// view, which was wrong twice over: the paintings are portrait, so that showed a
+// random vertical slice, and it was then tiled to fill -- giving huge blurry
+// blocks with visible seams. L3 came out dark blue, because 3.jpg is a drawing
+// of a demon under brown trees, not a burnt-orange sky.
 //
-//   far   factor 0.10  the level painting, cover-fit
-//   mid   factor 0.40  black tree trunks, procedural, 30% opacity
-//   near  factor 1.20  sparse grass and branches, bottom edge only, in FRONT
+// The rule now:
+//   * a purpose-made `assets/bg/lN.png` is used whole if the manifest lists one
+//   * otherwise a fixed 16:9 crop of the painting: L1 the arch and statues, L2
+//     the gothic arch, and L3 procedural (3.jpg carries a demon and the words
+//     "PATIENT IS THE NIGHT", so it is not used as a backdrop at all)
+//   * drawn ONCE into a 600x338 canvas, never tiled, scrolling across the level
 //
-// 1.png is 5 MB. It is downscaled once into a canvas at load and never
-// uploaded at full size.
+// 600 is wider than the 480px view on purpose: that 120px of slack is the
+// scroll range, so the backdrop pans once over the length of a level instead of
+// repeating. One canvas texel is one buffer pixel.
 
-// The near layer is the only one in front of the gameplay plane, so it needs a
-// positive z and an explicit render order to win against sprites.
 const LAYER_Z = [-40, -20, 6];
 const LAYER_PARALLAX = [0.10, 0.40, 1.20];
-const LAYER_TILE_W = 512;   // natural width of the procedural silhouette tiles
 
-const LEVEL_ART = { 1: '1.png', 2: '2.jpg', 3: '3.jpg' };
+// The backdrop canvas. 600x338: 600 = view width + 120px of scroll slack,
+// 338 = 600 / 16:9, which is 68px taller than the view so the whole crop is
+// reachable vertically.
+const BACK_W = 600;
+const BACK_H = 338;
+
+// Fractions of source height, full width, centre-cropped to 16:9.
+const FALLBACK_CROP = {
+  1: [0.28, 0.60],   // the arch, the statues and the steps; above the pool
+  2: [0.00, 0.32],   // the gothic arch and its windows; above the goblin
+};
+
+let bgManifest = null;
+
+async function loadBgManifest() {
+  if (bgManifest) return bgManifest;
+  try {
+    const res = await fetch('assets/bg/manifest.json');
+    bgManifest = res.ok ? await res.json() : { levels: {} };
+  } catch (e) {
+    bgManifest = { levels: {} };
+  }
+  return bgManifest;
+}
 
 function loadImage(url) {
   return new Promise((resolve) => {
@@ -33,101 +58,146 @@ function loadImage(url) {
   });
 }
 
-function nearest(tex) {
+function nearestClamp(tex) {
   tex.magFilter = THREE.NearestFilter;
   tex.minFilter = THREE.NearestFilter;
   tex.generateMipmaps = false;
+  tex.wrapS = THREE.ClampToEdgeWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.repeat.set(1, 1);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.needsUpdate = true;
   return tex;
 }
 
-// Cover-fit downscale to at most `maxW`, darken and desaturate. Done once, on
-// the CPU, so a 5 MB PNG never reaches the GPU.
-function levelArtTexture(img, maxW, brightness, desaturate) {
-  const scale = Math.min(1, maxW / img.width);
-  const w = Math.max(1, Math.round(img.width * scale));
-  const h = Math.max(1, Math.round(img.height * scale));
+function newCanvas(w, h) {
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
-  const ctx = c.getContext('2d');
-  ctx.imageSmoothingEnabled = false;    // keep it crisp; the upscale is NEAREST
-  ctx.drawImage(img, 0, 0, w, h);
-
-  const data = ctx.getImageData(0, 0, w, h);
-  const d = data.data;
-  for (let i = 0; i < d.length; i += 4) {
-    const r = d[i], g = d[i + 1], b = d[i + 2];
-    const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-    d[i] = (lum + (r - lum) * desaturate) * brightness;
-    d[i + 1] = (lum + (g - lum) * desaturate) * brightness;
-    d[i + 2] = (lum + (b - lum) * desaturate) * brightness;
-  }
-  ctx.putImageData(data, 0, 0);
-  return nearest(new THREE.CanvasTexture(c));
+  return c;
 }
 
-// Mid layer: black trunks. Drawn as hard rectangles and steps, no curves -- at
-// 480x270 a smooth edge resolves to the same pixels as a straight one and only
-// costs time.
-function trunksTexture(seed) {
-  const w = 512, h = 288;
-  const c = document.createElement('canvas');
-  c.width = w; c.height = h;
+// Smoothing ON. This is a downscale (1152px of source into 600), and stage 1
+// had imageSmoothingEnabled off because the sprites were NEAREST -- applied to the
+// backdrop that turned the downscale into aliased noise.
+function smoothScale(ctx, img, sx, sy, sw, sh) {
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, BACK_W, BACK_H);
+}
+
+function cropFromPainting(img, y0frac, y1frac) {
+  const c = newCanvas(BACK_W, BACK_H);
   const ctx = c.getContext('2d');
-  const rng = makeRng(seed);
-  ctx.clearRect(0, 0, w, h);
+  const top = Math.round(img.height * y0frac);
+  const bottom = Math.round(img.height * y1frac);
+  let sh = bottom - top;
+  let sw = Math.min(img.width, Math.round(sh * (BACK_W / BACK_H)));
+  let sx = Math.round((img.width - sw) / 2);
+  smoothScale(ctx, img, sx, top, sw, sh);
+  return c;
+}
+
+// L3: 3.jpg is a demon portrait with text in it, so the backdrop is drawn.
+// A burnt-orange sky over black bare trees.
+function lanternWood() {
+  const c = newCanvas(BACK_W, BACK_H);
+  const ctx = c.getContext('2d');
+
+  const g = ctx.createLinearGradient(0, 0, 0, BACK_H);
+  g.addColorStop(0.00, '#c0601f');
+  g.addColorStop(0.45, '#5a2a10');
+  g.addColorStop(1.00, '#120806');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, BACK_W, BACK_H);
+
+  const rng = makeRng(20260928);
   ctx.fillStyle = '#000000';
-  const n = 13;
-  for (let i = 0; i < n; i++) {
-    const x = Math.floor((i / n) * w + rng.range(-10, 10));
-    const th = h * rng.range(0.75, 1.05);
-    const tw = Math.max(3, Math.round(w * rng.range(0.006, 0.013)));
-    // Stepped taper: a trunk that is a constant-width rectangle reads as a bar.
-    const steps = 7;
-    for (let sIdx = 0; sIdx < steps; sIdx++) {
-      const t = sIdx / steps;
-      const stepW = Math.max(2, Math.round(tw * (1.55 - t * 0.75)));
-      const sy = h - th + th * t;
-      ctx.fillRect(x - Math.round((stepW - tw) / 2), sy, stepW, Math.ceil(th / steps) + 1);
+  ctx.strokeStyle = '#000000';
+  ctx.lineCap = 'round';
+
+  const trees = 8;
+  for (let i = 0; i < trees; i++) {
+    const x = Math.round(((i + 0.5) / trees) * BACK_W + rng.range(-14, 14));
+    const h = BACK_H * rng.range(0.62, 0.94);
+    const baseY = BACK_H;
+    const lean = rng.range(-16, 16);
+    // Trunk, drawn as a thin run of segments so it can lean and stay crooked.
+    const segs = 9;
+    for (let s = 0; s < segs; s++) {
+      const t = s / segs;
+      const sy = baseY - h * t;
+      const sx = x + lean * t * t;
+      const wTrunk = Math.max(1, Math.round(3.4 * (1 - t * 0.75)));
+      ctx.fillRect(Math.round(sx - wTrunk / 2), Math.round(sy), wTrunk, Math.round(h / segs) + 1);
     }
-    ctx.fillRect(x, h - th, tw, th);
-    // A few angular limbs, stepped rather than diagonal.
-    for (let b = 0; b < 3; b++) {
-      const by = h - th * rng.range(0.45, 0.95);
+    // Thin crooked branches.
+    const branches = 5 + Math.floor(rng.range(0, 4));
+    for (let b = 0; b < branches; b++) {
+      const t = rng.range(0.45, 0.98);
+      const by = baseY - h * t;
+      const bx = x + lean * t * t;
       const dir = rng.sign();
-      const len = Math.round(w * rng.range(0.02, 0.055));
-      ctx.fillRect(x + (dir > 0 ? 0 : -len), by, len, Math.max(2, Math.round(tw * 0.8)));
-      ctx.fillRect(x + (dir > 0 ? len - tw : -len), by - Math.round(th * 0.1), tw, Math.round(th * 0.1));
+      const len = rng.range(16, 52);
+      const rise = rng.range(10, 34);
+      ctx.lineWidth = Math.max(1, 3 * (1 - t * 0.7));
+      ctx.beginPath();
+      ctx.moveTo(bx, by);
+      ctx.lineTo(bx + dir * len * 0.55, by - rise * 0.4);
+      ctx.lineTo(bx + dir * len, by - rise);
+      ctx.stroke();
     }
   }
-  return nearest(new THREE.CanvasTexture(c));
+  return c;
 }
 
-// Near layer: a thin band of grass and low branches along the bottom edge only.
-function foregroundTexture(seed) {
-  const w = 512, h = 288;
-  const c = document.createElement('canvas');
-  c.width = w; c.height = h;
+// Mid layer: pure black trunks. In stage 1 these read as grey-blue columns,
+// which was the far layer's tiled content rather than the trunks -- but the
+// colour is pinned here anyway so it cannot drift back.
+function trunksCanvas(seed) {
+  const c = newCanvas(BACK_W, BACK_H);
   const ctx = c.getContext('2d');
   const rng = makeRng(seed);
-  ctx.clearRect(0, 0, w, h);
+  ctx.clearRect(0, 0, BACK_W, BACK_H);
   ctx.fillStyle = '#000000';
-  const baseY = h;
-  for (let i = 0; i < 70; i++) {
-    const x = Math.floor(rng.range(0, w));
-    const gh = Math.floor(rng.range(6, Math.round(h * 0.15)));
+  const n = 11;
+  for (let i = 0; i < n; i++) {
+    const x = Math.round(((i + 0.5) / n) * BACK_W + rng.range(-12, 12));
+    const h = BACK_H * rng.range(0.55, 0.8);
+    const baseY = BACK_H;
+    const tw = Math.max(2, Math.round(BACK_W * rng.range(0.006, 0.013)));
+    ctx.fillRect(x, baseY - h, tw, h);
+    for (let b = 0; b < 3; b++) {
+      const by = baseY - h * rng.range(0.5, 0.95);
+      const dir = rng.sign();
+      const len = Math.round(BACK_W * rng.range(0.02, 0.05));
+      ctx.fillRect(x + (dir > 0 ? 0 : -len), by, len, Math.max(2, Math.round(tw * 0.8)));
+    }
+  }
+  return c;
+}
+
+// Near layer: a thin band of grass and low branches along the bottom edge.
+function foregroundCanvas(seed) {
+  const c = newCanvas(BACK_W, BACK_H);
+  const ctx = c.getContext('2d');
+  const rng = makeRng(seed);
+  ctx.clearRect(0, 0, BACK_W, BACK_H);
+  ctx.fillStyle = '#000000';
+  const baseY = BACK_H;
+  for (let i = 0; i < 90; i++) {
+    const x = Math.round(rng.range(0, BACK_W));
+    const gh = Math.round(rng.range(6, BACK_H * 0.14));
     ctx.fillRect(x, baseY - gh, 1, gh);
     if (rng.chance(0.3)) ctx.fillRect(x + 1, baseY - gh + 2, 1, Math.max(2, gh - 4));
   }
-  for (let i = 0; i < 5; i++) {
-    const x = Math.floor(rng.range(0, w));
-    const len = Math.floor(rng.range(20, 70));
-    const th = Math.max(2, Math.round(h * 0.012));
+  for (let i = 0; i < 6; i++) {
+    const x = Math.round(rng.range(0, BACK_W));
+    const len = Math.round(rng.range(30, 90));
+    const th = 3;
     ctx.fillRect(x, baseY - th, len, th);
     ctx.fillRect(x + (rng.chance(0.5) ? 0 : len - 3), baseY - th * 3, 3, th * 2);
   }
-  return nearest(new THREE.CanvasTexture(c));
+  return c;
 }
 
 export class Parallax {
@@ -137,17 +207,16 @@ export class Parallax {
     this.layers = [];
     this.currentLevel = -1;
     this._generation = 0;
+    this.levelWorldWidth = LOW_RES_W;
   }
 
   async setLevel(level) {
     if (this.currentLevel === level.id) return;
     this.currentLevel = level.id;
-    // Loading a level's art is async, and loading two levels back to back
-    // interleaves: the first call clears the layers and then awaits, the second
-    // clears an already-empty list and awaits, and both push their results --
-    // leaving six layers and a doubled backdrop. A generation counter makes any
-    // superseded call drop its work on the floor.
+    // Loading is async and levels can be loaded back to back; without a
+    // generation guard the two interleave and leave doubled layers.
     const gen = ++this._generation;
+    this.levelWorldWidth = (level.width || 190) * 8;
 
     for (const l of this.layers) {
       this.group.remove(l.mesh);
@@ -157,85 +226,110 @@ export class Parallax {
     }
     this.layers = [];
 
-    // Far: the level painting, cover-fit and pushed back.
-    const art = LEVEL_ART[level.id] ? await loadImage(LEVEL_ART[level.id]) : null;
-    if (gen !== this._generation) return;   // superseded mid-load
-    let farMap;
-    if (art) {
-      farMap = levelArtTexture(art, 960, 1.0, 0.45);   // desaturate only
-    // Brightness is applied through the material rather than baked in, because
-    // the post pass re-encodes linear -> sRGB and that lift is not linear: a
-    // factor applied to the canvas pixels comes out roughly squared on screen.
-    // Measured against a target backdrop level rather than guessed.
-    } else {
-      farMap = trunksTexture(1);
-    }
-    const midMap = trunksTexture(1000 + level.id * 37);
-    const nearMap = foregroundTexture(2000 + level.id * 53);
+    const far = await this._buildFar(level);
+    if (gen !== this._generation || !far) return;
 
+    // Brightness only. No hue tint and no desaturation: the paintings already
+    // carry the right colour, and stage 1 proved what happens when a level grade
+    // gets a say -- Kael rendered brown and the backdrop turned blue.
     const specs = [
-      // Tuned by measuring the rendered result: the playfield is near-black, so
-      // the backdrop has to sit well under it or the emerald pool reads as the
-      // subject. See the note where the texture is built.
-      { map: farMap, z: LAYER_Z[0], opacity: 1.0, depth: false, cover: true,
-        brightness: 0x50 },
-      { map: midMap, z: LAYER_Z[1], opacity: 0.30, depth: false, cover: false },
-      { map: nearMap, z: LAYER_Z[2], opacity: 0.85, depth: true, cover: false },
+      // Brightness only, and it stays on the material rather than baked into the
+      // canvas: the post pass re-encodes linear -> sRGB, and a factor applied to
+      // canvas pixels comes out roughly squared on screen.
+      { canvas: far, z: LAYER_Z[0], brightness: level.id === 3 ? 0x909090 : 0x707070, opacity: 1.0, isFar: true },
+      { canvas: trunksCanvas(1000 + level.id * 37), z: LAYER_Z[1], brightness: 0x000000, opacity: 0.35, isFar: false },
+      { canvas: foregroundCanvas(2000 + level.id * 53), z: LAYER_Z[2], brightness: 0x000000, opacity: 0.85, isFar: false },
     ];
 
     for (let d = 0; d < specs.length; d++) {
       const s = specs[d];
+      const tex = nearestClamp(new THREE.CanvasTexture(s.canvas));
       const mat = new THREE.MeshBasicMaterial({
-        map: s.map,
-        color: s.brightness ?? 0xffffff,
+        map: tex,
+        color: s.brightness,
         transparent: true,
         opacity: s.opacity,
         depthWrite: false,
         depthTest: false,
       });
-      const img = s.map.image;
-      const aspect = img.width / img.height;
-
-      // The level paintings are portrait (1.png is 1152x2048) and the view is
-      // 480x270. A literal cover-fit scales to the view's width, which shows a
-      // random vertical slice -- in L1 that landed on a bright emerald pillar
-      // filling the middle of the screen. Instead the painting is scaled so its
-      // full height covers the view, then tiled across at its natural width. The
-      // whole composition (arch, stairs, gate) stays legible as a backdrop.
-      const planeH = s.cover ? LOW_RES_H * 1.3 : LOW_RES_H * 1.2;
-      const tileW = s.cover ? planeH * aspect : LAYER_TILE_W;
-      const planeW = LOW_RES_W * 1.3;
-      s.map.wrapS = THREE.RepeatWrapping;
-      s.map.repeat.x = planeW / tileW;
-      s.map.repeat.y = 1;
-
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(planeW, planeH), mat);
+      // 1 canvas texel = 1 buffer pixel, since the canvas is authored at the
+      // same scale the world uses.
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(BACK_W, BACK_H), mat);
       mesh.position.z = s.z;
       mesh.frustumCulled = false;
-      // Explicit, because the whole scene shares z and the sort would otherwise
-      // fall through to object ids.
       mesh.renderOrder = d === 0 ? -20 : d === 1 ? -10 : 40;
       this.group.add(mesh);
-      this.layers.push({ mesh, mult: LAYER_PARALLAX[d], isNear: d === 2 });
+      this.layers.push({ mesh, mult: LAYER_PARALLAX[d], isFar: s.isFar, isNear: d === 2 });
     }
   }
 
+  async _buildFar(level) {
+    // A purpose-made landscape backdrop, if the manifest lists one.
+    const manifest = await loadBgManifest();
+    const listed = manifest.levels?.[String(level.id)] || [];
+    const custom = listed.find((f) => /^l\d+\./.test(f));
+    if (custom) {
+      const img = await loadImage(`assets/bg/${custom}`);
+      if (img) {
+        const c = newCanvas(BACK_W, BACK_H);
+        const ctx = c.getContext('2d');
+        // Centre-crop the supplied art to 16:9 rather than stretching it.
+        const target = BACK_W / BACK_H;
+        let sw = img.width, sh = img.height;
+        if (img.width / img.height > target) sw = Math.round(img.height * target);
+        else sh = Math.round(img.width / target);
+        const sx = Math.round((img.width - sw) / 2);
+        const sy = Math.round((img.height - sh) / 2);
+        smoothScale(ctx, img, sx, sy, sw, sh);
+        return c;
+      }
+    }
+
+    if (level.id === 3) return lanternWood();
+
+    const crop = FALLBACK_CROP[level.id];
+    if (!crop) return null;
+    const src = { 1: '1.png', 2: '2.jpg' }[level.id];
+    const img = await loadImage(src);
+    if (!img) return null;
+    return cropFromPainting(img, crop[0], crop[1]);
+  }
+
   update(camX, camY) {
-    // Each layer is centred on the view and then pulled back by camX*mult, so
-    // it stays covering the frame while scrolling at `mult` of the camera's
-    // speed. Offsetting by -camX*mult alone (the earlier form) slides the layer
-    // off the side of the screen instead of parallaxing it.
+    // The far backdrop pans once across the level: offset runs 0 -> 120px as
+    // the camera crosses the level. Tiling would repeat it, which is what stage
+    // 1 did wrong.
+    const span = Math.max(1, this.levelWorldWidth - LOW_RES_W);
+    const progress = Math.max(0, Math.min(1, camX / span));
+    const farOffset = progress * (BACK_W - LOW_RES_W);
+    const cx = camX + LOW_RES_W / 2;
+    const cy = camY + LOW_RES_H / 2;
+
     for (const l of this.layers) {
-      l.mesh.position.x = (camX + LOW_RES_W / 2) - camX * l.mult;
-      l.mesh.position.y = l.isNear
-        ? (camY - LOW_RES_H * 0.02) - camY * l.mult * 0.25
-        : (camY + LOW_RES_H / 2) - camY * l.mult;
+      if (l.isFar) {
+        // Centre the crop on the *view*, not on the camera, so it covers the
+        // full 480px at every pan value: the left edge runs 0 -> -120 and the
+        // right edge 600 -> 480, which always spans the viewport exactly once.
+        l.mesh.position.x = cx + (BACK_W - LOW_RES_W) / 2 - farOffset;
+        // Vertically fixed: the crop never scrolls with the camera.
+        l.mesh.position.y = cy - (BACK_H - LOW_RES_H) / 2;
+      } else if (l.isNear) {
+        // Foreground, in front of the playfield. Moves faster than the camera.
+        l.mesh.position.x = cx - BACK_W / 2 + camX * (l.mult - 1) * 0.5;
+        l.mesh.position.y = camY - 12;
+      } else {
+        // Mid trunks: centred, a little parallax, and sat low so the trunk
+        // bases (drawn at the bottom of their canvas) land near the floor.
+        l.mesh.position.x = cx - BACK_W / 2 - camX * l.mult * 0.5;
+        l.mesh.position.y = camY - 20 - camY * l.mult * 0.3;
+      }
     }
   }
 }
 
 // The vertical gradient behind everything. Not a parallax layer, because it
-// must not move: it is the "sky", and a sliding sky looks wrong.
+// must not move. With the backdrop now covering the view it should never be
+// visible -- it only fills a gap if the painting is missing or misaligned.
 export class Sky {
   constructor(scene) {
     this.material = new THREE.MeshBasicMaterial({ depthTest: false, depthWrite: false });
@@ -243,6 +337,7 @@ export class Sky {
       new THREE.PlaneGeometry(LOW_RES_W * 1.05, LOW_RES_H * 1.15), this.material);
     this.mesh.position.z = -60;
     this.mesh.frustumCulled = false;
+    this.mesh.renderOrder = -30;
     scene.add(this.mesh);
   }
 
@@ -255,8 +350,7 @@ export class Sky {
 }
 
 function gradientTexture(a, b, c) {
-  const canvas = document.createElement('canvas');
-  canvas.width = 8; canvas.height = 128;
+  const canvas = newCanvas(8, 128);
   const ctx = canvas.getContext('2d');
   const hex = (n) => '#' + n.toString(16).padStart(6, '0');
   const g = ctx.createLinearGradient(0, 0, 0, 128);
@@ -265,5 +359,5 @@ function gradientTexture(a, b, c) {
   g.addColorStop(1, hex(c));
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 8, 128);
-  return nearest(new THREE.CanvasTexture(canvas));
+  return nearestClamp(new THREE.CanvasTexture(canvas));
 }

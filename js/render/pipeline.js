@@ -82,11 +82,18 @@ export class Pipeline {
 
     // Linear, not sRGB: the post pass does the encode, so the scene pass must
     // store linear values or they get encoded twice.
+    //
+    // HalfFloat, not UnsignedByte. Linear light is concentrated near zero, so
+    // 8 bits per channel throws away the dark half of every colour: an sRGB
+    // (30,14,5) lands on (3,1,0) in 8-bit linear, which is pure red. That is why
+    // the burnt-orange L3 backdrop measured a yellow-green hue and the blue-black
+    // 3.jpg came out as muddy blue. 16 bits of float holds the shadows, and at
+    // 480x270 the bandwidth is irrelevant.
     this.target = new THREE.WebGLRenderTarget(LOW_RES_W, LOW_RES_H, {
       minFilter: THREE.NearestFilter,
       magFilter: THREE.NearestFilter,
       format: THREE.RGBAFormat,
-      type: THREE.UnsignedByteType,
+      type: THREE.HalfFloatType,
       depthBuffer: false,
       stencilBuffer: false,
       colorSpace: THREE.LinearSRGBColorSpace,

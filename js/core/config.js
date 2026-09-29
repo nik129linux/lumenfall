@@ -51,6 +51,9 @@ export const LEVELS = [
   {
     id: 1,
     nameKey: 'level1',
+    // Level width in tiles. Read by the parallax layer to turn cameraX into a
+    // 0..1 scroll progress without main.js having to pass it through.
+    width: 190,
     // L1 Shrine of Ember
     sky: [0x030806, 0x061209, 0x08190f],
     fog: 0x16382a,
@@ -71,6 +74,7 @@ export const LEVELS = [
   {
     id: 2,
     nameKey: 'level2',
+    width: 170,
     // L2 Rotting Reliquary
     sky: [0x070512, 0x0d0718, 0x140c22],
     fog: 0x2a1a44,
@@ -88,6 +92,7 @@ export const LEVELS = [
   {
     id: 3,
     nameKey: 'level3',
+    width: 180,
     // L3 Lantern Wood
     sky: [0x0a0502, 0x140a04, 0x1e1006],
     fog: 0x2e1a0a,
