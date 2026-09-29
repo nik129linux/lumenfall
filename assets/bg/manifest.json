@@ -1,8 +1,8 @@
 {
-  "_note": "Optional parallax layers. This project ships with none, so the game uses its procedural gradient + silhouette fallback. To use your own art, drop the files in this folder and list them here, near-to-far. Any layer not listed is generated.",
+  "_note": "Parallax backdrops. An entry listed for a level is used whole by the far layer, in order, and takes priority over the generated fallback. A level with no usable file listed falls back to a fixed crop of the level painting, or procedural art for L3. `groundLine` is the fraction of the painting's height where its empty dark ground band starts; the parallax layer plants that on the level floor.",
   "levels": {
-    "1": [],
-    "2": [],
-    "3": []
+    "1": ["l1.png"],
+    "2": ["l2.png"],
+    "3": ["l3.png"]
   }
 }

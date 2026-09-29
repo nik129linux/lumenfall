@@ -1,5 +1,5 @@
 import * as THREE from '../vendor/three.module.js';
-import { LOW_RES_W, LOW_RES_H } from '../core/config.js';
+import { LOW_RES_W, LOW_RES_H, FLOOR_Y } from '../core/config.js';
 import { makeRng } from '../core/rng.js';
 
 // Three parallax layers per level.
@@ -208,6 +208,8 @@ export class Parallax {
     this.currentLevel = -1;
     this._generation = 0;
     this.levelWorldWidth = LOW_RES_W;
+    // Fraction of the painting's height where its dark ground band starts.
+    this.groundLine = 0.8;
   }
 
   async setLevel(level) {
@@ -217,6 +219,7 @@ export class Parallax {
     // generation guard the two interleave and leave doubled layers.
     const gen = ++this._generation;
     this.levelWorldWidth = (level.width || 190) * 8;
+    this.groundLine = level.groundLine ?? 0.8;
 
     for (const l of this.layers) {
       this.group.remove(l.mesh);
@@ -303,7 +306,6 @@ export class Parallax {
     const progress = Math.max(0, Math.min(1, camX / span));
     const farOffset = progress * (BACK_W - LOW_RES_W);
     const cx = camX + LOW_RES_W / 2;
-    const cy = camY + LOW_RES_H / 2;
 
     for (const l of this.layers) {
       if (l.isFar) {
@@ -311,8 +313,27 @@ export class Parallax {
         // full 480px at every pan value: the left edge runs 0 -> -120 and the
         // right edge 600 -> 480, which always spans the viewport exactly once.
         l.mesh.position.x = cx + (BACK_W - LOW_RES_W) / 2 - farOffset;
-        // Vertically fixed: the crop never scrolls with the camera.
-        l.mesh.position.y = cy - (BACK_H - LOW_RES_H) / 2;
+
+        // Vertically, the crop is planted on the floor instead of being centred
+        // in the view. Each painting's bottom ~35% is an empty dark ground band,
+        // so what has to line up is the painting's ground line and our floor top
+        // -- otherwise the painted ruins float a hundred pixels below the floor
+        // and the band that should be under them is above it.
+        //
+        // The world is y-up and the camera bottom sits at camY, so the crop's
+        // top edge is at mesh.y + BACK_H/2 and the ground line at
+        // mesh.y + BACK_H/2 - groundLine * BACK_H. Solving for the floor puts
+        // mesh.y at groundLine * BACK_H + FLOOR_Y - BACK_H/2.
+        // Clamped so the crop still covers the whole view top to bottom: the
+        // upper bound keeps its top edge above the view top, the lower bound
+        // keeps its bottom edge below the view bottom. L2's ground line sits high
+        // enough in its painting that honouring it exactly would expose sky
+        // along the top edge, so it settles ~4px above the floor instead -- which
+        // the brief allows, and the empty ground band hides the difference.
+        const floorAligned = this.groundLine * BACK_H + FLOOR_Y - BACK_H / 2;
+        const coverTop = camY + LOW_RES_H - BACK_H / 2;
+        const coverBottom = camY + BACK_H / 2;
+        l.mesh.position.y = Math.max(coverTop, Math.min(coverBottom, floorAligned));
       } else if (l.isNear) {
         // Foreground, in front of the playfield. Moves faster than the camera.
         l.mesh.position.x = cx - BACK_W / 2 + camX * (l.mult - 1) * 0.5;

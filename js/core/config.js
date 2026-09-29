@@ -43,6 +43,12 @@ export const ATTACK_REACH = 26;
 export const ATTACK_DMG = 1;
 export const IFRAMES_ON_HIT = 0.9;  // seconds
 
+// Standing surface, in world pixels (the world is y-up, so this is the highest
+// point of the ground). Mirrors level.js: the ground occupies the lowest GROUND
+// rows, so the floor top is (GROUND + 1) * TILE = 4 * 8. The parallax layer
+// uses it to plant the painted backdrops on the floor.
+export const FLOOR_Y = 32;
+
 export const ROTATE_TIME = 0.6;     // seconds for the L2 level rotation
 
 // Per-level look. Palettes sampled from the reference art:
@@ -64,6 +70,10 @@ export const LEVELS = [
     tile: 0x0b0f0e,
     platform: 0x0b0f0e,
     lip: 0x4fd18b,
+    // Where the painting's empty dark ground band starts, as a fraction of its
+    // height. The parallax layer plants this on the floor so the painted ruins
+    // stand on our floor instead of floating above it.
+    groundLine: 0.80,
     // parallax layer tint + scroll multiplier
     layers: [
       { mult: 0.10, tint: 0x0c2018, y: 0.10 },
@@ -86,6 +96,9 @@ export const LEVELS = [
     tile: 0x1a0f22,
     platform: 0x1a0f22,
     lip: 0x9be34a,
+    // Higher than the others: this painting's cathedral sits on a shorter
+    // ground band.
+    groundLine: 0.68,
     layers: [
       { mult: 0.10, tint: 0x1a0f2b, y: 0.10 },
       { mult: 0.28, tint: 0x26163c, y: 0.02 },
@@ -105,6 +118,7 @@ export const LEVELS = [
     tile: 0x1a0f06,
     platform: 0x1a0f06,
     lip: 0xe0772e,
+    groundLine: 0.78,
     layers: [
       { mult: 0.10, tint: 0x1d0f05, y: 0.10 },
       { mult: 0.28, tint: 0x2e180a, y: 0.02 },
