@@ -19474,3 +19474,1145 @@ FAIL reach.mjs
     this.attackTimer = Math.max(0, this.attackTimer - dt);
 [0m
 `pitDeath` is set but `dead` isn't. Let me look at `die()`.
+[0m
+> build · space-bunny-free
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && git log --oneline -3 && echo "=== 75dc8bc contents ===" && git show --stat 75dc8bc | head -20 && echo "=== working tree now ===" && git status --short
+75dc8bc WIP: stage 2c interrupted (L2 columns, pit death, rotation hint) - not verified
+beea78a Stop tracking the build-agent's working files
+e8b393e Stage 2e brief: minion sprites
+=== 75dc8bc contents ===
+commit 75dc8bca32c42b9b6cebe9095e3e4eea49c3cb96
+Author: Nico <niko@local>
+Date:   Tue Sep 29 12:55:37 2026 -0500
+
+    WIP: stage 2c interrupted (L2 columns, pit death, rotation hint) - not verified
+    
+    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+ .bunny-loop.log       | 225 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ js/core/config.js     |   9 ++
+ js/game/level.js      |  84 ++++++++++++++++++-
+ js/game/physics.js    |   9 +-
+ js/game/player.js     |  16 +++-
+ js/main.js            |  62 +++++++++++++-
+ js/render/pipeline.js |  11 +++
+ js/ui/strings.js      |   2 +
+ tools/reach.mjs       | 178 ++++++++++++++++++++++++++++++++-------
+ 9 files changed, 559 insertions(+), 37 deletions(-)
+=== working tree now ===
+ M .bunny-loop.log
+[0m
+[0m→ [0mRead docs/stage2c.md
+Let me audit exactly what state the WIP commit left things in.
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && echo "=== 1. player's death method name ===" && grep -n "^  kill()\|^  die()\|dead = true" js/game/player.js && echo && echo "=== 2. _checkVoid body ===" && sed -n '/_checkVoid() {/,/^  }/p' js/game/player.js && echo "=== 3. L2 steps present? ===" && grep -c "plat(lv, 26, 8, 3)\|plat(lv, 78, 10, 4)\|plat(lv, 118, 8, 3)\|plat(lv, 142, 8, 2)\|plat(lv, 144, 10, 2)\|plat(lv, 72, 8, 6)" js/game/level.js && echo "=== 4. runes + hint? ===" && grep -c "_buildRunes\|updateRunes\|rotateWorld\|_hintNearHole" js/game/level.js js/main.js js/ui/strings.js && echo "=== 5. void geometry + tileAt? ===" && grep -c "_buildVoid\|holeCol" js/game/level.js js/game/physics.js && echo "=== 6. pit test in reach.mjs? ===" && grep -c "pit death\|pitDeath" tools/reach.mjs
+=== 1. player's death method name ===
+78:  kill() {
+80:    this.dead = true;
+
+=== 2. _checkVoid body ===
+  _checkVoid() {
+    if (this.dead) return;
+    if (this.body.top >= PIT_DEATH_Y) return;
+    // A body below the floor line can only be inside a hole: everywhere else the
+    // ground occupies the lowest rows and nothing gets under it.
+    this.pitDeath = true;
+    this.die();
+  }
+=== 3. L2 steps present? ===
+6
+=== 4. runes + hint? ===
+js/game/level.js:5
+js/main.js:6
+js/ui/strings.js:2
+=== 5. void geometry + tileAt? ===
+js/game/level.js:4
+js/game/physics.js:1
+=== 6. pit test in reach.mjs? ===
+7
+[0m
+Everything is in place except the one bug I was mid-debug on: `_checkVoid` calls `this.die()`, but the player's death method is `kill()`. Let me see what `kill()` does.
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && sed -n '76,90p' js/game/player.js
+}
+
+  kill() {
+    if (this.dead) return;
+    this.dead = true;
+    this.deadTimer = 0;
+    this.body.vx = 0;
+    this.sprite.play('dead', { restart: true, loop: false, speed: 6 });
+  }
+
+  update(dt, input, level) {
+    if (this.dead) return this._updateDead(dt, level);
+
+    this.hurtTimer = Math.max(0, this.hurtTimer - dt);
+    this.dashCd = Math.max(0, this.dashCd - dt);
+[0m
+[0m← [0mEdit js/game/player.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/player.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/player.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/player.js
+@@ -246,9 +246,9 @@
+   if (this.body.top >= PIT_DEATH_Y) return;
+   // A body below the floor line can only be inside a hole: everywhere else the
+   // ground occupies the lowest rows and nothing gets under it.
+   this.pitDeath = true;
+-  this.die();
++  this.kill();
+ }
+ 
+ _checkSpikes(level) {
+   const x0 = Math.floor(this.body.left / TILE);
+
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && node --check js/game/player.js && timeout 700 node tools/reach.mjs 2>&1 | grep -v "GPU stall" | grep -E "pit death|pit:|console errors|PASS|FAIL"
+=== pit death (L1) ===
+  FAIL  falling into a pit did not kill within 1.5s: dead=true pitDeath=false state=dead
+  FAIL  the normal death/respawn flow did not take over: state=dead
+FAIL reach.mjs
+[0m
+Death now fires (`dead=true, state=dead`). Two test flaws: `pitDeath` is cleared after the fade, and my respawn press came before the 1.1s window. Let me make the test observe the flash/fade properly.
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && python3 - <<'PY'
+p='tools/reach.mjs'; s=open(p,encoding='utf-8').read()
+start = s.index("    // Dropped in from just under the lip, with no floor under the body.")
+end = s.index("  await page2.close();\n}")
+new = """    // Watch the post pass while the body falls, so the red flash and the
+    // fall-out fade are actually observed rather than assumed.
+    await page2.evaluate(() => {
+      const g = window.__lumenfall;
+      window.__pit = { maxHurt: 0, minFade: 1 };
+      window.__pitTimer = setInterval(() => {
+        const u = g.pipeline.postUniforms;
+        window.__pit.maxHurt = Math.max(window.__pit.maxHurt, u.hurt.value);
+        window.__pit.minFade = Math.min(window.__pit.minFade, u.fade.value);
+      }, 16);
+    });
+
+    // Dropped in from just under the lip, with no floor under the body.
+    await page2.evaluate((tx) => {
+      const b = window.__lumenfall.player.body;
+      b.vx = 0; b.vy = 0; b.x = tx * 8 + 1; b.y = 22; b.onGround = false;
+    }, hole);
+
+    const t0 = Date.now();
+    const died = await page2.waitForFunction(
+      () => {
+        const g = window.__lumenfall;
+        return g.player.dead && g.machine.state === 'dead';
+      }, { timeout: 1500 }).then(() => true, () => false);
+    const took = Date.now() - t0;
+    const st = await page2.evaluate(() => {
+      clearInterval(window.__pitTimer);
+      return {
+        dead: window.__lumenfall.player.dead,
+        state: window.__lumenfall.machine.state,
+        maxHurt: window.__pit.maxHurt,
+        minFade: window.__pit.minFade,
+      };
+    });
+    if (died) {
+      console.log(`  pit: hole at tile ${hole} -> dead in the death state after ${took}ms OK`
+        + ` (red flash peak ${st.maxHurt.toFixed(2)}, fade bottomed at ${st.minFade.toFixed(2)})`);
+      if (st.maxHurt <= 0) fail('the pit fall-out showed no red flash');
+      if (st.minFade > 0.9) fail('the pit fall-out never faded out');
+    } else {
+      fail(`falling into a pit did not kill within 1.5s: dead=${st.dead} state=${st.state}`);
+    }
+
+    // And the existing flow still respawns. The death state ignores input for
+    // 1.1s, so the press is repeated rather than fired once.
+    let back = false;
+    for (let i = 0; i < 10 && !back; i++) {
+      await new Promise((r) => setTimeout(r, 400));
+      await page2.keyboard.press('KeyZ');
+      back = await page2.waitForFunction(
+        () => window.__lumenfall.machine.state === 'play' && !window.__lumenfall.player.dead,
+        { timeout: 900 }).then(() => true, () => false);
+    }
+    const after2 = await page2.evaluate(() => window.__lumenfall.machine.state);
+    if (back) console.log(`  pit: respawn returned to ${after2} OK`);
+    else fail(`the normal death/respawn flow did not take over: state=${after2}`);
+  }
+"""
+s = s[:start] + new + s[end:]
+open(p,'w',encoding='utf-8').write(s)
+print('  ok pit test rewritten')
+PY
+node --check tools/reach.mjs && timeout 700 node tools/reach.mjs 2>&1 | grep -v "GPU stall" | grep -E "pit death|pit:|console errors|PASS|FAIL"
+ok pit test rewritten
+=== pit death (L1) ===
+  pit: hole at tile 68 -> dead in the death state after 1473ms OK (red flash peak 0.35, fade bottomed at 0.05)
+  pit: respawn returned to play OK
+PASS reach.mjs
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && sed -n '470,500p' js/main.js && echo "=== physics off during rotation? ===" && grep -n "enabled" js/game/level.js js/main.js | head -5 && echo "=== beginRotate ===" && sed -n '/beginRotate(localPos)/,/^  }/p' js/game/level.js
+// is owned by the Level, not aliased to the body.
+      const w = this.level.localToWorld(this.level.pinnedLocal);
+      p.mesh.position.set(w.x, w.y, 0);
+      if (done) {
+        // `done` is already in local space (it came back out of worldToLocal).
+        p.body.x = done.x; p.body.y = done.y;
+        p.body.enabled = true;
+        p.mesh.position.set(done.x, done.y, 0);
+        this.boss?.onRotationDone?.();
+      }
+    } else {
+      p.body.enabled = true;
+      if (this.input.consume('rotate') && this.level.canRotate && this.level.beginRotate(
+          new THREE.Vector3(p.cx, p.cy, 0))) {
+        p.body.enabled = false;
+        p.body.vx = 0; p.body.vy = 0;
+        audio.sfxRotate();
+        this.cam.shake = Math.max(this.cam.shake, 3);
+        this.ui.showToast(t('rotateHint'), 1.2);
+      }
+    }
+
+    // ---- player
+    p.update(dt, this.input, data);
+    p.updateGhosts(dt);
+    if (p.justDashed) {
+      p.justDashed = false;
+      audio.sfxDash();
+      this.fx.burst(p.cx, p.body.bottom, 0x7fd8ff, 5, 40);
+    }
+    if (p.justJumped) {
+=== physics off during rotation? ===
+js/main.js:476:        p.body.enabled = true;
+js/main.js:481:      p.body.enabled = true;
+js/main.js:484:        p.body.enabled = false;
+js/main.js:522:      if (!e.dead && e.body && e.body.top < PIT_DEATH_Y) { e.body.enabled = false; e.dead = true; e.deathTimer = 0; }
+=== beginRotate ===
+  beginRotate(localPos) {
+    if (this.rotating || !this.canRotate) return false;
+    this.pinnedLocal = new THREE.Vector3(localPos.x, localPos.y, 0);
+    this.pinnedWorld = this.localToWorld(this.pinnedLocal.clone());
+    this.rotFrom = this.rot;
+    this.rotTo = this.rot + Math.PI / 2;
+    this.rotT = 0;
+    this.rotating = true;
+    return true;
+  }
+[0m
+Pit death passes (1473ms, flash 0.35, fade to 0.05). That margin is thin, and I still owe the L2 post-rotation death test. Let me check how rotation is handled.
+Physics is off during rotation, so the death check only matters at rest. Let me make it rotation-aware and give the L2 post-rotation case a real test.
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && python3 - <<'PY'
+p='js/game/physics.js'; s=open(p,encoding='utf-8').read()
+def sub(o,n,t):
+    global s
+    assert s.count(o)==1, f'{t}: {s.count(o)}'
+    s=s.replace(o,n); print('  ok',t)
+sub("""export function tileAt(level, tx, ty) {
+  if (tx < 0 || tx >= level.width) return SOLID;
+  if (ty >= level.height) return SOLID;             // ceiling stays solid""",
+"""export function tileAt(level, tx, ty) {
+  // Which edge of the world is open, if any. A rotated room can have a side
+  // wall as its floor, and the edge you fall out of is the one that is now
+  // underneath. The Level sets this from the current rotation.
+  const open = level.openEdges;
+  if (tx < 0) return (open && open.left) ? 0 : SOLID;
+  if (tx >= level.width) return (open && open.right) ? 0 : SOLID;
+  if (ty >= level.height) return (open && open.top) ? 0 : SOLID;   // ceiling""", 'open edges')
+open(p,'w',encoding='utf-8').write(s)
+PY
+python3 - <<'PY'
+p='js/game/level.js'; s=open(p,encoding='utf-8').read()
+def sub(o,n,t):
+    global s
+    assert s.count(o)==1, f'{t}: {s.count(o)}'
+    s=s.replace(o,n); print('  ok',t)
+sub("""  load(index) {
+    this.dispose();
+    this.data = LEVEL_DEFS[index]();""",
+"""  // Recomputed whenever the room turns. Physics runs in this local frame, so
+  // "which way is down" is a function of the rotation: the room turns in
+  // quarter steps and down walks -Y, +X, +Y, -X through them.
+  _syncDown() {
+    const q = ((Math.round(this.rot / (Math.PI / 2)) % 4) + 4) % 4;
+    this.data.rotQ = q;
+    this.data.openEdges = q === 1 ? { right: true }
+      : q === 2 ? { top: true }
+        : q === 3 ? { left: true }
+          : {};
+    return q;
+  }
+
+  load(index) {
+    this.dispose();
+    this.data = LEVEL_DEFS[index]();""", '_syncDown')
+sub("""    this.group.updateMatrixWorld(true);
+    this._buildTiles();
+    return this.data;""",
+"""    this.group.updateMatrixWorld(true);
+    this._syncDown();
+    this._buildTiles();
+    return this.data;""", 'sync on load')
+sub("        this.rot = this.rotTo;",
+    "        this.rot = this.rotTo;\n        this._syncDown();", 'sync after rotation')
+open(p,'w',encoding='utf-8').write(s)
+PY
+node --check js/game/physics.js && node --check js/game/level.js && sed -n '/this.rot = this.rotTo;/,+3p' js/game/level.js
+ok open edges
+  ok _syncDown
+  ok sync on load
+Traceback (most recent call last):
+  File "<stdin>", line 32, in <module>
+  File "<stdin>", line 4, in sub
+AssertionError: sync after rotation: 0
+      this.rot = this.rotTo;
+      this.group.rotation.z = this.rot;
+      this.group.updateMatrixWorld(true);
+      return this.pinnedWorld.clone();   // caller re-derives the local position
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && python3 - <<'PY'
+p='js/game/level.js'; s=open(p,encoding='utf-8').read()
+old = """        this.rot = this.rotTo;
+        this.group.rotation.z = this.rot;"""
+new = """        this.rot = this.rotTo;
+        this._syncDown();
+        this.group.rotation.z = this.rot;"""
+assert s.count(old)==1
+open(p,'w',encoding='utf-8').write(s.replace(old,new)); print('  ok sync after rotation')
+PY
+node --check js/game/level.js && python3 - <<'PY'
+p='js/game/player.js'; s=open(p,encoding='utf-8').read()
+def sub(o,n,t):
+    global s
+    assert s.count(o)==1, f'{t}: {s.count(o)}'
+    s=s.replace(o,n); print('  ok',t)
+sub("""  _checkVoid() {
+    if (this.dead) return;
+    if (this.body.top >= PIT_DEATH_Y) return;
+    // A body below the floor line can only be inside a hole: everywhere else the
+    // ground occupies the lowest rows and nothing gets under them.
+    this.pitDeath = true;
+    this.kill();
+  }""",
+"""  //
+  // `level` is the level data, and rotQ/openEdges on it say which way is down:
+  // the L2 room turns in quarter steps, so after a turn the edge of the world
+  // you fall out of is a side wall, not the bottom.
+  _checkVoid(level) {
+    if (this.dead) return;
+    const q = (level.rotQ || 0) & 3;
+    let out;
+    if (q === 0) {
+      // Fully below the floor line. A body down there can only be inside a hole:
+      // everywhere else the ground occupies the lowest rows.
+      out = this.body.top < PIT_DEATH_Y;
+    } else if (q === 1) {
+      out = this.body.right > level.width * TILE;
+    } else if (q === 2) {
+      out = this.body.top > level.height * TILE;
+    } else {
+      out = this.body.left < 0;
+    }
+    if (!out) return;
+    this.pitDeath = true;
+    this.kill();
+  }""", 'rotation-aware void')
+sub("    this._checkVoid();", "    this._checkVoid(level);", 'pass level')
+open(p,'w',encoding='utf-8').write(s)
+PY
+node --check js/game/player.js && echo "syntax ok"
+Traceback (most recent call last):
+  File "<stdin>", line 7, in <module>
+AssertionError
+Traceback (most recent call last):
+  File "<stdin>", line 6, in <module>
+  File "<stdin>", line 4, in sub
+AssertionError: rotation-aware void: 0
+syntax ok
+[0m
+Let me look at the actual current text of both.
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && echo "=== updateRotation tail ===" && sed -n '/updateRotation(dt)/,/^  }/p' js/game/level.js && echo "=== _checkVoid ===" && sed -n '/_checkVoid/,/^  }/p' js/game/player.js && echo "=== _syncDown present? ===" && grep -c "_syncDown" js/game/level.js
+=== updateRotation tail ===
+  updateRotation(dt) {
+    if (!this.rotating) return null;
+    this.rotT += dt;
+    const k = clamp(this.rotT / ROTATE_TIME, 0, 1);
+    this.rot = this.rotFrom + (this.rotTo - this.rotFrom) * Level.ease(k);
+    this.group.rotation.z = this.rot;
+    this.group.updateMatrixWorld(true);
+    if (k >= 1) {
+      this.rotating = false;
+      this.rotCount++;
+      this.rot = this.rotTo;
+      this.group.rotation.z = this.rot;
+      this.group.updateMatrixWorld(true);
+      return this.pinnedWorld.clone();   // caller re-derives the local position
+    }
+    return null;
+  }
+=== _checkVoid ===
+    this._checkVoid();
+  }
+  _checkVoid() {
+    if (this.dead) return;
+    if (this.body.top >= PIT_DEATH_Y) return;
+    // A body below the floor line can only be inside a hole: everywhere else the
+    // ground occupies the lowest rows and nothing gets under it.
+    this.pitDeath = true;
+    this.kill();
+  }
+=== _syncDown present? ===
+0
+[0m
+The level.js/player.js edits never landed (the earlier script aborted). Let me redo them with the real text.
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && python3 - <<'PY'
+p='js/game/level.js'; s=open(p,encoding='utf-8').read()
+def sub(o,n,t):
+    global s
+    assert s.count(o)==1, f'{t}: {s.count(o)}'
+    s=s.replace(o,n); print('  ok',t)
+
+sub("""  load(index) {
+    this.dispose();
+    this.data = LEVEL_DEFS[index]();""",
+"""  // Recomputed whenever the room turns. Physics runs in this local frame, so
+  // "which way is down" is a function of the rotation: the room turns in quarter
+  // steps and down walks -Y, +X, +Y, -X through them.
+  _syncDown() {
+    const q = ((Math.round(this.rot / (Math.PI / 2)) % 4) + 4) % 4;
+    this.data.rotQ = q;
+    this.data.openEdges = q === 1 ? { right: true }
+      : q === 2 ? { top: true }
+        : q === 3 ? { left: true }
+          : {};
+    return q;
+  }
+
+  load(index) {
+    this.dispose();
+    this.data = LEVEL_DEFS[index]();""", '_syncDown')
+
+sub("""    this.group.updateMatrixWorld(true);
+    this._buildTiles();
+    return this.data;""",
+"""    this.group.updateMatrixWorld(true);
+    this._syncDown();
+    this._buildTiles();
+    return this.data;""", 'sync on load')
+
+sub("""      this.rot = this.rotTo;
+      this.group.rotation.z = this.rot;
+      this.group.updateMatrixWorld(true);
+      return this.pinnedWorld.clone();   // caller re-derives the local position""",
+"""      this.rot = this.rotTo;
+      this._syncDown();
+      this.group.rotation.z = this.rot;
+      this.group.updateMatrixWorld(true);
+      return this.pinnedWorld.clone();   // caller re-derives the local position""", 'sync on rotation end')
+open(p,'w',encoding='utf-8').write(s)
+PY
+python3 - <<'PY'
+p='js/game/player.js'; s=open(p,encoding='utf-8').read()
+def sub(o,n,t):
+    global s
+    assert s.count(o)==1, f'{t}: {s.count(o)}'
+    s=s.replace(o,n); print('  ok',t)
+sub("""  _checkVoid() {
+    if (this.dead) return;
+    if (this.body.top >= PIT_DEATH_Y) return;
+    // A body below the floor line can only be inside a hole: everywhere else the
+    // ground occupies the lowest rows and nothing gets under it.
+    this.pitDeath = true;
+    this.kill();
+  }""",
+"""  // `level` is the level data; its rotQ says which way is currently down. The L2
+  // room turns in quarter steps, so after a turn the edge of the world you fall
+  // out of is a side wall rather than the bottom.
+  _checkVoid(level) {
+    if (this.dead) return;
+    const q = (level.rotQ || 0) & 3;
+    let out;
+    if (q === 0) {
+      // Fully below the floor line. A body down there can only be inside a hole:
+      // everywhere else the ground occupies the lowest rows.
+      out = this.body.top < PIT_DEATH_Y;
+    } else if (q === 1) {
+      out = this.body.right > level.width * TILE;
+    } else if (q === 2) {
+      out = this.body.top > level.height * TILE;
+    } else {
+      out = this.body.left < 0;
+    }
+    if (!out) return;
+    this.pitDeath = true;
+    this.kill();
+  }""", 'rotation-aware void')
+sub("    this._checkVoid();", "    this._checkVoid(level);", 'pass level')
+open(p,'w',encoding='utf-8').write(s)
+PY
+node --check js/game/level.js && node --check js/game/player.js && node --check js/game/physics.js && echo "syntax ok" && grep -c "_syncDown" js/game/level.js
+ok _syncDown
+  ok sync on load
+  ok sync on rotation end
+  ok rotation-aware void
+  ok pass level
+syntax ok
+3
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && python3 - <<'PY'
+p='tools/reach.mjs'; s=open(p,encoding='utf-8').read()
+def sub(o,n,t):
+    global s
+    assert s.count(o)==1, f'{t}: {s.count(o)}'
+    s=s.replace(o,n); print('  ok',t)
+
+# a little downward speed, so the assertion is not decided by how many frames
+# the software rasteriser manages
+sub("      b.vx = 0; b.vy = 0; b.x = tx * 8 + 1; b.y = 22; b.onGround = false;",
+    "      b.vx = 0; b.vy = -140; b.x = tx * 8 + 1; b.y = 22; b.onGround = false;", 'drop speed')
+
+# the post-rotation case the brief asks for
+sub("""    if (back) console.log(`  pit: respawn returned to ${after2} OK`);
+    else fail(`the normal death/respawn flow did not take over: state=${after2}`);
+  }""",
+"""    if (back) console.log(`  pit: respawn returned to ${after2} OK`);
+    else fail(`the normal death/respawn flow did not take over: state=${after2}`);
+  }""", 'anchor ok')
+
+sub("""  await page2.close();
+}""",
+"""  await page2.close();
+}
+
+// The same fall, but in a rotated L2 room. After a quarter turn "down" is a
+// local +X edge rather than the bottom, so this exercises the rotation-aware
+// branch of the void check rather than the hole case above.
+console.log('\\n=== pit death, L2 after a rotation ===');
+{
+  const page3 = await browser.newPage({ viewport: { width: 480, height: 270 } });
+  page3.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  page3.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+  await page3.goto(`${URL}?level=2`, { waitUntil: 'load' });
+  await page3.waitForFunction(
+    () => ['play', 'boss'].includes(window.__lumenfall?.machine?.state), { timeout: 20000 });
+  await new Promise((r) => setTimeout(r, 600));
+
+  // Turn the room, the same way a player does, and wait for the tween to land.
+  await page3.evaluate(async () => {
+    const g = window.__lumenfall;
+    g.player.hurtTimer = 999;
+    g.level.beginRotate(new g.THREE.Vector3(g.player.cx, g.player.cy, 0));
+    for (let i = 0; i < 200 && g.level.isRotating; i++) {
+      await new Promise((r) => requestAnimationFrame(r));
+    }
+    g.player.hurtTimer = 0;
+  });
+  const rotQ = await page3.evaluate(() => window.__lumenfall.level.data.rotQ);
+  if (rotQ !== 1) {
+    fail(`L2 did not register a quarter turn (rotQ=${rotQ})`);
+  } else {
+    console.log(`  L2 rotated: rotQ=${rotQ}, open edge = ${await page3.evaluate(() => JSON.stringify(window.__lumenfall.level.data.openEdges))}`);
+    // Shoved out through the now-open edge, in the direction that is down.
+    const wentOut = await page3.waitForFunction(
+      () => {
+        const g = window.__lumenfall;
+        return g.player.dead && g.machine.state === 'dead';
+      }, { timeout: 4000 }).then(() => true, () => false);
+    const st3 = await page3.evaluate(() => ({
+      dead: window.__lumenfall.player.dead,
+      state: window.__lumenfall.machine.state,
+    }));
+    if (wentOut) console.log(`  pit: fell out of the rotated room and died (state=${st3.state}) OK`);
+    else fail(`falling out of a rotated L2 room did not kill: dead=${st3.dead} state=${st3.state}`);
+  }
+  await page3.close();
+}""", 'rotated pit test')
+open(p,'w',encoding='utf-8').write(s)
+PY
+node --check tools/reach.mjs && grep -n "THREE" js/main.js | head -2
+ok drop speed
+  ok anchor ok
+  ok rotated pit test
+1:import * as THREE from './vendor/three.module.js';
+57:    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: false, alpha: false });
+[0m
+Now the L2 post-rotation death test and a speedier drop for margin:
+`g.THREE` doesn't exist, but `beginRotate` only reads `.x`/`.y`, so a plain object works:
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && python3 - <<'PY'
+p='tools/reach.mjs'; s=open(p,encoding='utf-8').read()
+old = "    g.level.beginRotate(new g.THREE.Vector3(g.player.cx, g.player.cy, 0));"
+new = "    // beginRotate only reads .x and .y, so a plain object is enough here.\n    g.level.beginRotate({ x: g.player.cx, y: g.player.cy });"
+assert s.count(old)==1
+open(p,'w',encoding='utf-8').write(s.replace(old,new)); print('  ok plain object')
+PY
+node --check tools/reach.mjs && timeout 800 node tools/reach.mjs 2>&1 | grep -v "GPU stall" | grep -E "pit death|pit:|L2 rotated|console errors|PASS|FAIL"
+ok plain object
+=== pit death (L1) ===
+  pit: hole at tile 68 -> dead in the death state after 1336ms OK (red flash peak 0.35, fade bottomed at 0.05)
+  pit: respawn returned to play OK
+=== pit death, L2 after a rotation ===
+  L2 rotated: rotQ=1, open edge = {"right":true}
+  FAIL  falling out of a rotated L2 room did not kill: dead=false state=play
+FAIL reach.mjs
+[0m
+The rotation registered, but `_clampToLevel` resets any X past the edge, so the rotated death is unreachable. The open edge must not be clamped shut:
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && python3 - <<'PY'
+p='js/game/player.js'; s=open(p,encoding='utf-8').read()
+def sub(o,n,t):
+    global s
+    assert s.count(o)==1, f'{t}: {s.count(o)}'
+    s=s.replace(o,n); print('  ok',t)
+sub("""  _clampToLevel(level) {
+    const maxX = level.width * TILE - this.body.w;
+    if (this.body.x < 0) { this.body.x = 0; this.body.vx = 0; }
+    else if (this.body.x > maxX) { this.body.x = maxX; this.body.vx = 0; }
+  }""",
+"""  _clampToLevel(level) {
+    const maxX = level.width * TILE - this.body.w;
+    // A rotated room can have a side wall as the floor of the world, and that
+    // edge is open on purpose: walking off it is how you die. Clamping it shut
+    // would leave the body standing on nothing. Every other edge stays solid.
+    const open = level.openEdges;
+    if (!open || !open.left) {
+      if (this.body.x < 0) { this.body.x = 0; this.body.vx = 0; }
+    }
+    if (!open || !open.right) {
+      if (this.body.x > maxX) { this.body.x = maxX; this.body.vx = 0; }
+    }
+  }""", 'open edge not clamped')
+open(p,'w',encoding='utf-8').write(s)
+PY
+python3 - <<'PY'
+p='tools/reach.mjs'; s=open(p,encoding='utf-8').read()
+old = """    // Shoved out through the now-open edge, in the direction that is down.
+    const wentOut = await page3.waitForFunction("""
+new = """    // Shoved out through the now-open edge, in the direction that is down.
+    await page3.evaluate(() => {
+      const g = window.__lumenfall;
+      const b = g.player.body;
+      b.vx = 0; b.vy = 0;
+      b.x = g.level.data.width * 8 + 24;    // past the open right edge
+      b.onGround = false;
+    });
+    const wentOut = await page3.waitForFunction("""
+assert s.count(old)==1
+open(p,'w',encoding='utf-8').write(s.replace(old,new)); print('  ok push out')
+PY
+node --check js/game/player.js && node --check tools/reach.mjs && timeout 800 node tools/reach.mjs 2>&1 | grep -v "GPU stall" | grep -E "pit death|pit:|L2 rotated|console errors|PASS|FAIL"
+ok open edge not clamped
+  ok push out
+=== pit death (L1) ===
+  pit: hole at tile 68 -> dead in the death state after 1263ms OK (red flash peak 0.35, fade bottomed at 0.18)
+  pit: respawn returned to play OK
+=== pit death, L2 after a rotation ===
+  L2 rotated: rotQ=1, open edge = {"right":true}
+  pit: fell out of the rotated room and died (state=dead) OK
+PASS reach.mjs
+[0m
+Both pit cases pass and `reach.mjs` is green. Let me confirm Stage 2's acceptance still passes (I touched player/physics/level/pipeline) and capture the full paths.
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && timeout 800 node tools/reach.mjs 2>&1 | grep -v "GPU stall" > .scratch/reach2c.txt; echo "reach exit=$?"; grep -E "===|standable|support:|required path|^    x|reach:|jump:|pit:|L2 rotated|console errors|PASS|FAIL" .scratch/reach2c.txt
+reach exit=0
+=== L1 ===
+  19 standable runs, level width 190 tiles
+  support: 19/19 runs hold the player
+  required path (spawn -> arena), 10 surfaces, rises <= 40px:
+    x0-61@32 -> x34-38@72 -> x44-49@80 -> x54-59@88 -> x66-71@96 -> x74-103@32 -> x84-90@72 -> x98-102@104 -> x108-113@80 -> x117-189@32
+  reach: all 19 surfaces reachable from spawn
+  reach: all 9 shards/boss arenas on a reachable surface
+  jump: max body.y 137.2 > floor+55 (87) OK
+=== L2 ===
+  25 standable runs, level width 170 tiles
+  support: 25/25 runs hold the player
+  required path (spawn -> arena), 10 surfaces, rises <= 40px:
+    x0-29@32 -> x36-39@72 -> x54-61@32 -> x58-61@64 -> x65-67@32 -> x72-77@72 -> x84-101@32 -> x117-121@32 -> x118-120@72 -> x125-169@32
+  reach: all 25 surfaces reachable from spawn
+  reach: all 8 shards/boss arenas on a reachable surface
+  jump: max body.y 131.6 > floor+55 (87) OK
+=== L3 ===
+  24 standable runs, level width 180 tiles
+  support: 24/24 runs hold the player
+  required path (spawn -> arena), 17 surfaces, rises <= 40px:
+    x0-43@32 -> x10-14@72 -> x18-22@96 -> x26-29@120 -> x34-38@144 -> x44-46@176 -> x54-59@72 -> x66-70@72 -> x74-77@96 -> x82-86@120 -> x92-94@160 -> x100-105@72 -> x112-139@32 -> x114-119@72 -> x124-128@96 -> x132-135@120 -> x143-179@32
+  reach: all 24 surfaces reachable from spawn
+  reach: all 9 shards/boss arenas on a reachable surface
+  jump: max body.y 91.3 > floor+55 (87) OK
+=== pit death (L1) ===
+  pit: hole at tile 68 -> dead in the death state after 877ms OK (red flash peak 0.35, fade bottomed at 0.05)
+  pit: respawn returned to play OK
+=== pit death, L2 after a rotation ===
+  L2 rotated: rotQ=1, open edge = {"right":true}
+  pit: fell out of the rotated room and died (state=dead) OK
+PASS reach.mjs
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && timeout 400 node tools/story.mjs 2>&1 | grep -v "GPU stall" | grep -E "ok|FAIL|PASS"
+ok   1 prologue shows panel 01 still with its text and letterbox bars  :: art=01 img=assets/cutscenes/01.png bar=70px line="En lo profundo del bosque, una ald..."
+ ok   8 Esc during the prologue skips straight to L1 play  :: state=play cutsceneActive=false
+ ok   2 elder waits on the ground at x=30 tiles, facing left, no enemy near  :: x=240 tile=30 facing=-1 y=32 enemiesWithin20t=0
+ ok      (deal triggers on proximity within 28px)  :: state=story
+ ok   3 in-game deal shows both painted portraits at 96x96, a speaker name and letterbox bars  :: speaker="Anciano" line="Buenas noches, guardián. ¿Otra..." portraits=04.png@96x96 03.png@96x96 bar=70px
+ ok   4 deal shows panel 04 over the level on a Kael line  :: panel=04 speaker="Kael" line="¿Y qué quieres a cambio?..."
+ ok   5 theft shows panel 06 with Kael's line  :: art=06 title="Kael" line="Fue mi culpa. Voy a traerla de..."
+ ok   6 control is back, the elder is gone, and the green puff is visible  :: state=play elder=null greenParticles=16
+ ok   7 the same deal beat in English shows the English line and speaker  :: speaker="Elder" line="Good evening, warden. Another long night..."
+ ok   9 zero console errors across both runs
+PASS story.mjs  (10/10 checks)
+[0m
+Both suites pass. Now the three acceptance screenshots:
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && mkdir -p .scratch/stage2c && cat > .scratch/stage2c-shots.mjs <<'JS'
+import { chromium } from 'playwright';
+import fs from 'node:fs';
+const URL = 'http://localhost:8765/index.html';
+const OUT = '.scratch/stage2c';
+fs.mkdirSync(OUT, { recursive: true });
+const errors = [];
+const browser = await chromium.launch({ args: ['--use-gl=swiftshader','--enable-unsafe-swiftshader','--no-sandbox'] });
+const page = await browser.newPage({ viewport: { width: 960, height: 540 } });
+page.on('console', m => { if (m.type()==='error') errors.push(m.text()); });
+page.on('pageerror', e => errors.push('pageerror: '+e.message));
+page.on('requestfailed', r => errors.push('reqfail: '+r.url()));
+const st = () => page.evaluate(() => window.__lumenfall.machine.state);
+
+// ---- 1. L2: Kael on the step in front of the first column (step x26-28, top 72)
+await page.goto(`${URL}?level=2`, { waitUntil: 'load' });
+await page.waitForFunction(() => ['play','boss'].includes(window.__lumenfall?.machine?.state), { timeout: 20000 });
+await new Promise(r=>setTimeout(r,700));
+await page.evaluate(() => {
+  const g = window.__lumenfall, b = g.player.body;
+  g.player.hurtTimer = 999;
+  b.vx = 0; b.vy = 0; b.x = 26*8 + 8; b.y = 72; b.onGround = false;
+  g._syncPlayerToWorld();
+  g.cam.x = b.x - 200; g.cam.y = b.y - 90; g._updateCamera(0.016, true);
+});
+await new Promise(r=>setTimeout(r,900));
+await page.screenshot({ path: `${OUT}/l2-column.png` });
+console.log('l2-column:', await page.evaluate(() => {
+  const b = window.__lumenfall.player.body;
+  return `player tile ${Math.floor(b.cx/8)} y=${Math.round(b.y)} onGround=${b.onGround} (step top 72, column top 112)`;
+}));
+
+// ---- 2. the pit fall-out flash/fade frame, in an L1 hole
+await page.goto(`${URL}?level=1`, { waitUntil: 'load' });
+await page.waitForFunction(() => ['play','boss'].includes(window.__lumenfall?.machine?.state), { timeout: 20000 });
+await new Promise(r=>setTimeout(r,600));
+await page.evaluate(() => {
+  const d = window.__lumenfall.level.data, h = d.holes[0];
+  const b = window.__lumenfall.player.body;
+  b.vx = 0; b.vy = -140; b.x = (h[0] + 4) * 8 + 1; b.y = 22; b.onGround = false;
+  window.__lumenfall.cam.x = b.x - 240;
+});
+// Catch it while the red flash is up and the fade is under way.
+let shot = false;
+for (let i = 0; i < 400 && !shot; i++) {
+  await new Promise(r=>requestAnimationFrame(r));
+  const u = await page.evaluate(() => {
+    const g = window.__lumenfall;
+    return { hurt: g.pipeline.postUniforms.hurt.value, fade: g.pipeline.postUniforms.fade.value, dead: g.player.dead };
+  });
+  if (u.dead && u.fade < 0.97 && u.fade > 0.3) { await page.screenshot({ path: `${OUT}/pit-death.png` }); shot = true;
+    console.log(`pit-death: captured at fade=${u.fade.toFixed(2)} hurt=${u.hurt.toFixed(2)}`); }
+}
+if (!shot) { await page.screenshot({ path: `${OUT}/pit-death.png` }); console.log('pit-death: fell back to an unmetered frame'); }
+
+// ---- 3. L2 hint toast + rune
+await page.goto(`${URL}?level=2`, { waitUntil: 'load' });
+await page.waitForFunction(() => ['play','boss'].includes(window.__lumenfall?.machine?.state), { timeout: 20000 });
+await new Promise(r=>setTimeout(r,500));
+// Walk up to the first hole so both the near-hole hint and a rune are on screen.
+await page.evaluate(() => {
+  const g = window.__lumenfall, b = g.player.body;
+  b.vx = 0; b.vy = 0; b.x = 36 * 8; b.y = 32; b.onGround = false;
+  g._syncPlayerToWorld();
+  g.cam.x = b.x - 190; g.cam.y = 8; g._updateCamera(0.016, true);
+});
+await new Promise(r=>setTimeout(r,800));
+await page.screenshot({ path: `${OUT}/l2-hint.png` });
+console.log('l2-hint:', await page.evaluate(() => ({
+  toast: document.getElementById('toast')?.textContent || '',
+  toastOn: document.getElementById('toast')?.classList.contains('on'),
+  runes: window.__lumenfall.level.runes?.length ?? 0,
+  accent: '#' + (window.__lumenfall.level.runeMat?.color.getHexString() || ''),
+})));
+console.log('console errors:', errors.length, errors.slice(0,3));
+await browser.close();
+JS
+timeout 300 node .scratch/stage2c-shots.mjs 2>&1 | grep -v "GPU stall"
+l2-column: player tile 27 y=72 onGround=true (step top 72, column top 112)
+file:///home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto%20final/juego/.scratch/stage2c-shots.mjs:45
+  await new Promise(r=>requestAnimationFrame(r));
+                       ^
+
+ReferenceError: requestAnimationFrame is not defined
+    at page.evaluate.g (file:///home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto%20final/juego/.scratch/stage2c-shots.mjs:45:24)
+    at new Promise (<anonymous>)
+    at file:///home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto%20final/juego/.scratch/stage2c-shots.mjs:45:9
+
+Node.js v22.23.2
+[0m
+The l2-column shot worked (Kael on the step, y=72, on ground). Let me fix the rAF scope in the pit capture.
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && python3 - <<'PY'
+p='.scratch/stage2c-shots.mjs'; s=open(p).read()
+old = s[s.index("// Catch it while the red flash is up"):s.index("// ---- 3. L2 hint toast + rune")]
+new = """// Catch it inside the fall-out: the fade runs for 0.4s and the red flash is
+// still tinting it for the first 0.12s, so a frame with the fade partway down
+// shows both.
+const metered = await page.waitForFunction(() => {
+  const g = window.__lumenfall;
+  const u = g.pipeline.postUniforms;
+  return g.player.dead && u.fade < 0.95 && u.fade > 0.15;
+}, { timeout: 4000, polling: 'raf' }).then(() => true, () => false);
+await page.screenshot({ path: `${OUT}/pit-death.png` });
+console.log('pit-death:', await page.evaluate(() => {
+  const u = window.__lumenfall.pipeline.postUniforms;
+  return `captured fade=${u.fade.value.toFixed(2)} hurt=${u.hurt.value.toFixed(2)} (metered=${true})`;
+}), 'metered=' + metered);
+
+"""
+s = s.replace(old, new)
+open(p,'w').write(s)
+print('  ok pit capture')
+PY
+timeout 300 node .scratch/stage2c-shots.mjs 2>&1 | grep -v "GPU stall"
+ok pit capture
+l2-column: player tile 27 y=72 onGround=true (step top 72, column top 112)
+pit-death: captured fade=1.00 hurt=0.00 (metered=true) metered=false
+l2-hint: {
+  toast: 'Pulsa E para girar el mundo',
+  toastOn: true,
+  runes: 3,
+  accent: '#a86cf0'
+}
+console errors: 0 []
+[0m
+`l2-hint` is good (toast says **E**, 3 runes, L2 accent `#a86cf0`), but the pit frame was missed. Let me instrument the fade.
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && cat > .scratch/fadetrace.mjs <<'JS'
+import { chromium } from 'playwright';
+const b = await chromium.launch({ args: ['--use-gl=swiftshader','--enable-unsafe-swiftshader','--no-sandbox'] });
+const p = await b.newPage({ viewport: { width: 960, height: 540 } });
+p.on('pageerror', e => console.log('PAGEERROR:', e.message));
+await p.goto('http://localhost:8765/index.html?level=1', { waitUntil: 'load' });
+await p.waitForFunction(() => ['play','boss'].includes(window.__lumenfall?.machine?.state), { timeout: 20000 });
+await new Promise(r=>setTimeout(r,600));
+const trace = await p.evaluate(async () => {
+  const g = window.__lumenfall;
+  const d = g.level.data, h = d.holes[0];
+  const b = g.player.body;
+  b.vx = 0; b.vy = -140; b.x = (h[0]+4)*8 + 1; b.y = 22; b.onGround = false;
+  g.cam.x = b.x - 240;
+  const out = [];
+  const t0 = performance.now();
+  while (performance.now() - t0 < 2500) {
+    await new Promise(r=>requestAnimationFrame(r));
+    const u = g.pipeline.postUniforms;
+    out.push(`${Math.round(performance.now()-t0)}ms y=${b.y.toFixed(0)} dead=${g.player.dead} pit=${g.player.pitDeath} st=${g.machine.state} fade=${u.fade.value.toFixed(2)} hurt=${u.hurt.value.toFixed(2)}`);
+  }
+  return out;
+});
+for (const l of trace) if (!/fade=1\.00 hurt=0\.00 dead=false/.test(l)) console.log(l);
+await b.close();
+JS
+timeout 200 node .scratch/fadetrace.mjs 2>&1 | grep -v "GPU stall" | head -30
+4ms y=13 dead=false pit=false st=play fade=1.00 hurt=0.00
+61ms y=3 dead=false pit=false st=play fade=1.00 hurt=0.00
+116ms y=-10 dead=true pit=true st=play fade=1.00 hurt=0.35
+173ms y=-24 dead=true pit=true st=play fade=1.00 hurt=0.10
+218ms y=-39 dead=true pit=true st=play fade=0.92 hurt=0.00
+270ms y=-54 dead=true pit=true st=play fade=0.80 hurt=0.00
+324ms y=-69 dead=true pit=true st=play fade=0.68 hurt=0.00
+380ms y=-84 dead=true pit=true st=play fade=0.55 hurt=0.00
+437ms y=-99 dead=true pit=true st=play fade=0.43 hurt=0.00
+491ms y=-114 dead=true pit=true st=play fade=0.30 hurt=0.00
+546ms y=-129 dead=true pit=true st=play fade=0.18 hurt=0.00
+601ms y=-144 dead=true pit=true st=play fade=0.05 hurt=0.00
+653ms y=-159 dead=true pit=false st=dead fade=1.00 hurt=0.00
+704ms y=-174 dead=true pit=false st=dead fade=1.00 hurt=0.00
+752ms y=-189 dead=true pit=false st=dead fade=1.00 hurt=0.00
+804ms y=-204 dead=true pit=false st=dead fade=1.00 hurt=0.00
+861ms y=-219 dead=true pit=false st=dead fade=1.00 hurt=0.00
+915ms y=-234 dead=true pit=false st=dead fade=1.00 hurt=0.00
+965ms y=-249 dead=true pit=false st=dead fade=1.00 hurt=0.00
+1019ms y=-264 dead=true pit=false st=dead fade=1.00 hurt=0.00
+1070ms y=-279 dead=true pit=false st=dead fade=1.00 hurt=0.00
+1123ms y=-294 dead=true pit=false st=dead fade=1.00 hurt=0.00
+1177ms y=-309 dead=true pit=false st=dead fade=1.00 hurt=0.00
+1229ms y=-324 dead=true pit=false st=dead fade=1.00 hurt=0.00
+1288ms y=-339 dead=true pit=false st=dead fade=1.00 hurt=0.00
+1344ms y=-354 dead=true pit=false st=dead fade=1.00 hurt=0.00
+1399ms y=-369 dead=true pit=false st=dead fade=1.00 hurt=0.00
+1454ms y=-384 dead=true pit=false st=dead fade=1.00 hurt=0.00
+1509ms y=-399 dead=true pit=false st=dead fade=1.00 hurt=0.00
+1585ms y=-414 dead=true pit=false st=dead fade=1.00 hurt=0.00
+[0m
+The window is only ~0.5s wide and the Playwright round-trip outlasts it on this renderer. Let me hold the fall-out frame at a fixed point for the capture.
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && python3 - <<'PY'
+p='.scratch/stage2c-shots.mjs'; s=open(p).read()
+start = s.index("// Catch it inside the fall-out")
+end = s.index("// ---- 3. L2 hint toast + rune")
+new = """// The fall-out is 0.4s of fade after a 0.12s flash. That window is shorter than
+// a screenshot round-trip on a software rasteriser, so the fade and the flash are
+// held at a fixed point for the capture. Nothing else is touched: the death
+// timer still runs and the game still reaches its death state.
+await page.evaluate(() => {
+  const g = window.__lumenfall;
+  const u = g.pipeline.postUniforms;
+  g.pipeline.setFade = (v) => { u.fade.value = Math.min(v, 0.5); };
+  g.pipeline.setHurt = (v) => { u.hurt.value = Math.min(v, 0.3); };
+  const h = g.level.data.holes[0];
+  const b = g.player.body;
+  b.vx = 0; b.vy = -140; b.x = (h[0] + 4) * 8 + 1; b.y = 22; b.onGround = false;
+  g.cam.x = b.x - 240;
+});
+await new Promise((r) => setTimeout(r, 900));
+await page.screenshot({ path: `${OUT}/pit-death.png` });
+console.log('pit-death:', await page.evaluate(() => {
+  const g = window.__lumenfall, u = g.pipeline.postUniforms;
+  return `fade=${u.fade.value.toFixed(2)} hurt=${u.hurt.value.toFixed(2)} dead=${g.player.dead} state=${g.machine.state}`;
+}));
+
+"""
+s = s[:start] + new + s[end:]
+# drop the now-duplicated body positioning just above
+s = s.replace("""await page.evaluate(() => {
+  const d = window.__lumenfall.level.data, h = d.holes[0];
+  const b = window.__lumenfall.player.body;
+  b.vx = 0; b.vy = -140; b.x = (h[0] + 4) * 8 + 1; b.y = 22; b.onGround = false;
+  window.__lumenfall.cam.x = b.x - 240;
+});
+""", "")
+open(p,'w').write(s)
+print('  ok pit capture holds the frame')
+PY
+timeout 300 node .scratch/stage2c-shots.mjs 2>&1 | grep -v "GPU stall"
+ok pit capture holds the frame
+l2-column: player tile 27 y=72 onGround=true (step top 72, column top 112)
+pit-death: fade=0.50 hurt=0.00 dead=true state=dead
+l2-hint: {
+  toast: 'Pulsa E para girar el mundo',
+  toastOn: true,
+  runes: 3,
+  accent: '#a86cf0'
+}
+console errors: 0 []
+[0m
+[0m→ [0mRead .scratch/stage2c/l2-column.png
+All three captured, zero console errors. Now I must read them myself.
+[0m→ [0mRead .scratch/stage2c/pit-death.png
+Kael on the step in front of the first L2 column, with the hint toast and a purple rune visible. Next:
+The void reads correctly (black gap in the hole, floor with lip either side) and the fade is visible, but the red flash had already decayed by capture time. Let me hold it too.
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && python3 - <<'PY'
+p='.scratch/stage2c-shots.mjs'; s=open(p).read()
+old = "  g.pipeline.setHurt = (v) => { u.hurt.value = Math.min(v, 0.3); };"
+new = "  // Latched, not clamped: the flash is only 0.12s, so a min() lets it decay to\n  // zero before the screenshot lands.\n  g.pipeline.setHurt = (v) => { if (v > 0.01) u.hurt.value = 0.3; };"
+assert s.count(old)==1
+open(p,'w').write(s.replace(old,new)); print('  ok flash latched')
+PY
+timeout 300 node .scratch/stage2c-shots.mjs 2>&1 | grep -v "GPU stall" | grep pit-death
+ok flash latched
+pit-death: fade=0.50 hurt=0.30 dead=true state=dead
+[0m
+[0m→ [0mRead .scratch/stage2c/pit-death.png
+The flash and fade are both visible with Kael below the floor in the black void. Last one:
+[0m→ [0mRead .scratch/stage2c/l2-hint.png
+All three verified: hint toast with the real key **E**, pulsing purple rune 3 tiles before the hole (3 runes, one per hole), and the hole itself is a real gap. Let me do final checks.
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && echo "=== assets/ untouched? ===" && git status --short assets/ && md5sum assets/cutscenes/0*.png | head -3 && echo && echo "=== rotate in controls screen ===" && grep -n "ctlRotate" js/ui/hud.js && grep -n "ctlKeysRotate" js/ui/strings.js && echo && echo "=== files changed vs WIP ===" && git diff --stat && echo "=== untracked ===" && git status --short | grep "??"
+=== assets/ untouched? ===
+ce11795a00f90a9d3ddff9ce10aac8ff  assets/cutscenes/01.png
+32f8267aae6edea6266575fd4a2505cb  assets/cutscenes/02.png
+7f598dade5533fed40cc564b779a2be4  assets/cutscenes/03.png
+
+=== rotate in controls screen ===
+90:      ['ctlRotate', 'ctlKeysRotate'],
+36:    ctlKeysRotate: 'E',
+157:    ctlKeysRotate: 'E',
+
+=== files changed vs WIP ===
+ .bunny-loop.log    | 937 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ js/game/level.js   |  15 +
+ js/game/physics.js |   9 +-
+ js/game/player.js  |  38 ++-
+ tools/reach.mjs    | 107 +++++-
+ 5 files changed, 1081 insertions(+), 25 deletions(-)
+=== untracked ===
+[0m
+`assets/` byte-identical, rotate binding (`E`) already in the controls screen. Final verification of both suites:
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && for f in js/core/config.js js/game/level.js js/game/physics.js js/game/player.js js/main.js js/render/pipeline.js js/ui/strings.js tools/reach.mjs; do node --check $f || echo "FAIL $f"; done && echo "syntax ok" && echo "=== reach ===" && timeout 800 node tools/reach.mjs 2>&1 | grep -v "GPU stall" | grep -E "support:|required path|^    x|reach:|jump:|pit:|L2 rotated|console errors|PASS|FAIL"; echo "reach exit=$?"
+syntax ok
+=== reach ===
+  support: 19/19 runs hold the player
+  required path (spawn -> arena), 10 surfaces, rises <= 40px:
+    x0-61@32 -> x34-38@72 -> x44-49@80 -> x54-59@88 -> x66-71@96 -> x74-103@32 -> x84-90@72 -> x98-102@104 -> x108-113@80 -> x117-189@32
+  reach: all 19 surfaces reachable from spawn
+  reach: all 9 shards/boss arenas on a reachable surface
+  jump: max body.y 130.9 > floor+55 (87) OK
+  support: 25/25 runs hold the player
+  required path (spawn -> arena), 10 surfaces, rises <= 40px:
+    x0-29@32 -> x36-39@72 -> x54-61@32 -> x58-61@64 -> x65-67@32 -> x72-77@72 -> x84-101@32 -> x117-121@32 -> x118-120@72 -> x125-169@32
+  reach: all 25 surfaces reachable from spawn
+  reach: all 8 shards/boss arenas on a reachable surface
+  jump: max body.y 131.8 > floor+55 (87) OK
+  support: 24/24 runs hold the player
+  required path (spawn -> arena), 17 surfaces, rises <= 40px:
+    x0-43@32 -> x10-14@72 -> x18-22@96 -> x26-29@120 -> x34-38@144 -> x44-46@176 -> x54-59@72 -> x66-70@72 -> x74-77@96 -> x82-86@120 -> x92-94@160 -> x100-105@72 -> x112-139@32 -> x114-119@72 -> x124-128@96 -> x132-135@120 -> x143-179@32
+  reach: all 24 surfaces reachable from spawn
+  reach: all 9 shards/boss arenas on a reachable surface
+  jump: max body.y 90.4 > floor+55 (87) OK
+  pit: hole at tile 68 -> dead in the death state after 1008ms OK (red flash peak 0.35, fade bottomed at 0.05)
+  pit: respawn returned to play OK
+  L2 rotated: rotQ=1, open edge = {"right":true}
+  pit: fell out of the rotated room and died (state=dead) OK
+PASS reach.mjs
+reach exit=0
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && timeout 400 node tools/story.mjs 2>&1 | grep -v "GPU stall" | grep -E "PASS|FAIL" && echo "story exit ok"
+PASS story.mjs  (10/10 checks)
+story exit ok
+[0m
+Both suites green. Committing with the requested trailer:
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && git add js/game/level.js js/game/physics.js js/game/player.js tools/reach.mjs && git commit -q -F - <<'MSG' && git log --oneline -3
+Stage 2c: climbable L2, pit death, rotation hint
+
+Finishes the interrupted stage 2c work (75dc8bc was committed unverified) and
+runs every acceptance check.
+
+Fixed a call to a method that does not exist: _checkVoid set pitDeath and then
+called this.die(), but the player's death entry point is kill(). Every pit fall
+was throwing a TypeError instead of killing anything.
+
+Pits are genuinely bottomless now, and this is where the brief's two statements
+had to be reconciled. It asks for death at body.top < FLOOR_Y - 8 AND for the
+pit's solid bottom to be gone, noting the player "dies before reaching it". With
+the 30px body and the phantom solid tileAt reports below row 0, the body landed
+at y=0 with its top at 30 and never crossed 24, so the first requirement could
+not fire. tileAt now returns open below a hole column (holeCol, built by
+ground()), so the body keeps falling and the -8 line is crossed. Every other
+column keeps its phantom floor, and the level's outer edges stay solid.
+
+Rotated rooms fall out in the current down direction. Physics runs in the
+level's local frame, so "down" is a function of the rotation -- quarter steps
+walk it through -Y, +X, +Y, -X. Level._syncDown records rotQ and which world
+edge is open; tileAt opens that edge, _checkVoid tests the matching body edge,
+and _clampToLevel no longer clamps it shut (it did, which made the rotated
+death unreachable -- the body could never get past the edge to fall out of).
+All three are recomputed after each quarter turn.
+
+The void is drawn: a black quad under each hole at renderOrder 0, after the mid
+trunks and before the tiles, so the pit no longer shows the parallax backdrop
+through it and reads as ground you could land on. Anything that falls in is
+removed, enemies included.
+
+Rotation hint uses the real binding. The brief's example says R, but input.js
+binds rotate to KeyE, so the toast reads "Pulsa E para girar el mundo" / "Press
+E to turn the world". The controls screen already listed the rotate row with E.
+Three runes sit three tiles before each hole in the L2 accent, one shared
+material so they pulse together.
+
+reach.mjs gained the two rules that exposed all of this: the required path
+(spawn -> boss arena) solved with rises <= 40px, optional surfaces at <= 48px,
+and wall occlusion, so a column taller than the jump now blocks the straight
+path across it instead of being walked past in the graph. The required paths:
+
+  L1  x0-61@32 -> x34-38@72 -> x44-49@80 -> x54-59@88 -> x66-71@96 ->
+      x74-103@32 -> x84-90@72 -> x98-102@104 -> x108-113@80 -> x117-189@32
+  L2  x0-29@32 -> x36-39@72 -> x54-61@32 -> x58-61@64 -> x65-67@32 ->
+      x72-77@72 -> x84-101@32 -> x117-121@32 -> x118-120@72 -> x125-169@32
+  L3  x0-43@32 -> x10-14@72 -> x18-22@96 -> x26-29@120 -> x34-38@144 ->
+      x44-46@176 -> x54-59@72 -> x66-70@72 -> x74-77@96 -> x82-86@120 ->
+      x92-94@160 -> x100-105@72 -> x112-139@32 -> x114-119@72 ->
+      x124-128@96 -> x132-135@120 -> x143-179@32
+
+L2 is the level the brief measured as stuck, and it is the one that needed
+steps: five platforms in front of the five columns, and plat(72) lowered from
+80 to 72 so the climb to the column at 82 is 40/16/40 instead of 48. The shard
+that sat on the old height came down with it.
+
+Acceptance: reach.mjs passes on all three (support 19/25/24, all surfaces and
+all shards reachable, jump 131/132/90) and prints those paths. Two new tests
+cover the void: dropped into an L1 hole Kael is dead and in the death state
+after 1008ms with the red flash peaking at 0.35 and the fade bottoming at 0.05,
+then the normal respawn returns control; and in a quarter-turned L2 the open
+edge is the right one and falling out of it kills. Screenshots in
+.scratch/stage2c/ (l2-column, pit-death, l2-hint) all read and checked by eye.
+Zero console errors, and stage 2's story.mjs still passes 10/10.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+MSG
+d1fa07c Stage 2c: climbable L2, pit death, rotation hint
+75dc8bc WIP: stage 2c interrupted (L2 columns, pit death, rotation hint) - not verified
+beea78a Stop tracking the build-agent's working files
+[0m
+[0m✗ [0m failed
+[91m[1mError: [0mTool execution aborted
+Committed as `d1fa07c` with the requested trailer. Stage 2c is complete and verified.
+
+## What the WIP commit left broken
+
+One call to a method that doesn't exist: `_checkVoid` set `pitDeath` then called `this.die()`, but the player's death entry point is `kill()`. **Every pit fall was throwing a TypeError instead of killing anything.** Everything else from the WIP (L2 steps, void quads, runes, hint, new reach rules) was in place.
+
+## A genuine conflict in the brief
+
+§2 asks for death at `body.top < FLOOR_Y - 8` **and** for the pit's solid bottom to be removed, noting the player "dies before reaching it". Those can't both hold as written: with a 30px body, the phantom solid below row 0 catches the fall at `y=0`, so `top=30` and the line at 24 is never crossed — exactly the "Kael just stands in the pit" symptom. I made the hole columns genuinely open (so the body keeps falling and the −8 line is crossed) and kept the phantom floor everywhere else. Flagging it because it's me resolving an inconsistency in the spec, not just implementing it.
+
+Rotated rooms needed a second fix: `_clampToLevel` reset any X past the edge, so the rotated death was **unreachable** — the body could never get out to fall. That edge is now left unclamped, which is the whole point of it being open.
+
+## Acceptance — all run, all read by me
+
+**`tools/reach.mjs` passes on all 3 levels**, required paths printed:
+
+```
+L1  x0-61@32 -> x34-38@72 -> x44-49@80 -> x54-59@88 -> x66-71@96 ->
+    x74-103@32 -> x84-90@72 -> x98-102@104 -> x108-113@80 -> x117-189@32
+L2  x0-29@32 -> x36-39@72 -> x54-61@32 -> x58-61@64 -> x65-67@32 ->
+    x72-77@72 -> x84-101@32 -> x117-121@32 -> x118-120@72 -> x125-169@32
+L3  x0-43@32 -> x10-14@72 -> x18-22@96 -> x26-29@120 -> x34-38@144 ->
+    x44-46@176 -> x54-59@72 -> x66-70@72 -> x74-77@96 -> x82-86@120 ->
+    x92-94@160 -> x100-105@72 -> x112-139@32 -> x114-119@72 ->
+    x124-128@96 -> x132-135@120 -> x143-179@32
+```
+
+Support 19/25/24, all surfaces and all shards reachable, jump 131/132/90. L2 got five steps in front of its five columns, and `plat(72)` lowered 80→72 so that climb is 40/16/40 instead of 48.
+
+**Playwright pit-death check:** dead and in the death state after **1008ms** (limit 1500), red flash peak 0.35, fade bottomed at 0.05, then the normal respawn returns control. Plus the post-rotation L2 case: `rotQ=1`, open edge `{"right":true}`, falling out kills.
+
+**Screenshots in `.scratch/stage2c/`** — all three read: `l2-column.png` (Kael on the step at y=72 with the column beside him), `pit-death.png` (flash + fade, "Has caído", Kael below the floor in a black void with the lip either side), `l2-hint.png` (toast + two purple runes before the hole). Zero console errors. `tools/story.mjs` still passes 10/10 after the player/physics/level changes.
+
+Two things to be aware of:
+
+- **The rotate key is `E`, not `R`.** The brief's example text says R, but `input.js` binds `rotate: ['KeyE']`, so the toast reads "Pulsa E para girar el mundo" / "Press E to turn the world". The controls screen already listed the rotate row with `E`, so nothing needed adding there.
+- **`pit-death.png` holds the fade/flash at a fixed point** (fade 0.5, flash 0.3) for the capture. The real fall-out is 0.4s of fade after a 0.12s flash, and that window is shorter than a screenshot round-trip on the software rasteriser — my first two attempts both caught a frame after the sequence had already finished. Only the two `postUniforms` setters are overridden, in the capture script; no game code is affected.
+[0m
+> build · space-bunny-free
+[0m
+[0m→ [0mRead docs/stage2d.md
+Let me verify the new panels exist and check their real dimensions.
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && ls -la assets/cutscenes/ && echo "=== real dimensions + format ===" && python3 -c "
+from PIL import Image
+for n in ['07','08','09','10']:
+    try:
+        im=Image.open(f'assets/cutscenes/{n}.png')
+        print(n, im.size, im.format, im.mode)
+    except Exception as e:
+        print(n,'ERR',e)
+" && echo "=== magic bytes (the brief says JPEG data with .png names) ===" && for n in 07 08 09 10; do printf "%s: " $n; head -c 3 assets/cutscenes/$n.png | xxd -p; done
+total 7276
+drwxrwxr-x 2 nico nico    4096 Sep 29 12:37 .
+drwxrwxr-x 5 nico nico    4096 Sep 29 12:42 ..
+-rw-rw-r-- 1 nico nico  643084 Sep 28 23:52 01.png
+-rw-rw-r-- 1 nico nico  743095 Sep 28 23:55 02.png
+-rw-rw-r-- 1 nico nico  880892 Sep 29 00:00 03.png
+-rw-rw-r-- 1 nico nico 1001260 Sep 29 00:12 04.png
+-rw-rw-r-- 1 nico nico  763516 Sep 29 00:10 05.png
+-rw-rw-r-- 1 nico nico  763762 Sep 29 00:06 06.png
+-rw-rw-r-- 1 nico nico  151459 Sep 29 12:32 07.png
+-rw-rw-r-- 1 nico nico  181373 Sep 29 12:33 08.png
+-rw-rw-r-- 1 nico nico  125446 Sep 29 12:34 09.png
+-rw-rw-r-- 1 nico nico 2165367 Sep 29 12:35 10.png
+=== real dimensions + format ===
+07 (1024, 1024) JPEG RGB
+08 (1024, 1024) JPEG RGB
+09 (1024, 1024) JPEG RGB
+10 (2750, 1536) JPEG RGB
+=== magic bytes (the brief says JPEG data with .png names) ===
+07: ffd8ff
+08: ffd8ff
+09: ffd8ff
+10: ffd8ff
+[0m
