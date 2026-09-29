@@ -155,7 +155,7 @@ export class Player {
     this._animate(dt);
     this._updateLight();
     this._checkSpikes(level);
-    this._checkVoid();
+    this._checkVoid(level);
   }
 
   // Hard guarantee that the body stays inside the level, horizontally.
@@ -169,8 +169,16 @@ export class Player {
   // death check fires.
   _clampToLevel(level) {
     const maxX = level.width * TILE - this.body.w;
-    if (this.body.x < 0) { this.body.x = 0; this.body.vx = 0; }
-    else if (this.body.x > maxX) { this.body.x = maxX; this.body.vx = 0; }
+    // A rotated room can have a side wall as the floor of the world, and that
+    // edge is open on purpose: walking off it is how you die. Clamping it shut
+    // would leave the body standing on nothing. Every other edge stays solid.
+    const open = level.openEdges;
+    if (!open || !open.left) {
+      if (this.body.x < 0) { this.body.x = 0; this.body.vx = 0; }
+    }
+    if (!open || !open.right) {
+      if (this.body.x > maxX) { this.body.x = maxX; this.body.vx = 0; }
+    }
   }
 
   _tryDash() {
@@ -241,13 +249,27 @@ export class Player {
   // A pit is bottomless. Physics runs in the level's local frame, and in that
   // frame "down" is always -Y even after the L2 room turns, so this one test
   // covers a rotated room without knowing anything about the rotation.
-  _checkVoid() {
+  // `level` is the level data; its rotQ says which way is currently down. The L2
+  // room turns in quarter steps, so after a turn the edge of the world you fall
+  // out of is a side wall rather than the bottom.
+  _checkVoid(level) {
     if (this.dead) return;
-    if (this.body.top >= PIT_DEATH_Y) return;
-    // A body below the floor line can only be inside a hole: everywhere else the
-    // ground occupies the lowest rows and nothing gets under it.
+    const q = (level.rotQ || 0) & 3;
+    let out;
+    if (q === 0) {
+      // Fully below the floor line. A body down there can only be inside a hole:
+      // everywhere else the ground occupies the lowest rows.
+      out = this.body.top < PIT_DEATH_Y;
+    } else if (q === 1) {
+      out = this.body.right > level.width * TILE;
+    } else if (q === 2) {
+      out = this.body.top > level.height * TILE;
+    } else {
+      out = this.body.left < 0;
+    }
+    if (!out) return;
     this.pitDeath = true;
-    this.die();
+    this.kill();
   }
 
   _checkSpikes(level) {

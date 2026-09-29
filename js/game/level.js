@@ -284,6 +284,19 @@ export class Level {
     this.rotCount = 0;
   }
 
+  // Recomputed whenever the room turns. Physics runs in this local frame, so
+  // "which way is down" is a function of the rotation: the room turns in quarter
+  // steps and down walks -Y, +X, +Y, -X through them.
+  _syncDown() {
+    const q = ((Math.round(this.rot / (Math.PI / 2)) % 4) + 4) % 4;
+    this.data.rotQ = q;
+    this.data.openEdges = q === 1 ? { right: true }
+      : q === 2 ? { top: true }
+        : q === 3 ? { left: true }
+          : {};
+    return q;
+  }
+
   load(index) {
     this.dispose();
     this.data = LEVEL_DEFS[index]();
@@ -292,6 +305,7 @@ export class Level {
     this.group.rotation.z = 0;
     this.group.position.set(0, 0, 0);
     this.group.updateMatrixWorld(true);
+    this._syncDown();
     this._buildTiles();
     return this.data;
   }
@@ -352,6 +366,7 @@ export class Level {
       this.rotating = false;
       this.rotCount++;
       this.rot = this.rotTo;
+      this._syncDown();
       this.group.rotation.z = this.rot;
       this.group.updateMatrixWorld(true);
       return this.pinnedWorld.clone();   // caller re-derives the local position

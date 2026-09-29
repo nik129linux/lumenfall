@@ -34,8 +34,13 @@ export const SPIKE = 3;
 export const DECOR = 4;
 
 export function tileAt(level, tx, ty) {
-  if (tx < 0 || tx >= level.width) return SOLID;
-  if (ty >= level.height) return SOLID;             // ceiling stays solid
+  // Which edge of the world is open, if any. A rotated room can have a side
+  // wall as its floor, and the edge you fall out of is the one that is now
+  // underneath. The Level sets this from the current rotation.
+  const open = level.openEdges;
+  if (tx < 0) return (open && open.left) ? 0 : SOLID;
+  if (tx >= level.width) return (open && open.right) ? 0 : SOLID;
+  if (ty >= level.height) return (open && open.top) ? 0 : SOLID;   // ceiling
   if (ty < 0) {
     // Below the grid is normally a solid floor, so nothing can leave the level
     // sideways or upwards. Directly under a hole it is open instead: the pit is

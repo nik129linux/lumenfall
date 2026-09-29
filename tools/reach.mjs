@@ -351,39 +351,116 @@ console.log('\n=== pit death (L1) ===');
   if (hole < 0) {
     fail('L1 has no hole to test pit death with');
   } else {
+    // Watch the post pass while the body falls, so the red flash and the
+    // fall-out fade are actually observed rather than assumed.
+    await page2.evaluate(() => {
+      const g = window.__lumenfall;
+      window.__pit = { maxHurt: 0, minFade: 1 };
+      window.__pitTimer = setInterval(() => {
+        const u = g.pipeline.postUniforms;
+        window.__pit.maxHurt = Math.max(window.__pit.maxHurt, u.hurt.value);
+        window.__pit.minFade = Math.min(window.__pit.minFade, u.fade.value);
+      }, 16);
+    });
+
     // Dropped in from just under the lip, with no floor under the body.
     await page2.evaluate((tx) => {
       const b = window.__lumenfall.player.body;
-      b.vx = 0; b.vy = 0; b.x = tx * 8 + 1; b.y = 22; b.onGround = false;
+      b.vx = 0; b.vy = -140; b.x = tx * 8 + 1; b.y = 22; b.onGround = false;
     }, hole);
 
+    const t0 = Date.now();
     const died = await page2.waitForFunction(
       () => {
         const g = window.__lumenfall;
         return g.player.dead && g.machine.state === 'dead';
       }, { timeout: 1500 }).then(() => true, () => false);
-    const st = await page2.evaluate(() => ({
-      dead: window.__lumenfall.player.dead,
-      pitDeath: window.__lumenfall.player.pitDeath,
-      state: window.__lumenfall.machine.state,
-    }));
-    if (died && st.pitDeath) {
-      console.log(`  pit: hole at tile ${hole} -> dead in the death state (pitDeath=${st.pitDeath}) OK`);
+    const took = Date.now() - t0;
+    const st = await page2.evaluate(() => {
+      clearInterval(window.__pitTimer);
+      return {
+        dead: window.__lumenfall.player.dead,
+        state: window.__lumenfall.machine.state,
+        maxHurt: window.__pit.maxHurt,
+        minFade: window.__pit.minFade,
+      };
+    });
+    if (died) {
+      console.log(`  pit: hole at tile ${hole} -> dead in the death state after ${took}ms OK`
+        + ` (red flash peak ${st.maxHurt.toFixed(2)}, fade bottomed at ${st.minFade.toFixed(2)})`);
+      if (st.maxHurt <= 0) fail('the pit fall-out showed no red flash');
+      if (st.minFade > 0.9) fail('the pit fall-out never faded out');
     } else {
-      fail(`falling into a pit did not kill within 1.5s: dead=${st.dead} pitDeath=${st.pitDeath} state=${st.state}`);
+      fail(`falling into a pit did not kill within 1.5s: dead=${st.dead} state=${st.state}`);
     }
 
-    // And the existing flow still respawns.
-    await new Promise((r) => setTimeout(r, 800));
-    await page2.keyboard.press('KeyZ');
-    const back = await page2.waitForFunction(
-      () => window.__lumenfall.machine.state === 'play' && !window.__lumenfall.player.dead,
-      { timeout: 8000 }).then(() => true, () => false);
+    // And the existing flow still respawns. The death state ignores input for
+    // 1.1s, so the press is repeated rather than fired once.
+    let back = false;
+    for (let i = 0; i < 10 && !back; i++) {
+      await new Promise((r) => setTimeout(r, 400));
+      await page2.keyboard.press('KeyZ');
+      back = await page2.waitForFunction(
+        () => window.__lumenfall.machine.state === 'play' && !window.__lumenfall.player.dead,
+        { timeout: 900 }).then(() => true, () => false);
+    }
     const after2 = await page2.evaluate(() => window.__lumenfall.machine.state);
     if (back) console.log(`  pit: respawn returned to ${after2} OK`);
     else fail(`the normal death/respawn flow did not take over: state=${after2}`);
   }
   await page2.close();
+}
+
+// The same fall, but in a rotated L2 room. After a quarter turn "down" is a
+// local +X edge rather than the bottom, so this exercises the rotation-aware
+// branch of the void check rather than the hole case above.
+console.log('\n=== pit death, L2 after a rotation ===');
+{
+  const page3 = await browser.newPage({ viewport: { width: 480, height: 270 } });
+  page3.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  page3.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+  await page3.goto(`${URL}?level=2`, { waitUntil: 'load' });
+  await page3.waitForFunction(
+    () => ['play', 'boss'].includes(window.__lumenfall?.machine?.state), { timeout: 20000 });
+  await new Promise((r) => setTimeout(r, 600));
+
+  // Turn the room, the same way a player does, and wait for the tween to land.
+  await page3.evaluate(async () => {
+    const g = window.__lumenfall;
+    g.player.hurtTimer = 999;
+    // beginRotate only reads .x and .y, so a plain object is enough here.
+    g.level.beginRotate({ x: g.player.cx, y: g.player.cy });
+    for (let i = 0; i < 200 && g.level.isRotating; i++) {
+      await new Promise((r) => requestAnimationFrame(r));
+    }
+    g.player.hurtTimer = 0;
+  });
+  const rotQ = await page3.evaluate(() => window.__lumenfall.level.data.rotQ);
+  if (rotQ !== 1) {
+    fail(`L2 did not register a quarter turn (rotQ=${rotQ})`);
+  } else {
+    console.log(`  L2 rotated: rotQ=${rotQ}, open edge = ${await page3.evaluate(() => JSON.stringify(window.__lumenfall.level.data.openEdges))}`);
+    // Shoved out through the now-open edge, in the direction that is down.
+    await page3.evaluate(() => {
+      const g = window.__lumenfall;
+      const b = g.player.body;
+      b.vx = 0; b.vy = 0;
+      b.x = g.level.data.width * 8 + 24;    // past the open right edge
+      b.onGround = false;
+    });
+    const wentOut = await page3.waitForFunction(
+      () => {
+        const g = window.__lumenfall;
+        return g.player.dead && g.machine.state === 'dead';
+      }, { timeout: 4000 }).then(() => true, () => false);
+    const st3 = await page3.evaluate(() => ({
+      dead: window.__lumenfall.player.dead,
+      state: window.__lumenfall.machine.state,
+    }));
+    if (wentOut) console.log(`  pit: fell out of the rotated room and died (state=${st3.state}) OK`);
+    else fail(`falling out of a rotated L2 room did not kill: dead=${st3.dead} state=${st3.state}`);
+  }
+  await page3.close();
 }
 
 if (errors.length) {
