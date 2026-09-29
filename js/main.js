@@ -536,6 +536,7 @@ class Game {
     this.cam.shake = 7;
     this.machine.to(S.BOSS);
 
+    const spriteName = { statue: 'statue', ulburjo: 'goodwitch', patientone: 'demon' }[this.bossDef.boss];
     this.boss = new Cls({
       x: this.bossDef.x,
       character: this.characters,
@@ -545,12 +546,18 @@ class Game {
       audio,
       level: this.level,
       makeSprite: () => {
-        const name = { statue: 'statue', ulburjo: 'goodwitch', patientone: 'demon' }[this.bossDef.boss];
-        const s = this._charSprite(name, 4);
+        const s = this._charSprite(spriteName, 4);
         s.setPaletteLevel(this.levelDef.id);
         return s;
       },
     });
+    // Ul Burjo drops the elder's disguise in phase 2, so the boss needs a handle
+    // on the alternate sheet to swap into.
+    if (this.bossDef.boss === 'ulburjo') {
+      const alt = this._charSprite('badwitch', 4);
+      alt.setPaletteLevel(this.levelDef.id);
+      this.boss.characterSet = { badwitch: { char: alt.char, material: alt.material, paletteLevel: this.levelDef.id } };
+    }
     this.boss.setPaletteLevel(this.levelDef.id);
     this.pipeline.scene.add(this.boss);
 

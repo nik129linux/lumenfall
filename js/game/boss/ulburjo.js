@@ -1,5 +1,6 @@
 import * as THREE from '../../vendor/three.module.js';
 import { Boss } from './base.js';
+import { setPalette } from '../../render/materials.js';
 import { Projectile } from '../fx.js';
 import { AI } from '../../core/config.js';
 import { audio } from '../../core/audio.js';
@@ -48,6 +49,7 @@ export class UlBurjo extends Boss {
     this.attackTimer = 0;
     this.volley = 0;
     this.rotateRequested = false;
+    this.rotateCooldown = 0;
     this.announcedReveal = false;
   }
 
@@ -70,6 +72,7 @@ export class UlBurjo extends Boss {
     }
 
     this.attackTimer -= dt;
+    this.rotateCooldown = Math.max(0, this.rotateCooldown - dt);
     const weights = this.phase === 1 ? WEIGHTS_P1 : WEIGHTS_P2;
     const action = this.think(dt, player, level, weights);
     const dx = player.cx - this.cx;
@@ -139,14 +142,31 @@ export class UlBurjo extends Boss {
     }
   }
 
+  // Drops the disguise: the elder's sheet is swapped for the sorcerer's, so the
+  // reveal is the same figure in different art rather than a different model.
+  swapTo(characterName) {
+    const next = this.characterSet?.[characterName];
+    if (!next) return;
+    this.sprite.mesh.material = next.material;
+    this.sprite.char = next.char;
+    this.sprite.cell = next.char.cell;
+    this.sprite.mesh.scale.set(next.char.cell[0], next.char.cell[1], 1);
+    setPalette(this.sprite.material, next.paletteLevel);
+  }
+
   // Asks the level to turn. The level owns the tween, so the rotation is exactly
   // the player's own mechanic with the same 0.6s timing and the same fairness.
   _requestRotate() {
     if (this.rotateRequested || !this.level) return;
     if (this.level.isRotating) return;
+    // The arena is a punctuation mark, not the fight. A long cooldown keeps it
+    // readable and stops the room from spinning faster than the player can
+    // reorient, which is the failure mode that makes the mechanic feel unfair.
+    if (this.rotateCooldown > 0) return;
     const p = new THREE.Vector3(this.cx, this.cy, 0);
     if (this.level.beginRotate(p)) {
       this.rotateRequested = true;
+      this.rotateCooldown = 4.5;
       this.state = 'rotate';
       audio.sfxRotate();
     }

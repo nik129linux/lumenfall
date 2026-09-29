@@ -274,6 +274,15 @@ record(await step('Patient One predicts the lantern path', async () => {
     // A straight, fast-moving light trail: the read should be confident.
     for (let i = 0; i < 12; i++) g.model.record('move', { dx: 20, x: 100 + i * 20, y: 100 });
 
+    // decide() rolls weighted, so leave it to chance and this test is flaky. Pin
+    // the weights to strike-only to test the prediction itself, not the dice.
+    const realThink = b.think.bind(b);
+    b.think = (dt, player, level) => {
+      const a = realThink(dt, player, level, { strike: 1, strike_hold: 0.2 });
+      if (a === 'strike') b.agent.markAttack();
+      return a;
+    };
+
     const acts = [];
     for (let i = 0; i < 300; i++) {
       b.update(1 / 60, g.player, g.level.data, g.fx);
@@ -395,13 +404,65 @@ record(await step('boss phase 2 at 55% health', async () => {
   if (p.phase !== 2) throw new Error(`expected phase 2, got ${p.phase}`);
 }));
 
-record(await step('defeating the final boss reaches the ending', async () => {
-  await page.evaluate(() => {
-    const b = window.__lumenfall.boss;
-    b.state = 'idle';
-    b.hurt(999);
+record(await step('Ul Burjo: phase 2 drops the disguise and rotates the arena', async () => {
+  const r = await page.evaluate(async () => {
+    const g = window.__lumenfall;
+    g.ui.hideAll();
+    g.levelIndex = 1; g._loadLevel(1, { silent: true });
+    g.cutscene.active = false; g.cutscene.onDone = null;
+    g.machine.state = 'play'; g.ui.showHud();
+    g.bossDef = { type: 'boss', boss: 'ulburjo', x: g.level.worldWidth - 160, y: 32 };
+    g.player.body.x = g.bossDef.x - 120; g.player.body.y = 32;
+    g._startBoss();
+    await new Promise((res) => setTimeout(res, 500));
+    const b = g.boss;
+    if (!b) return { ok: false, why: 'no boss' };
+
+    const beforeSprite = b.sprite.char.name;
+    b.hurt(Math.ceil(b.maxHp * 0.6));   // cross the 55% phase threshold
+    for (let i = 0; i < 600; i++) {
+      b.update(1 / 60, g.player, g.level.data, g.fx);
+      if (g.level.isRotating) {
+        for (let k = 0; k < 80; k++) g.level.updateRotation(1 / 60);
+        b.onRotationDone();
+      }
+    }
+    return {
+      ok: true,
+      beforeSprite,
+      afterSprite: b.sprite.char.name,
+      phase: b.phase,
+      rotCount: g.level.rotCount,
+      rot: +g.level.rot.toFixed(3),
+    };
   });
-  await page.waitForFunction(() => window.__lumenfall.machine.state === 'cutscene', null, { timeout: 8000 });
+  console.log('      ul burjo:', JSON.stringify(r));
+  if (!r.ok) throw new Error(r.why);
+  if (r.beforeSprite !== 'goodwitch') throw new Error(`expected the elder disguise, got ${r.beforeSprite}`);
+  if (r.afterSprite !== 'badwitch') throw new Error(`disguise never dropped, still ${r.afterSprite}`);
+  if (r.phase !== 2) throw new Error(`expected phase 2, got ${r.phase}`);
+  if (r.rotCount < 1) throw new Error('phase 2 never rotated the arena');
+  // One turn per 4.5s cooldown: 10s of sim should not spin the room 144 times.
+  if (r.rotCount > 3) throw new Error(`arena rotating too often: ${r.rotCount}`);
+}));
+
+record(await step('defeating the final boss reaches the ending', async () => {
+  // Self-contained: the preceding checks leave the game in whatever level they
+  // needed, so jump to L3 and spawn its boss explicitly.
+  await page.evaluate(async () => {
+    const g = window.__lumenfall;
+    g.ui.hideAll();
+    g.levelIndex = 2; g._loadLevel(2, { silent: true });
+    g.cutscene.active = false; g.cutscene.onDone = null;
+    g.machine.state = 'play';
+    g.bossDef = { type: 'boss', boss: 'patientone', x: g.level.worldWidth - 160, y: 32 };
+    g.player.body.x = g.bossDef.x - 100; g.player.body.y = 32;
+    g._startBoss();
+    await new Promise((r) => setTimeout(r, 400));
+    const b = g.boss;
+    if (b) { b.state = 'idle'; b.hurt(999); }
+  });
+  await page.waitForFunction(() => window.__lumenfall.machine.state === 'cutscene', null, { timeout: 12000 });
   for (let i = 0; i < 12; i++) {
     const s = await page.evaluate(() => window.__lumenfall.machine.state);
     if (s === 'ending') break;
