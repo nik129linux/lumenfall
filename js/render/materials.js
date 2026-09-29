@@ -147,3 +147,10 @@ export function setPalette(mat, levelId) {
   u.saturation.value = g.saturation;
   u.levels.value = g.levels;
 }
+
+// Bosses get a brightness lift. They are the largest dark shapes on screen and
+// the source art is painted dark, so without this they read as holes in the
+// level rather than as characters.
+export function setLift(mat, extra) {
+  mat.userData.uniforms.gradeLift.value += extra;
+}

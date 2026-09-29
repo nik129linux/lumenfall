@@ -4002,3 +4002,711 @@ server:200
 
 PASS
 [0m
+All 20 checks pass, zero console errors. Committing this milestone.
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && git add -A && git commit -q -m "Gameplay, rendering, AI and three levels; headless smoke check passes
+
+Coordinates: +y is up everywhere. The physics originally treated +y as down
+while the ortho camera treated it as up, which rendered the whole level
+upside down with the player standing on the ceiling. Jump reach is now derived
+explicitly in config.js and the level geometry is built inside it.
+
+Rendering: the post pass encodes linear -> sRGB. Sprite textures are tagged
+sRGB so the scene pass samples into linear, and a raw ShaderMaterial writing
+to the default framebuffer gets no automatic encode -- the game was rendering
+about a stop and a half dark until that was added.
+
+Sprites: quantise to a fixed 8-colour per-level palette, which turned Kael's
+brown and blue into emerald and made the hero vanish into the shrine. Replaced
+with a colour-depth posterise plus a per-level grade.
+
+Geometry: sprite quads are shifted into 0..1 before the cell scale is applied.
+Translating by baseline/2 stretched each quad to ~48x its cell and parked the
+sprites off-screen.
+
+ai.js: decide() referenced `player` without receiving it.
+
+assets/bg/ is opt-in via a manifest rather than probing for files, so an empty
+folder does not log a 404 on every load." && git log --oneline | head -3
+zsh:1: command not found: player
+75c87e3 Gameplay, rendering, AI and three levels; headless smoke check passes
+8683570 WIP: LUMENFALL engine, game, UI and smoke test (bunny loop stopped mid-round)
+3b63eca Asset pipeline: chroma-key + band slicing -> gameplay atlases
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && git log -1 --format=%B | head -20
+Gameplay, rendering, AI and three levels; headless smoke check passes
+
+Coordinates: +y is up everywhere. The physics originally treated +y as down
+while the ortho camera treated it as up, which rendered the whole level
+upside down with the player standing on the ceiling. Jump reach is now derived
+explicitly in config.js and the level geometry is built inside it.
+
+Rendering: the post pass encodes linear -> sRGB. Sprite textures are tagged
+sRGB so the scene pass samples into linear, and a raw ShaderMaterial writing
+to the default framebuffer gets no automatic encode -- the game was rendering
+about a stop and a half dark until that was added.
+
+Sprites: quantise to a fixed 8-colour per-level palette, which turned Kael's
+brown and blue into emerald and made the hero vanish into the shrine. Replaced
+with a colour-depth posterise plus a per-level grade.
+
+Geometry: sprite quads are shifted into 0..1 before the cell scale is applied.
+Translating by baseline/2 stretched each quad to ~48x its cell and parked the
+sprites off-screen.
+[0m
+[0m→ [0mRead .scratch/shots/A-menu.png
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && cat > .scratch/dom.mjs <<'EOF'
+import { chromium } from 'playwright';
+const b = await chromium.launch({args:['--use-gl=swiftshader','--enable-unsafe-swiftshader','--no-sandbox']});
+const p = await b.newPage({viewport:{width:960,height:540}});
+await p.goto('http://localhost:8765/index.html',{waitUntil:'load'});
+await p.waitForFunction(()=>window.__lumenfall?.machine?.state==='menu',null,{timeout:20000});
+const r = await p.evaluate(()=>{
+  const q=s=>document.querySelector(s);
+  const info=(s)=>{const e=q(s); if(!e) return 'MISSING';
+    const r=e.getBoundingClientRect(); const cs=getComputedStyle(e);
+    return {rect:[Math.round(r.x),Math.round(r.y),Math.round(r.width),Math.round(r.height)], color:cs.color, kids:e.childElementCount, html:e.innerHTML.slice(0,80)};};
+  return {
+    diffRow: info('#difficulty-row'), langRow: info('#lang-row'),
+    optCount: document.querySelectorAll('#difficulty-row .opt').length,
+    boot: info('#boot'), bootClass: q('#boot').className,
+    bootTitleVisible: (()=>{const t=q('.boot-title'); const cs=getComputedStyle(t); return cs.opacity+'/'+getComputedStyle(q('#boot')).opacity;})(),
+    contDisabled: q('#menu-continue').disabled, contHTML: q('#menu-continue').outerHTML.slice(0,120),
+    menuFoot: info('.menu-foot'),
+  };
+});
+console.log(JSON.stringify(r,null,1));
+await b.close();
+EOF
+timeout 150 node .scratch/dom.mjs 2>&1 | grep -v "GPU stall" | head -50
+{
+ "diffRow": {
+  "rect": [
+   480,
+   314,
+   0,
+   0
+  ],
+  "color": "rgb(216, 230, 221)",
+  "kids": 0,
+  "html": ""
+ },
+ "langRow": {
+  "rect": [
+   480,
+   345,
+   0,
+   0
+  ],
+  "color": "rgb(216, 230, 221)",
+  "kids": 0,
+  "html": ""
+ },
+ "optCount": 0,
+ "boot": {
+  "rect": [
+   0,
+   0,
+   960,
+   540
+  ],
+  "color": "rgb(216, 230, 221)",
+  "kids": 1,
+  "html": "\n    <div class=\"boot-inner\">\n      <div class=\"boot-title\">LUMENFALL</div>\n    "
+ },
+ "bootClass": "gone",
+ "bootTitleVisible": "1/1",
+ "contDisabled": false,
+ "contHTML": "<button id=\"menu-continue\" class=\"btn\">Continuar</button>",
+ "menuFoot": {
+  "rect": [
+   480,
+   409,
+   0,
+   0
+  ],
+  "color": "rgb(74, 90, 84)",
+  "kids": 0,
+  "html": ""
+ }
+[0m
+Two real bugs: the difficulty/language rows are empty, and `#boot.gone` opacity isn't applying. Let me probe both.
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && cat > .scratch/dom2.mjs <<'EOF'
+import { chromium } from 'playwright';
+const b = await chromium.launch({args:['--use-gl=swiftshader','--enable-unsafe-swiftshader','--no-sandbox']});
+const p = await b.newPage({viewport:{width:960,height:540}});
+p.on('pageerror',e=>console.log('[pageerror]',e.message));
+await p.goto('http://localhost:8765/index.html',{waitUntil:'load'});
+await p.waitForFunction(()=>window.__lumenfall?.machine?.state==='menu',null,{timeout:20000});
+const r = await p.evaluate(()=>{
+  const g=window.__lumenfall, ui=g.ui;
+  const out={};
+  try { ui.refreshStrings(); out.refresh='ok'; } catch(e){ out.refresh='THREW: '+e.message; }
+  out.diffRowFound = !!ui.difficultyRow;
+  out.diffRowId = ui.difficultyRow && ui.difficultyRow.id;
+  out.langRowId = ui.langRow && ui.langRow.id;
+  out.uiDifficulty = ui.difficulty;
+  try { ui._buildDifficulty(); out.buildDiff='ok'; } catch(e){ out.buildDiff='THREW: '+e.message; }
+  out.diffHTML = ui.difficultyRow.innerHTML.slice(0,120);
+  // check the CSS rule for #boot.gone
+  const sheet=[...document.styleSheets][0];
+  const rules=[...sheet.cssRules].map(r=>r.selectorText||r.cssText.slice(0,60));
+  out.bootRules = rules.filter(r=>r && r.includes('boot'));
+  out.sheetRuleCount = sheet.cssRules.length;
+  return out;
+});
+console.log(JSON.stringify(r,null,1));
+await b.close();
+EOF
+timeout 150 node .scratch/dom2.mjs 2>&1 | grep -v "GPU stall" | head -40
+{
+ "refresh": "ok",
+ "diffRowFound": true,
+ "diffRowId": "difficulty-row",
+ "langRowId": "lang-row",
+ "uiDifficulty": 1,
+ "buildDiff": "ok",
+ "diffHTML": "<button class=\"opt\" data-diff=\"0\">Fácil</button><button class=\"opt on\" data-diff=\"1\">Normal</button><button class=\"opt\" ",
+ "bootRules": [
+  "#boot",
+  "#boot.gone",
+  ".boot-inner",
+  ".boot-title",
+  ".boot-bar",
+  ".boot-bar i",
+  ".boot-note"
+ ],
+ "sheetRuleCount": 93
+}
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && grep -n "_renderMenu\|_buildDifficulty\|refreshStrings()" js/ui/hud.js | head -20 && echo "--- boot order ---" && sed -n '/async boot()/,/this.last = performance/p' js/main.js | head -30
+52:  refreshStrings() {
+74:    this._renderMenu();
+93:  _renderMenu() {
+95:    this._buildDifficulty();
+99:  _buildDifficulty() {
+109:        this._buildDifficulty();
+125:        this.refreshStrings();
+--- boot order ---
+  async boot() {
+    loadStoredLang();
+    this.ui.difficulty = 1;
+    this.governor = new Governor(this.ui.difficultyKey());
+    this.ui.onDifficultyChange = (key) => { this.governor = new Governor(key); };
+    this.ui.onLangChange = () => this.ui.refreshStrings();
+    this.ui.refreshStrings();
+    this.wireMenu();
+
+    const fill = document.getElementById('boot-fill');
+    try {
+      const loaded = await loadAssets((p) => {
+        fill.style.width = `${Math.round(p * 100)}%`;
+      });
+      this.characters = loaded.characters;
+    } catch (err) {
+      console.error('asset load failed', err);
+      document.getElementById('boot-note').textContent = 'Error al cargar los recursos';
+      return;
+    }
+
+    this.player = new Player(this.pipeline.scene, this.characters.kael);
+    this._wireMenuKeys();
+    this._loadLevel(0, { silent: true });
+
+    document.getElementById('boot').classList.add('gone');
+    this.machine.to(S.MENU);
+    this.ui.show('menu');
+    this.fadeTarget = 1;
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && sed -n '52,100p' js/ui/hud.js
+refreshStrings() {
+    this.titleEl.textContent = t('title');
+    this.subtitleEl.textContent = t('subtitle');
+    this.zoneLabel.textContent = '';
+    el('menu-new').textContent = t('newGame');
+    el('menu-continue').textContent = t('continueGame');
+    el('difficulty-label').textContent = t('difficulty');
+    el('lang-label').textContent = t('language');
+    el('menu-controls').textContent = t('controls');
+    el('menu-back').textContent = t('back');
+    el('ember-label').textContent = t('ember');
+    el('hp-label').textContent = t('hp');
+    el('pause-title').textContent = t('paused');
+    el('pause-resume').textContent = t('resume');
+    el('pause-retry').textContent = t('retry');
+    el('pause-title-btn').textContent = t('toTitle');
+    el('ending-title').textContent = t('endingTitle');
+    el('ending-sub').textContent = t('endingSub');
+    el('ending-restart').textContent = t('endingRestart');
+    el('ending-menu').textContent = t('endingTitle2');
+    el('cut-hint').textContent = `${t('pressAny')} · ${t('skip')}`;
+    this._buildControls();
+    this._renderMenu();
+  }
+
+  _buildControls() {
+    if (!this.controlsBody) return;
+    const rows = [
+      ['ctlMove', 'ctlKeysMove'],
+      ['ctlJump', 'ctlKeysJump'],
+      ['ctlAttack', 'ctlKeysAttack'],
+      ['ctlDash', 'ctlKeysDash'],
+      ['ctlRotate', 'ctlKeysRotate'],
+      ['ctlPause', 'ctlKeysPause'],
+      ['ctlLang', 'ctlKeysLang'],
+    ];
+    this.controlsBody.innerHTML = rows
+      .map(([k, keys]) => `<div class="ctl-row"><span>${t(k)}</span><kbd>${t(keys)}</kbd></div>`)
+      .join('') + `<p class="ctl-note">${t('ctlRotNote')}</p>`;
+  }
+
+  _renderMenu() {
+    if (!this.menuList) return;
+    this._buildDifficulty();
+    this._buildLang();
+  }
+
+  _buildDifficulty() {
+    if (!this.difficultyRow) return;
+[0m
+[0m← [0mEdit js/ui/hud.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/hud.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/hud.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/hud.js
+@@ -90,9 +90,8 @@
+     .join('') + `<p class="ctl-note">${t('ctlRotNote')}</p>`;
+ }
+ 
+ _renderMenu() {
+-  if (!this.menuList) return;
+   this._buildDifficulty();
+   this._buildLang();
+ }
+ 
+
+[0m
+Found both: `_renderMenu` is gated on `menuList`, an element that doesn't exist, so the option rows never built. And the boot ghost is the fade mid-transition.
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && python3 - <<'PY'
+# drop the vestigial menuList reference
+p='js/ui/hud.js'; s=open(p,encoding='utf-8').read()
+s=s.replace("    this.menuList = el('menu-list');\n","")
+s=s.replace("    this.pauseList = el('pause-list');\n","")
+open(p,'w',encoding='utf-8').write(s)
+
+# the pause screen had difficulty/lang rows that were never wired to anything
+p='index.html'; s=open(p,encoding='utf-8').read()
+s=s.replace("""        <div class="opt-group">
+          <div id="difficulty-label-2" class="opt-label"></div>
+          <div id="difficulty-row-2" class="opt-row"></div>
+        </div>
+        <div class="opt-group">
+          <div id="lang-label-2" class="opt-label"></div>
+          <div id="lang-row-2" class="opt-row"></div>
+        </div>
+""","")
+open(p,'w',encoding='utf-8').write(s)
+
+# remove the boot overlay from the DOM once it has faded, so it can never
+# ghost over the title screen
+p='js/main.js'; s=open(p,encoding='utf-8').read()
+s=s.replace("""    document.getElementById('boot').classList.add('gone');""",
+"""    const boot = document.getElementById('boot');
+    boot.classList.add('gone');
+    // The fade is 400ms; without this the overlay keeps painting (and ghosting
+    // its title across the menu) for as long as it stays in the DOM.
+    setTimeout(() => boot.remove(), 500);""")
+open(p,'w',encoding='utf-8').write(s)
+print('menu rows + boot overlay fixed')
+PY
+grep -n "menuList\|pauseList" js/ui/hud.js; grep -n "boot.remove" js/main.js && timeout 250 node .scratch/shot.mjs 2>&1 | grep -v "GPU stall" | head -3
+menu rows + boot overlay fixed
+107:    setTimeout(() => boot.remove(), 500);
+shots written
+[0m
+[0m→ [0mRead .scratch/shots/A-menu.png
+Menu is correct now. Let me verify the remaining headline features visually — cutscene, the L2 rotation, and a boss.
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && cat > .scratch/shot2.mjs <<'EOF'
+import { chromium } from 'playwright';
+const b = await chromium.launch({args:['--use-gl=swiftshader','--enable-unsafe-swiftshader','--no-sandbox']});
+const p = await b.newPage({viewport:{width:960,height:540}});
+p.on('pageerror',e=>console.log('[pageerror]',e.message));
+await p.goto('http://localhost:8765/index.html',{waitUntil:'load'});
+await p.waitForFunction(()=>window.__lumenfall?.machine?.state==='menu',null,{timeout:20000});
+
+// cutscene
+await p.click('#menu-new');
+await p.waitForTimeout(2600);
+await p.screenshot({path:'.scratch/shots/C-cutscene.png'});
+
+// L2 rotation mid-tween
+await p.evaluate(async ()=>{
+  const g=window.__lumenfall;
+  g.cutscene.active=false; g.cutscene.onDone=null;
+  g.levelIndex=1; g._loadLevel(1,{silent:true}); g.beginPlay();
+  g.player.body.x=200; g.player.body.y=48;
+  await new Promise(r=>setTimeout(r,500));
+});
+await p.waitForTimeout(300);
+await p.evaluate(()=>{ window.__lumenfall.input.buffer.set('rotate',1); });
+await p.waitForTimeout(300);
+await p.screenshot({path:'.scratch/shots/D-rotating.png'});
+await p.waitForTimeout(900);
+await p.screenshot({path:'.scratch/shots/E-rotated.png'});
+
+// boss fight L1
+await p.evaluate(async ()=>{
+  const g=window.__lumenfall;
+  g.levelIndex=0; g._loadLevel(0,{silent:true}); g.beginPlay();
+  g.player.body.x=g.bossDef.x-90; g.player.body.y=40;
+  g._startBoss();
+  await new Promise(r=>setTimeout(r,1500));
+});
+await p.waitForTimeout(300);
+await p.screenshot({path:'.scratch/shots/F-boss.png'});
+await b.close();
+console.log('done');
+EOF
+timeout 250 node .scratch/shot2.mjs 2>&1 | grep -v "GPU stall" | head -5
+done
+[0m
+[0m→ [0mRead .scratch/shots/C-cutscene.png
+[0m→ [0mRead .scratch/shots/D-rotating.png
+[0m→ [0mRead .scratch/shots/F-boss.png
+[0m
+[0m← [0mEdit js/main.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+@@ -625,32 +625,40 @@
+ 
+ _updateCamera(dt, snap = false) {
+   const p = this.player;
+   if (!p) return;
+-  // Follow the player's world position, not their local one, so a rotation
+-  // does not throw the camera across the level.
+-  const tx = p.mesh.position.x + p.facing * CAM.lookAhead - LOW_RES_W * 0.5;
+-  const ty = p.mesh.position.y - LOW_RES_H * 0.52;
+ 
++  // Follow and clamp in the level's LOCAL frame.
++  //
++  // After the L2 rotation the world's extents swap -- a 170x36 level becomes
++  // 36 wide and 170 tall -- so clamping in world space would push the camera to
++  // a corner of bounds that no longer describe the room. Doing it in local
++  // space keeps the framing correct at every rotation angle.
++  const tx = p.cx + p.facing * CAM.lookAhead - LOW_RES_W * 0.5;
++  const ty = p.body.bottom - LOW_RES_H * 0.52;
++
+   if (snap) {
+-    this.cam.x = tx; this.cam.y = ty;
++    this.camLocalX = tx; this.camLocalY = ty;
+   } else {
+-    this.cam.x = damp(this.cam.x, tx, CAM.lerp, dt);
+-    this.cam.y = damp(this.cam.y, ty, CAM.lerp, dt);
++    this.camLocalX = damp(this.camLocalX ?? tx, tx, CAM.lerp, dt);
++    this.camLocalY = damp(this.camLocalY ?? ty, ty, CAM.lerp, dt);
+   }
+ 
+-  // Clamp to the level bounds in the group's local frame.
+   const w = this.level.worldWidth, h = this.level.worldHeight;
+-  this.cam.x = clamp(this.cam.x, 0, Math.max(0, w - LOW_RES_W));
+-  this.cam.y = clamp(this.cam.y, 0, Math.max(0, h - LOW_RES_H));
++  this.camLocalX = clamp(this.camLocalX, 0, Math.max(0, w - LOW_RES_W));
++  this.camLocalY = clamp(this.camLocalY, 0, Math.max(0, h - LOW_RES_H));
+ 
++  // Then project the (clamped) local origin into world space for the view.
++  const world = this.level.localToWorld(
++    new THREE.Vector3(this.camLocalX, this.camLocalY, 0));
++
+   this.cam.shake = Math.max(0, this.cam.shake - dt * CAM.shakeDecay * 3);
+   if (this.cam.shake > 0.01) {
+     this.cam.shakeX = (Math.random() - 0.5) * this.cam.shake;
+     this.cam.shakeY = (Math.random() - 0.5) * this.cam.shake;
+   } else { this.cam.shakeX = 0; this.cam.shakeY = 0; }
+ 
+-  this.pipeline.setView(this.cam.x + this.cam.shakeX, this.cam.y + this.cam.shakeY);
++  this.pipeline.setView(world.x + this.cam.shakeX, world.y + this.cam.shakeY);
+ }
+ 
+ // ------------------------------------------------------------------ ending
+ // The green colour-bleed payoff: particles of the L1 emerald palette rise into
+
+[0m
+The rotation needs the camera clamped in the level's *local* frame — after a 90° turn the world extents swap. Let me fix that.
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && python3 - <<'PY'
+p='js/main.js'; s=open(p,encoding='utf-8').read()
+# parallax now follows the world-space camera
+s=s.replace("    this.parallax.update(this.cam.x, this.cam.y);",
+            "    this.parallax.update(this.pipeline.viewX || 0, this.pipeline.viewY || 0);")
+s=s.replace("""  _idleCamera(dt) {
+    this._updateCamera(dt);
+    this.parallax.update(this.cam.x, this.cam.y);
+  }""","""  _idleCamera(dt) {
+    this._updateCamera(dt);
+    this.parallax.update(this.pipeline.viewX || 0, this.pipeline.viewY || 0);
+  }""")
+s=s.replace("    this.cam.x = 0; this.cam.y = 0;\n","    this.cam.x = 0; this.cam.y = 0; this.camLocalX = 0; this.camLocalY = 0;\n")
+open(p,'w',encoding='utf-8').write(s)
+print('parallax + camera wired to world view')
+PY
+grep -n "parallax.update" js/main.js && grep -n "camLocalX = 0" js/main.js && python3 - <<'PY'
+# brighten boss sprites: they read as black masses against a dark level
+p='js/render/materials.js'; s=open(p,encoding='utf-8').read()
+s=s.replace("""export function setPalette(mat, levelId) {
+  const g = GRADES[levelId] || GRADES.neutral;
+  const u = mat.userData.uniforms;
+  u.grade.value.set(g.grade[0], g.grade[1], g.grade[2]);
+  u.gradeLift.value = g.lift;
+  u.saturation.value = g.saturation;
+  u.levels.value = g.levels;
+}""",
+"""export function setPalette(mat, levelId) {
+  const g = GRADES[levelId] || GRADES.neutral;
+  const u = mat.userData.uniforms;
+  u.grade.value.set(g.grade[0], g.grade[1], g.grade[2]);
+  u.gradeLift.value = g.lift;
+  u.saturation.value = g.saturation;
+  u.levels.value = g.levels;
+}
+
+// Bosses get a brightness lift. They are the largest dark shapes on screen and
+// the source art is painted dark, so without this they read as holes in the
+// level rather than as characters.
+export function setLift(mat, extra) {
+  mat.userData.uniforms.gradeLift.value += extra;
+}""")
+open(p,'w',encoding='utf-8').write(s)
+p='js/render/sprite.js'; s=open(p,encoding='utf-8').read()
+s=s.replace("import { makeSpriteMaterial, setPalette } from './materials.js';",
+            "import { makeSpriteMaterial, setPalette, setLift } from './materials.js';")
+s=s.replace("  setPaletteLevel(id) { setPalette(this.material, id); }",
+            "  setPaletteLevel(id) { setPalette(this.material, id); }\n\n  setLift(v) { setLift(this.material, v); }")
+open(p,'w',encoding='utf-8').write(s)
+p='js/game/boss/base.js'; s=open(p,encoding='utf-8').read()
+s=s.replace("  setPaletteLevel(id) { this.sprite.setPaletteLevel(id); }",
+            "  setPaletteLevel(id) { this.sprite.setPaletteLevel(id); this.sprite.setLift(0.16); }")
+open(p,'w',encoding='utf-8').write(s)
+print('boss lift added')
+PY
+timeout 250 node .scratch/shot2.mjs 2>&1 | grep -v "GPU stall" | head -3
+parallax + camera wired to world view
+305:    this.parallax.update(this.pipeline.viewX || 0, this.pipeline.viewY || 0);
+328:    this.parallax.update(this.pipeline.viewX || 0, this.pipeline.viewY || 0);
+467:    this.parallax.update(this.pipeline.viewX || 0, this.pipeline.viewY || 0);
+616:    this.parallax.update(this.pipeline.viewX || 0, this.pipeline.viewY || 0);
+249:    this.cam.x = 0; this.cam.y = 0; this.camLocalX = 0; this.camLocalY = 0;
+boss lift added
+done
+[0m
+[0m→ [0mRead .scratch/shots/D-rotating.png
+[0m
+[0m← [0mEdit js/main.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+@@ -646,19 +646,35 @@
+   const w = this.level.worldWidth, h = this.level.worldHeight;
+   this.camLocalX = clamp(this.camLocalX, 0, Math.max(0, w - LOW_RES_W));
+   this.camLocalY = clamp(this.camLocalY, 0, Math.max(0, h - LOW_RES_H));
+ 
+-  // Then project the (clamped) local origin into world space for the view.
++  let viewX, viewY;
++
++  if (this.level.isRotating) {
++    // While the room turns, the player is pinned in world space. Following the
++    // local position here would swing the camera around with the room instead
++    // of holding on the player, so track the pinned world point directly.
++    const px = p.mesh.position.x + p.facing * CAM.lookAhead;
++    const py = p.mesh.position.y - LOW_RES_H * 0.52;
++    this.cam.shake = Math.max(0, this.cam.shake - dt * CAM.shakeDecay * 3);
++    this.cam.shakeX = this.cam.shake > 0.01 ? (Math.random() - 0.5) * this.cam.shake : 0;
++    this.cam.shakeY = this.cam.shake > 0.01 ? (Math.random() - 0.5) * this.cam.shake : 0;
++    this.pipeline.setView(px - LOW_RES_W * 0.5 + this.cam.shakeX,
++                          py + this.cam.shakeY);
++    return;
++  }
++
+   const world = this.level.localToWorld(
+     new THREE.Vector3(this.camLocalX, this.camLocalY, 0));
++  viewX = world.x; viewY = world.y;
+ 
+   this.cam.shake = Math.max(0, this.cam.shake - dt * CAM.shakeDecay * 3);
+   if (this.cam.shake > 0.01) {
+     this.cam.shakeX = (Math.random() - 0.5) * this.cam.shake;
+     this.cam.shakeY = (Math.random() - 0.5) * this.cam.shake;
+   } else { this.cam.shakeX = 0; this.cam.shakeY = 0; }
+ 
+-  this.pipeline.setView(world.x + this.cam.shakeX, world.y + this.cam.shakeY);
++  this.pipeline.setView(viewX + this.cam.shakeX, viewY + this.cam.shakeY);
+ }
+ 
+ // ------------------------------------------------------------------ ending
+ // The green colour-bleed payoff: particles of the L1 emerald palette rise into
+
+[0m
+The camera must follow the player's **world** position while the room turns, or it swings around with the room. Fixing:
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && timeout 250 node .scratch/shot2.mjs 2>&1 | grep -v "GPU stall" | head -3
+done
+[0m
+[0m→ [0mRead .scratch/shots/D-rotating.png
+[0m→ [0mRead .scratch/shots/E-rotated.png
+[0m
+[0m← [0mEdit js/main.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+@@ -626,57 +626,62 @@
+ _updateCamera(dt, snap = false) {
+   const p = this.player;
+   if (!p) return;
+ 
+-  // Follow and clamp in the level's LOCAL frame.
++  // Work entirely in WORLD space, centred on the player, and clamp against the
++  // axis-aligned bounds of the *transformed* level.
+   //
+-  // After the L2 rotation the world's extents swap -- a 170x36 level becomes
+-  // 36 wide and 170 tall -- so clamping in world space would push the camera to
+-  // a corner of bounds that no longer describe the room. Doing it in local
+-  // space keeps the framing correct at every rotation angle.
+-  const tx = p.cx + p.facing * CAM.lookAhead - LOW_RES_W * 0.5;
+-  const ty = p.body.bottom - LOW_RES_H * 0.52;
++  // The earlier version followed and clamped in the level's local frame. That
++  // breaks after the L2 rotation: the group is turned, so local no longer maps
++  // to screen axes, and a local-space clamp pins the view to a spot the player
++  // is no longer at -- the camera snaps to the corner of the room and the
++  // player leaves the frame. Transforming the level's four corners and taking
++  // their bounds keeps the clamp correct at any rotation angle.
++  const targetX = p.mesh.position.x + p.facing * CAM.lookAhead;
++  const targetY = p.mesh.position.y - LOW_RES_H * 0.52;
+ 
+   if (snap) {
+-    this.camLocalX = tx; this.camLocalY = ty;
++    this.cam.x = targetX - LOW_RES_W * 0.5;
++    this.cam.y = targetY;
+   } else {
+-    this.camLocalX = damp(this.camLocalX ?? tx, tx, CAM.lerp, dt);
+-    this.camLocalY = damp(this.camLocalY ?? ty, ty, CAM.lerp, dt);
++    this.cam.x = damp(this.cam.x, targetX - LOW_RES_W * 0.5, CAM.lerp, dt);
++    this.cam.y = damp(this.cam.y, targetY, CAM.lerp, dt);
+   }
+ 
+-  const w = this.level.worldWidth, h = this.level.worldHeight;
+-  this.camLocalX = clamp(this.camLocalX, 0, Math.max(0, w - LOW_RES_W));
+-  this.camLocalY = clamp(this.camLocalY, 0, Math.max(0, h - LOW_RES_H));
++  const b = this._levelWorldBounds();
++  // Keep the view over the level, but allow it to overhang slightly so a wide
++  // room is never letterboxed against the frame edge.
++  this.cam.x = clamp(this.cam.x, b.minX - LOW_RES_W * 0.5, b.maxX - LOW_RES_W * 0.5);
++  this.cam.y = clamp(this.cam.y, b.minY - LOW_RES_H * 0.5, b.maxY - LOW_RES_H * 0.5);
+ 
+-  let viewX, viewY;
+-
+-  if (this.level.isRotating) {
+-    // While the room turns, the player is pinned in world space. Following the
+-    // local position here would swing the camera around with the room instead
+-    // of holding on the player, so track the pinned world point directly.
+-    const px = p.mesh.position.x + p.facing * CAM.lookAhead;
+-    const py = p.mesh.position.y - LOW_RES_H * 0.52;
+-    this.cam.shake = Math.max(0, this.cam.shake - dt * CAM.shakeDecay * 3);
+-    this.cam.shakeX = this.cam.shake > 0.01 ? (Math.random() - 0.5) * this.cam.shake : 0;
+-    this.cam.shakeY = this.cam.shake > 0.01 ? (Math.random() - 0.5) * this.cam.shake : 0;
+-    this.pipeline.setView(px - LOW_RES_W * 0.5 + this.cam.shakeX,
+-                          py + this.cam.shakeY);
+-    return;
+-  }
+-
+-  const world = this.level.localToWorld(
+-    new THREE.Vector3(this.camLocalX, this.camLocalY, 0));
+-  viewX = world.x; viewY = world.y;
+-
+   this.cam.shake = Math.max(0, this.cam.shake - dt * CAM.shakeDecay * 3);
+   if (this.cam.shake > 0.01) {
+     this.cam.shakeX = (Math.random() - 0.5) * this.cam.shake;
+     this.cam.shakeY = (Math.random() - 0.5) * this.cam.shake;
+   } else { this.cam.shakeX = 0; this.cam.shakeY = 0; }
+ 
+-  this.pipeline.setView(viewX + this.cam.shakeX, viewY + this.cam.shakeY);
++  this.pipeline.setView(this.cam.x + this.cam.shakeX, this.cam.y + this.cam.shakeY);
+ }
+ 
++// World-space AABB of the level, recomputed only when the rotation angle
++// actually changes.
++_levelWorldBounds() {
++  const w = this.level.worldWidth, h = this.level.worldHeight;
++  const rot = this.level.rot;
++  if (this._bounds && this._boundsRot === rot && this._boundsW === w && this._boundsH === h) {
++    return this._bounds;
++  }
++  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
++  for (const [cx, cy] of [[0, 0], [w, 0], [0, h], [w, h]]) {
++    const v = this.level.localToWorld(new THREE.Vector3(cx, cy, 0));
++    minX = Math.min(minX, v.x); maxX = Math.max(maxX, v.x);
++    minY = Math.min(minY, v.y); maxY = Math.max(maxY, v.y);
++  }
++  this._bounds = { minX, maxX, minY, maxY };
++  this._boundsRot = rot; this._boundsW = w; this._boundsH = h;
++  return this._bounds;
++}
++
+ // ------------------------------------------------------------------ ending
+ // The green colour-bleed payoff: particles of the L1 emerald palette rise into
+ // the frame over the closing text. Drawn to a 2D canvas over the letterbox.
+ _bleedInit() {
+
+[0m
+The post-rotation camera snaps away from the player because it clamps in local space while the world has rotated. The clamp must happen in the transformed world space. Let me rewrite the camera to work entirely in world space with an AABB derived from the rotated level.
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && python3 - <<'PY'
+p='js/main.js'; s=open(p,encoding='utf-8').read()
+# reset cached bounds whenever a level loads
+s=s.replace("    this.cam.x = 0; this.cam.y = 0; this.camLocalX = 0; this.camLocalY = 0;",
+            "    this.cam.x = 0; this.cam.y = 0; this._bounds = null;")
+open(p,'w',encoding='utf-8').write(s)
+print('bounds cache reset on level load')
+PY
+grep -n "_bounds = null" js/main.js && node --input-type=module --check < js/main.js && echo "main.js parses" && timeout 250 node .scratch/shot2.mjs 2>&1 | grep -v "GPU stall" | head -3
+bounds cache reset on level load
+249:    this.cam.x = 0; this.cam.y = 0; this._bounds = null;
+main.js parses
+done
+[0m
+[0m→ [0mRead .scratch/shots/E-rotated.png
+The rotation mechanic now reads correctly — the wall has become a vertical bridge with Kael standing on it. Let me run the full smoke check.
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && curl -s -o /dev/null -w "server:%{http_code}\n" http://localhost:8765/index.html || (python3 -m http.server 8765 >.scratch/server.log 2>&1 &); sleep 1; timeout 400 node tools/smoke.mjs 2>&1 | tail -32
+server:200
+      atlases: {"kael":7,"goodwitch":4,"badwitch":5,"statue":5,"demon":5}
+ ok   atlases loaded with frames
+ ok   new game -> cutscene
+ ok   cutscene typewriter advances
+ ok   skip cutscene -> play
+ ok   player physics + movement
+ ok   jump
+ ok   dash: i-frames, ghost, cooldown
+ ok   sword attack
+      governor: {"difficulty":"normal","base":1,"adapt":0.012,"scalar":1}
+ ok   adaptive AI governor respects the ceiling
+ ok   L1 -> L2 with rotation mechanic
+ ok   L2 rotate: 90deg over ~0.6s, physics suspended
+ ok   L2 -> L3, halo is the only light
+      patient one: {"ok":true,"name":"bossPatient","predicted":true,"pred":{"x":329,"conf":0.72},"counts":{"strike_hold":51,"null":42,"fade":72,"reposition_hold":72,"strike":63},"los":true,"dist":86,"strikes":63}
+ ok   Patient One predicts the lantern path
+      adaptation: {"dodgeBias":0.65,"aggression":1,"dodgerPick":"bait","dodgerBaitWeight":1.6640000000000001,"maserPick":"approach","maserApproachWeight":1.9}
+ ok   adaptive AI: counter-dodge raises the bait weight
+ ok   fairness caps: no attack during i-frames
+ ok   boss phase 2 at 55% health
+ ok   defeating the final boss reaches the ending
+      "Pausa" -> "Paused"
+ ok   language toggle switches every string
+ ok   no hardcoded player-facing text in UI layer
+
+--- console errors: 0 ---
+--- console warnings: 4 ---
+  warning: [.WebGL-0x5c00190e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+  warning: [.WebGL-0x5c00190e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
+
+PASS
+[0m

@@ -1,5 +1,5 @@
 import * as THREE from '../vendor/three.module.js';
-import { makeSpriteMaterial, setPalette } from './materials.js';
+import { makeSpriteMaterial, setPalette, setLift } from './materials.js';
 
 // An animated sprite driven by the frame tables emitted by the asset pipeline.
 //
@@ -40,6 +40,8 @@ export class Sprite {
   }
 
   setPaletteLevel(id) { setPalette(this.material, id); }
+
+  setLift(v) { setLift(this.material, v); }
 
   get frameCount() {
     const list = this.char.frames[this.clip];

@@ -100,7 +100,11 @@ class Game {
     this._wireMenuKeys();
     this._loadLevel(0, { silent: true });
 
-    document.getElementById('boot').classList.add('gone');
+    const boot = document.getElementById('boot');
+    boot.classList.add('gone');
+    // The fade is 400ms; without this the overlay keeps painting (and ghosting
+    // its title across the menu) for as long as it stays in the DOM.
+    setTimeout(() => boot.remove(), 500);
     this.machine.to(S.MENU);
     this.ui.show('menu');
     this.fadeTarget = 1;
@@ -242,7 +246,7 @@ class Game {
       for (const g of this.player.ghosts) g.object.visible = false;
     }
 
-    this.cam.x = 0; this.cam.y = 0;
+    this.cam.x = 0; this.cam.y = 0; this._bounds = null;
     this._syncPlayerToWorld();
     this._updateCamera(0.016, true);
     this.pipeline.setView(this.cam.x, this.cam.y);
@@ -298,7 +302,7 @@ class Game {
 
   _updateMenu() {
     // The level renders behind the title, so it is stepped but not simulated.
-    this.parallax.update(this.cam.x, this.cam.y);
+    this.parallax.update(this.pipeline.viewX || 0, this.pipeline.viewY || 0);
     this._syncPlayerToWorld();
   }
 
@@ -321,7 +325,7 @@ class Game {
     this.player.update(dt, { consume: () => false, isDown: () => false }, this.level.data);
     this.fx.update(dt);
     this._updateCamera(dt);
-    this.parallax.update(this.cam.x, this.cam.y);
+    this.parallax.update(this.pipeline.viewX || 0, this.pipeline.viewY || 0);
     this.ui.setBoss(null);
     if (this.deathTimer > 1.1 && (this.input.consume('confirm') || this.input.consume('jump'))) {
       this.retryLevel();
@@ -460,7 +464,7 @@ class Game {
     // ---- camera + parallax
     this._syncPlayerToWorld();
     this._updateCamera(dt);
-    this.parallax.update(this.cam.x, this.cam.y);
+    this.parallax.update(this.pipeline.viewX || 0, this.pipeline.viewY || 0);
 
     // L3: the sword halo is the only light, so the post pass is told where it is.
     if (this.levelDef.id === 3) {
@@ -609,7 +613,7 @@ class Game {
   // ------------------------------------------------------------------ camera
   _idleCamera(dt) {
     this._updateCamera(dt);
-    this.parallax.update(this.cam.x, this.cam.y);
+    this.parallax.update(this.pipeline.viewX || 0, this.pipeline.viewY || 0);
   }
 
   _syncPlayerToWorld() {
@@ -622,22 +626,32 @@ class Game {
   _updateCamera(dt, snap = false) {
     const p = this.player;
     if (!p) return;
-    // Follow the player's world position, not their local one, so a rotation
-    // does not throw the camera across the level.
-    const tx = p.mesh.position.x + p.facing * CAM.lookAhead - LOW_RES_W * 0.5;
-    const ty = p.mesh.position.y - LOW_RES_H * 0.52;
+
+    // Work entirely in WORLD space, centred on the player, and clamp against the
+    // axis-aligned bounds of the *transformed* level.
+    //
+    // The earlier version followed and clamped in the level's local frame. That
+    // breaks after the L2 rotation: the group is turned, so local no longer maps
+    // to screen axes, and a local-space clamp pins the view to a spot the player
+    // is no longer at -- the camera snaps to the corner of the room and the
+    // player leaves the frame. Transforming the level's four corners and taking
+    // their bounds keeps the clamp correct at any rotation angle.
+    const targetX = p.mesh.position.x + p.facing * CAM.lookAhead;
+    const targetY = p.mesh.position.y - LOW_RES_H * 0.52;
 
     if (snap) {
-      this.cam.x = tx; this.cam.y = ty;
+      this.cam.x = targetX - LOW_RES_W * 0.5;
+      this.cam.y = targetY;
     } else {
-      this.cam.x = damp(this.cam.x, tx, CAM.lerp, dt);
-      this.cam.y = damp(this.cam.y, ty, CAM.lerp, dt);
+      this.cam.x = damp(this.cam.x, targetX - LOW_RES_W * 0.5, CAM.lerp, dt);
+      this.cam.y = damp(this.cam.y, targetY, CAM.lerp, dt);
     }
 
-    // Clamp to the level bounds in the group's local frame.
-    const w = this.level.worldWidth, h = this.level.worldHeight;
-    this.cam.x = clamp(this.cam.x, 0, Math.max(0, w - LOW_RES_W));
-    this.cam.y = clamp(this.cam.y, 0, Math.max(0, h - LOW_RES_H));
+    const b = this._levelWorldBounds();
+    // Keep the view over the level, but allow it to overhang slightly so a wide
+    // room is never letterboxed against the frame edge.
+    this.cam.x = clamp(this.cam.x, b.minX - LOW_RES_W * 0.5, b.maxX - LOW_RES_W * 0.5);
+    this.cam.y = clamp(this.cam.y, b.minY - LOW_RES_H * 0.5, b.maxY - LOW_RES_H * 0.5);
 
     this.cam.shake = Math.max(0, this.cam.shake - dt * CAM.shakeDecay * 3);
     if (this.cam.shake > 0.01) {
@@ -646,6 +660,25 @@ class Game {
     } else { this.cam.shakeX = 0; this.cam.shakeY = 0; }
 
     this.pipeline.setView(this.cam.x + this.cam.shakeX, this.cam.y + this.cam.shakeY);
+  }
+
+  // World-space AABB of the level, recomputed only when the rotation angle
+  // actually changes.
+  _levelWorldBounds() {
+    const w = this.level.worldWidth, h = this.level.worldHeight;
+    const rot = this.level.rot;
+    if (this._bounds && this._boundsRot === rot && this._boundsW === w && this._boundsH === h) {
+      return this._bounds;
+    }
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const [cx, cy] of [[0, 0], [w, 0], [0, h], [w, h]]) {
+      const v = this.level.localToWorld(new THREE.Vector3(cx, cy, 0));
+      minX = Math.min(minX, v.x); maxX = Math.max(maxX, v.x);
+      minY = Math.min(minY, v.y); maxY = Math.max(maxY, v.y);
+    }
+    this._bounds = { minX, maxX, minY, maxY };
+    this._boundsRot = rot; this._boundsW = w; this._boundsH = h;
+    return this._bounds;
   }
 
   // ------------------------------------------------------------------ ending

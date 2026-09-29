@@ -35,8 +35,6 @@ export class UI {
     this.panelArt = el('panel-art');
     this.cutHint = el('cut-hint');
 
-    this.menuList = el('menu-list');
-    this.pauseList = el('pause-list');
     this.controlsPanel = el('controls-panel');
     this.controlsBody = el('controls-body');
     this.titleEl = el('title-text');
@@ -91,7 +89,6 @@ export class UI {
   }
 
   _renderMenu() {
-    if (!this.menuList) return;
     this._buildDifficulty();
     this._buildLang();
   }
