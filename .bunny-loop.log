@@ -5205,3 +5205,363 @@ PASS
 |PASS|| <- run 1
 |PASS|| <- run 2
 [0m
+Stable across 6 consecutive runs. Let me commit and do a final review of the whole build.
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && git add -A && git commit -q -F - <<'MSG' && git log --oneline | head -2
+Ul Burjo phase 2: disguise drop and a paced arena rotation
+
+swapTo() was called but never defined, so entering phase 2 threw on the frame
+the disguise was supposed to drop.
+
+The arena rotation was also unbounded -- 144 turns in ten seconds of sim. A 4.5s
+cooldown makes it punctuation rather than the fight, and stops the room spinning
+faster than the player can reorient.
+
+Two checks in the smoke run were order-dependent or non-deterministic: the
+Patient One test left the weighted roll to chance and could pick no attack in
+300 ticks, and the ending step assumed the previous step had left the game in
+L3. Both now set up their own state. Six consecutive clean runs.
+MSG
+6128ad5 Ul Burjo phase 2: disguise drop and a paced arena rotation
+d443fe5 Add README and decisions log
+[0m
+Let me do a final review pass — a longer simulated play session to catch anything the scripted checks miss.
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && cat > .scratch/playthrough.mjs <<'EOF'
+import { chromium } from 'playwright';
+const b = await chromium.launch({args:['--use-gl=swiftshader','--enable-unsafe-swiftshader','--no-sandbox']});
+const p = await b.newPage({viewport:{width:960,height:540}});
+const errs=new Set();
+p.on('pageerror',e=>errs.add(e.message));
+p.on('console',m=>{ if(m.type()==='error') errs.add('console: '+m.text().slice(0,200)); });
+await p.goto('http://localhost:8765/index.html',{waitUntil:'load'});
+await p.waitForFunction(()=>window.__lumenfall?.machine?.state==='menu',null,{timeout:20000});
+await p.click('#menu-new');
+await p.waitForTimeout(1000);
+for (let i=0;i<10;i++){ await p.keyboard.press('Enter'); await p.waitForTimeout(120); await p.keyboard.press('Enter'); await p.waitForTimeout(120);}
+await p.waitForFunction(()=>window.__lumenfall.machine.state==='play',null,{timeout:10000});
+
+// Simulate a real player: hold right, jump periodically, attack, dash.
+const r = await p.evaluate(async ()=>{
+  const g=window.__lumenfall;
+  const log=[];
+  const start={x:g.player.body.x, y:g.player.body.y};
+  let maxX=start.x, deaths=0, jumps=0, dashes=0, attacks=0, hits=0;
+  const input=g.input;
+  for (let i=0;i<1800;i++){
+    // drive the virtual input directly
+    input.down.add('KeyD');
+    if (i%37===0){ input.buffer.set('jump',0.12); jumps++; }
+    if (i%211===0){ input.buffer.set('dash',0.12); dashes++; }
+    if (i%97===0){ input.buffer.set('attack',0.12); attacks++; }
+    await new Promise(res=>requestAnimationFrame(res));
+    maxX=Math.max(maxX,g.player.body.x);
+    if (g.machine.state==='dead'){ deaths++; 
+      // respawn via the death path
+      g.retryLevel();
+      await new Promise(res=>setTimeout(res,120));
+      i--; continue;
+    }
+    if (i%600===0) log.push({i, x:Math.round(g.player.body.x), y:Math.round(g.player.body.y), ember:g.ember, state:g.machine.state, enemies:g.enemies.length});
+  }
+  input.down.delete('KeyD');
+  return {start, maxX:Math.round(maxX), travelled:Math.round(maxX-start.x),
+          levelWidth:g.level.worldWidth, deaths, jumps, dashes, attacks, log,
+          ember:g.ember, bossAwake:g.bossAwake, finalState:g.machine.state};
+});
+console.log(JSON.stringify(r,null,1));
+console.log('errors:', errs.size ? [...errs] : 'none');
+await p.screenshot({path:'.scratch/shots/G-playthrough.png'});
+await b.close();
+EOF
+timeout 400 node .scratch/playthrough.mjs 2>&1 | grep -v "GPU stall" | tail -50
+{
+ "start": {
+  "x": 24,
+  "y": 32
+ },
+ "maxX": 1746,
+ "travelled": 1722,
+ "levelWidth": 1520,
+ "deaths": 0,
+ "jumps": 49,
+ "dashes": 9,
+ "attacks": 19,
+ "log": [
+  {
+   "i": 0,
+   "x": 24,
+   "y": 40,
+   "ember": 0,
+   "state": "play",
+   "enemies": 4
+  },
+  {
+   "i": 600,
+   "x": 1506,
+   "y": 71,
+   "ember": 2,
+   "state": "play",
+   "enemies": 4
+  },
+  {
+   "i": 1200,
+   "x": 1634,
+   "y": 64,
+   "ember": 2,
+   "state": "play",
+   "enemies": 4
+  }
+ ],
+ "ember": 2,
+ "bossAwake": false,
+ "finalState": "play"
+}
+errors: none
+[0m
+The player travelled to x=1746 in a 1520-wide level — that's a real bounds-escape bug. Let me find it.
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && cat > .scratch/bounds.mjs <<'EOF'
+import { chromium } from 'playwright';
+const b = await chromium.launch({args:['--use-gl=swiftshader','--enable-unsafe-swiftshader','--no-sandbox']});
+const p = await b.newPage({viewport:{width:960,height:540}});
+p.on('pageerror',e=>console.log('[pageerror]',e.message));
+await p.goto('http://localhost:8765/index.html',{waitUntil:'load'});
+await p.waitForFunction(()=>window.__lumenfall?.machine?.state==='menu',null,{timeout:20000});
+const r = await p.evaluate(async ()=>{
+  const g=window.__lumenfall;
+  g.ui.hideAll(); g._loadLevel(0,{silent:true});
+  g.cutscene.active=false; g.machine.state='play';
+  const W=g.level.worldWidth, H=g.level.worldHeight;
+  const input=g.input;
+  const trace=[];
+  for(let i=0;i<900;i++){
+    input.down.add('KeyD');
+    if(i%37===0) input.buffer.set('jump',0.12);
+    if(i%211===0) input.buffer.set('dash',0.12);
+    await new Promise(r=>requestAnimationFrame(r));
+    const x=g.player.body.x, y=g.player.body.y;
+    if (x > W - 40 || x < 0 || trace.length===0 && i%1===0 && i>0) {}
+    if (x > W-60) trace.push({i, x:Math.round(x), y:Math.round(y), vx:Math.round(g.player.body.vx), dashing:g.player.isDashing, onGround:g.player.onGround, top:Math.round(g.player.body.top)});
+    if (x > W + 100) break;
+  }
+  input.down.delete('KeyD');
+  return {W,H, trace: trace.slice(-14), finalX:Math.round(g.player.body.x), finalY:Math.round(g.player.body.y), finalTop:Math.round(g.player.body.top)};
+});
+console.log(JSON.stringify(r,null,1));
+await b.close();
+EOF
+timeout 250 node .scratch/bounds.mjs 2>&1 | grep -v "GPU stall" | head -50
+{
+ "W": 1520,
+ "H": 272,
+ "trace": [
+  {
+   "i": 886,
+   "x": 1578,
+   "y": 72,
+   "vx": 0,
+   "dashing": false,
+   "onGround": true,
+   "top": 102
+  },
+  {
+   "i": 887,
+   "x": 1578,
+   "y": 72,
+   "vx": 0,
+   "dashing": false,
+   "onGround": true,
+   "top": 102
+  },
+  {
+   "i": 888,
+   "x": 1578,
+   "y": 66,
+   "vx": 0,
+   "dashing": false,
+   "onGround": false,
+   "top": 96
+  },
+  {
+   "i": 889,
+   "x": 1578,
+   "y": 72,
+   "vx": 0,
+   "dashing": false,
+   "onGround": true,
+   "top": 102
+  },
+  {
+   "i": 890,
+   "x": 1578,
+   "y": 72,
+   "vx": 0,
+   "dashing": false,
+   "onGround": true,
+   "top": 102
+  },
+  {
+[0m
+[0m← [0mEdit js/game/player.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/player.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/player.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/player.js
+@@ -140,8 +140,9 @@
+ const wasAir = !this.onGround;
+ moveX(this.body, level, this.body.vx * dt);
+ moveY(this.body, level, this.body.vy * dt);
+ this.onGround = this.body.onGround;
++this._clampToLevel(level);
+ 
+ if (this.onGround) {
+   if (wasAir && this.body.vy <= 0) this.squash = -0.16;
+   this.airDashUsed = false;
+
+[0m
+The player escaped the level and is walking on the out-of-bounds solid. Tile resolution alone can't guarantee the clamp. Let me add an explicit bounds guarantee.
+[0m← [0mEdit js/game/player.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/player.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/player.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/player.js
+@@ -155,8 +155,23 @@
+   this._updateLight();
+   this._checkSpikes(level);
+ }
+ 
++// Hard guarantee that the body stays inside the level, horizontally.
++//
++// tileAt() reports out-of-range columns as SOLID, which is enough to stop the
++// player at the wall most of the time -- but the resolution depends on which
++// out-of-range column the body happens to land in, so a fast step (the dash,
++// or a long frame) can leave them standing on that phantom solid outside the
++// level. Clamping explicitly makes it impossible. Y is left free on purpose:
++// the gaps in these levels are real pits, and falling out of one is how the
++// death check fires.
++_clampToLevel(level) {
++  const maxX = level.width * TILE - this.body.w;
++  if (this.body.x < 0) { this.body.x = 0; this.body.vx = 0; }
++  else if (this.body.x > maxX) { this.body.x = maxX; this.body.vx = 0; }
++}
++
+ _tryDash() {
+   if (this.dashCd > 0) return false;
+   if (!this.onGround && this.airDashUsed) return false;   // one air dash
+   if (!this.onGround) this.airDashUsed = true;
+
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && sed -i 's|    moveX(this.body, level, this.body.vx \* dt);\n    moveY(this.body, level, this.body.vy \* dt);\n    this.sprite.update(dt);|X|' js/game/player.js && python3 - <<'PY'
+p='js/game/player.js'; s=open(p,encoding='utf-8').read()
+s=s.replace("""    this.deathTimer += dt;
+    this.body.vy = Math.max(-MAX_FALL, this.body.vy - GRAVITY * dt);
+    moveX(this.body, level, this.body.vx * dt);
+    moveY(this.body, level, this.body.vy * dt);
+    this.sprite.update(dt);""",
+"""    this.deathTimer += dt;
+    this.body.vy = Math.max(-MAX_FALL, this.body.vy - GRAVITY * dt);
+    moveX(this.body, level, this.body.vx * dt);
+    moveY(this.body, level, this.body.vy * dt);
+    this._clampToLevel(level);
+    this.sprite.update(dt);""")
+open(p,'w',encoding='utf-8').write(s)
+print('death path clamps too')
+PY
+grep -c "_clampToLevel" js/game/player.js && timeout 250 node .scratch/bounds.mjs 2>&1 | grep -v "GPU stall" | tail -12
+death path clamps too
+2
+   "x": 1506,
+   "y": 61,
+   "vx": 0,
+   "dashing": false,
+   "onGround": false,
+   "top": 91
+  }
+ ],
+ "finalX": 1506,
+ "finalY": 61,
+ "finalTop": 91
+}
+[0m
+Player now stops at exactly 1506 (1520 − body width). Let me add a bounds check to the suite and re-verify everything.
+[0m← [0mEdit tools/smoke.mjs
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/tools/smoke.mjs
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/tools/smoke.mjs
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/tools/smoke.mjs
+@@ -182,8 +182,33 @@
+   if (d.scalar > d.base + 1e-6) throw new Error(`scalar ${d.scalar} exceeded ceiling ${d.base}`);
+   if (d.adapt > d.base && d.adapt > 0.2) throw new Error(`adapt out of band: ${d.adapt}`);
+ }));
+ 
++record(await step('player cannot escape the level bounds', async () => {
++  const r = await page.evaluate(async () => {
++    const g = window.__lumenfall;
++    g.ui.hideAll(); g._loadLevel(0, { silent: true });
++    g.cutscene.active = false; g.machine.state = 'play';
++    const W = g.level.worldWidth;
++    const input = g.input;
++    let escaped = 0;
++    // Hold right, jump and dash, which is how the body gets enough speed in a
++    // single step to overshoot the wall check.
++    for (let i = 0; i < 700; i++) {
++      input.down.add('KeyD');
++      if (i % 31 === 0) input.buffer.set('jump', 0.12);
++      if (i % 173 === 0) input.buffer.set('dash', 0.12);
++      await new Promise((res) => requestAnimationFrame(res));
++      if (g.player.body.x > W - g.player.body.w + 0.5) escaped++;
++    }
++    input.down.delete('KeyD');
++    return { escaped, x: Math.round(g.player.body.x), maxX: W - g.player.body.w, W };
++  });
++  if (r.escaped > 0) {
++    throw new Error(`player sat outside the level at x=${r.x} (max ${r.maxX})`);
++  }
++}));
++
+ record(await step('L1 -> L2 with rotation mechanic', async () => {
+   await page.evaluate(() => {
+     const g = window.__lumenfall;
+     g._onBossDefeated();          // skips straight to the next level
+
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && curl -s -o /dev/null http://localhost:8765/index.html || (python3 -m http.server 8765 >.scratch/server.log 2>&1 &); sleep 1; timeout 400 node tools/smoke.mjs 2>&1 | tail -30
+ok   player physics + movement
+ ok   jump
+ ok   dash: i-frames, ghost, cooldown
+ ok   sword attack
+      governor: {"difficulty":"normal","base":1,"adapt":0.012,"scalar":1}
+ ok   adaptive AI governor respects the ceiling
+ ok   player cannot escape the level bounds
+ ok   L1 -> L2 with rotation mechanic
+ ok   L2 rotate: 90deg over ~0.6s, physics suspended
+ ok   L2 -> L3, halo is the only light
+      patient one: {"ok":true,"name":"bossPatient","predicted":true,"pred":{"x":329,"conf":0.72},"counts":{"strike_hold":90,"null":66,"strike":144},"los":true,"dist":111,"strikes":144}
+ ok   Patient One predicts the lantern path
+      adaptation: {"dodgeBias":0.65,"aggression":1,"dodgerPick":"bait","dodgerBaitWeight":1.6640000000000001,"maserPick":"approach","maserApproachWeight":1.9}
+ ok   adaptive AI: counter-dodge raises the bait weight
+ ok   fairness caps: no attack during i-frames
+ ok   boss phase 2 at 55% health
+      ul burjo: {"ok":true,"beforeSprite":"goodwitch","afterSprite":"badwitch","phase":2,"rotCount":1,"rot":1.571}
+ ok   Ul Burjo: phase 2 drops the disguise and rotates the arena
+ ok   defeating the final boss reaches the ending
+      "Pausa" -> "Paused"
+ ok   language toggle switches every string
+ ok   no hardcoded player-facing text in UI layer
+
+--- console errors: 0 ---
+--- console warnings: 4 ---
+  warning: [.WebGL-0x3e9400196800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+  warning: [.WebGL-0x3e9400196800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
+
+PASS
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && timeout 400 node .scratch/playthrough.mjs 2>&1 | grep -v "GPU stall" | grep -E "maxX|travelled|deaths|finalState|errors|ember" | head -10
+"maxX": 1506,
+ "travelled": 1482,
+ "deaths": 0,
+   "ember": 0,
+   "ember": 2,
+   "ember": 2,
+ "ember": 2,
+ "finalState": "play"
+errors: none
+[0m

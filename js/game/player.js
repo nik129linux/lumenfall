@@ -141,6 +141,7 @@ export class Player {
     moveX(this.body, level, this.body.vx * dt);
     moveY(this.body, level, this.body.vy * dt);
     this.onGround = this.body.onGround;
+    this._clampToLevel(level);
 
     if (this.onGround) {
       if (wasAir && this.body.vy <= 0) this.squash = -0.16;
@@ -153,6 +154,21 @@ export class Player {
     this._animate(dt);
     this._updateLight();
     this._checkSpikes(level);
+  }
+
+  // Hard guarantee that the body stays inside the level, horizontally.
+  //
+  // tileAt() reports out-of-range columns as SOLID, which is enough to stop the
+  // player at the wall most of the time -- but the resolution depends on which
+  // out-of-range column the body happens to land in, so a fast step (the dash,
+  // or a long frame) can leave them standing on that phantom solid outside the
+  // level. Clamping explicitly makes it impossible. Y is left free on purpose:
+  // the gaps in these levels are real pits, and falling out of one is how the
+  // death check fires.
+  _clampToLevel(level) {
+    const maxX = level.width * TILE - this.body.w;
+    if (this.body.x < 0) { this.body.x = 0; this.body.vx = 0; }
+    else if (this.body.x > maxX) { this.body.x = maxX; this.body.vx = 0; }
   }
 
   _tryDash() {

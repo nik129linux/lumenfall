@@ -183,6 +183,31 @@ record(await step('adaptive AI governor respects the ceiling', async () => {
   if (d.adapt > d.base && d.adapt > 0.2) throw new Error(`adapt out of band: ${d.adapt}`);
 }));
 
+record(await step('player cannot escape the level bounds', async () => {
+  const r = await page.evaluate(async () => {
+    const g = window.__lumenfall;
+    g.ui.hideAll(); g._loadLevel(0, { silent: true });
+    g.cutscene.active = false; g.machine.state = 'play';
+    const W = g.level.worldWidth;
+    const input = g.input;
+    let escaped = 0;
+    // Hold right, jump and dash, which is how the body gets enough speed in a
+    // single step to overshoot the wall check.
+    for (let i = 0; i < 700; i++) {
+      input.down.add('KeyD');
+      if (i % 31 === 0) input.buffer.set('jump', 0.12);
+      if (i % 173 === 0) input.buffer.set('dash', 0.12);
+      await new Promise((res) => requestAnimationFrame(res));
+      if (g.player.body.x > W - g.player.body.w + 0.5) escaped++;
+    }
+    input.down.delete('KeyD');
+    return { escaped, x: Math.round(g.player.body.x), maxX: W - g.player.body.w, W };
+  });
+  if (r.escaped > 0) {
+    throw new Error(`player sat outside the level at x=${r.x} (max ${r.maxX})`);
+  }
+}));
+
 record(await step('L1 -> L2 with rotation mechanic', async () => {
   await page.evaluate(() => {
     const g = window.__lumenfall;
