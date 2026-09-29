@@ -6048,3 +6048,115 @@ tools/smoke.mjs
 .bunny-reply.txt
 --- these are harness files, not project content ---
 [0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && printf 'tools/__pycache__/\n' >> .gitignore && git add -A && git commit -q -m "Stop tracking the Python bytecode cache" && echo "--- final structure ---" && git ls-files | grep -vE "bunny|^1.png|^2.jpg|^3.jpg|assets/(kael|statue|goodwitch|badwitch|demon)" && echo && wc -l js/**/*.js js/*.js 2>/dev/null | tail -3
+--- final structure ---
+.gitignore
+README.md
+assets/atlases/badwitch.png
+assets/atlases/demon.png
+assets/atlases/goodwitch.png
+assets/atlases/kael.png
+assets/atlases/manifest.json
+assets/atlases/statue.png
+assets/bg/manifest.json
+css/style.css
+docs/DECISIONS.md
+docs/superpowers/specs/2026-09-28-lumenfall-design.md
+index.html
+js/core/assets.js
+js/core/audio.js
+js/core/config.js
+js/core/input.js
+js/core/rng.js
+js/game/ai.js
+js/game/boss/base.js
+js/game/boss/patientone.js
+js/game/boss/statue.js
+js/game/boss/ulburjo.js
+js/game/enemy.js
+js/game/fx.js
+js/game/level.js
+js/game/physics.js
+js/game/player.js
+js/game/state.js
+js/main.js
+js/render/materials.js
+js/render/parallax.js
+js/render/pipeline.js
+js/render/sprite.js
+js/ui/cutscene.js
+js/ui/hud.js
+js/ui/i18n.js
+js/ui/strings.js
+js/vendor/three.module.js
+tools/build-atlas.py
+tools/smoke.mjs
+
+  54571 js/vendor/three.module.js
+    739 js/main.js
+  60092 total
+[0m
+Final verification run before signing off.
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && pkill -f "http.server 8765" 2>/dev/null; sleep 1; (python3 -m http.server 8765 >.scratch/server.log 2>&1 &) ; sleep 2 && curl -s -o /dev/null -w "static server: %{http_code}\n" http://localhost:8765/index.html && timeout 400 node tools/smoke.mjs 2>&1 | grep -E "^\s*(ok|FAIL)|console errors|^PASS|^FAIL"
+(no output)
+
+<shell_metadata>
+shell tool terminated command after exceeding timeout 450000 ms. If this command is expected to take longer and is not waiting for interactive input, retry with a larger timeout value in milliseconds.
+</shell_metadata>
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && pkill -f "http.server 8765" 2>/dev/null; sleep 1; nohup python3 -m http.server 8765 >.scratch/server.log 2>&1 & sleep 3; curl -s -o /dev/null -w "server:%{http_code}\n" http://localhost:8765/index.html
+(no output)
+
+<shell_metadata>
+shell tool terminated command after exceeding timeout 60000 ms. If this command is expected to take longer and is not waiting for interactive input, retry with a larger timeout value in milliseconds.
+</shell_metadata>
+[0m
+The backgrounding is hanging the shell. Let me detach it properly.
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && pkill -f "http.server 8765" 2>/dev/null; sleep 1; setsid python3 -m http.server 8765 < /dev/null > .scratch/server.log 2>&1 & disown; sleep 3; echo "started"
+(no output)
+
+<shell_metadata>
+shell tool terminated command after exceeding timeout 60000 ms. If this command is expected to take longer and is not waiting for interactive input, retry with a larger timeout value in milliseconds.
+</shell_metadata>
+[0m
+[0m$ [0mcurl -s -o /dev/null -w "server:%{http_code}\n" --max-time 5 http://localhost:8765/index.html 2>&1; ss -ltn 2>/dev/null | grep -c 8765
+server:000
+0
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && python3 -c "
+import subprocess, os, sys
+p = subprocess.Popen([sys.executable,'-m','http.server','8765'],
+    stdout=open('.scratch/server.log','ab'), stderr=subprocess.STDOUT,
+    stdin=subprocess.DEVNULL, start_new_session=True, cwd='.')
+print('pid', p.pid)
+" && sleep 3 && curl -s -o /dev/null -w "server:%{http_code}\n" --max-time 5 http://localhost:8765/index.html
+pid 58051
+server:200
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && timeout 400 node tools/smoke.mjs 2>&1 | grep -E "^\s*(ok|FAIL)|console errors|^PASS|^FAIL"
+ok   load
+ ok   boot reached menu
+ ok   atlases loaded with frames
+ ok   new game -> cutscene
+ ok   cutscene typewriter advances
+ ok   skip cutscene -> play
+ ok   player physics + movement
+ ok   jump
+ ok   dash: i-frames, ghost, cooldown
+ ok   sword attack
+ ok   adaptive AI governor respects the ceiling
+ ok   player cannot escape the level bounds
+ ok   L1 -> L2 with rotation mechanic
+ ok   L2 rotate: 90deg over ~0.6s, physics suspended
+ ok   L2 -> L3, halo is the only light
+ ok   Patient One predicts the lantern path
+ ok   adaptive AI: counter-dodge raises the bait weight
+ ok   fairness caps: no attack during i-frames
+ ok   boss phase 2 at 55% health
+ ok   Ul Burjo: phase 2 drops the disguise and rotates the arena
+ ok   defeating the final boss reaches the ending
+ ok   language toggle switches every string
+ ok   no hardcoded player-facing text in UI layer
+--- console errors: 0 ---
+PASS
+[0m
