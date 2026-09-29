@@ -80,8 +80,11 @@ export const LEVELS = [
     fog: 0x2a1a44,
     accent: 0xa86cf0,
     light: 0xd8a8ff,
-    tile: 0x7a3fa0,
-    platform: 0x7a3fa0,
+    // Same rule as L1/L3: near-black body, accent only on the 1-2px top lip.
+    // The solid #7a3fa0 this replaced was a bright slab that outshone Kael and
+    // read as a foreground object rather than something to stand on.
+    tile: 0x1a0f22,
+    platform: 0x1a0f22,
     lip: 0x9be34a,
     layers: [
       { mult: 0.10, tint: 0x1a0f2b, y: 0.10 },

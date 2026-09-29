@@ -286,15 +286,25 @@ class Game {
     this.pipeline.setLevelLook(this.levelDef);
     this.parallax.setLevel(this.levelDef);
 
+    // Detach the old level's actors BEFORE dropping the references. This loop
+    // used to sit after the assignments below, so it iterated an already-empty
+    // array and removed nothing: every enemy, shard and the elder stayed in the
+    // scene for the rest of the run, which is why the elder turned up in the
+    // level 2 and level 3 screenshots.
+    for (const e of this.enemies) e.mesh.parent?.remove(e.mesh);
+    for (const s of this.shards) s.mesh.parent?.remove(s.mesh);
+    for (const pr of this.fx.projectiles) pr.dispose();
+    if (this.elder) this.elder.mesh.parent?.remove(this.elder.mesh);
+    // Mirrors the removal on the boss death path below.
+    if (this.boss) this.pipeline.scene.remove(this.boss);
+
     this.enemies = [];
     this.shards = [];
-    this.projectiles = [];
+    this.fx.projectiles = [];
     this.boss = null;
     this.bossAwake = false;
     this.elder = null;
     this.model.reset();
-
-    for (const e of this.enemies) e.mesh.parent?.remove(e.mesh);
 
     for (const def of data.entities) {
       if (def.type === 'shard') {

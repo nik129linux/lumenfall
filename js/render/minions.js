@@ -12,6 +12,9 @@ import * as THREE from '../vendor/three.module.js';
 // eye pixels reads instantly against all three backdrops and stays clearly
 // secondary to the cast.
 
+// Hard ceiling on an entity's additive halo, in buffer pixels. See makeGlowTexture.
+const MAX_GLOW_PX = 40;
+
 const SHAPES = {
   wisp: [
     '..1111..',
@@ -119,18 +122,37 @@ function makeShape(rows) {
            cell: [cw, ch] };
 }
 
+// The one texture in the game that is NOT NEAREST. A 32px radial gradient
+// sampled with NearestFilter shows its individual texels, so a halo read as a
+// grid of visible squares. Silhouettes stay NEAREST on purpose -- that
+// crispness is what makes them read at 480x270 -- so this one is filtered
+// smoothly and nothing else changes.
+function smoothGlow(tex) {
+  tex.magFilter = THREE.LinearFilter;
+  tex.minFilter = THREE.LinearFilter;
+  tex.generateMipmaps = false;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+  return tex;
+}
+
 function makeGlowTexture() {
-  const s = 32;
+  const s = 128;
   const c = document.createElement('canvas');
   c.width = s; c.height = s;
   const ctx = c.getContext('2d');
   const g = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
-  g.addColorStop(0, 'rgba(255,255,255,0.75)');
-  g.addColorStop(0.4, 'rgba(255,255,255,0.22)');
-  g.addColorStop(1, 'rgba(255,255,255,0)');
+  // More stops than the old 32px version: with a smooth filter the falloff
+  // itself has to be smooth, or the steps between stops stay visible as rings.
+  g.addColorStop(0.00, 'rgba(255,255,255,0.75)');
+  g.addColorStop(0.20, 'rgba(255,255,255,0.44)');
+  g.addColorStop(0.45, 'rgba(255,255,255,0.20)');
+  g.addColorStop(0.70, 'rgba(255,255,255,0.06)');
+  g.addColorStop(0.88, 'rgba(255,255,255,0.01)');
+  g.addColorStop(1.00, 'rgba(255,255,255,0)');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, s, s);
-  return nearest(new THREE.CanvasTexture(c));
+  return smoothGlow(new THREE.CanvasTexture(c));
 }
 
 export class MinionArt {
@@ -222,7 +244,10 @@ export class MinionSprite {
     this.glow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.glowMat);
     this.glow.frustumCulled = false;
     this.glow.position.z = -0.1;
-    this.glowSize = kind === 'wisp' ? this.cell[0] * 3.0 : this.cell[0] * 1.25;
+    // Halos are capped at 40 buffer px. A wisp cell is 12px, so 3x is 36 and
+    // already under the cap; the clamp is here so a bigger kind cannot turn an
+    // additive halo into a screen-wide wash that flattens the backdrop.
+    this.glowSize = Math.min(MAX_GLOW_PX, kind === 'wisp' ? this.cell[0] * 3.0 : this.cell[0] * 1.25);
     this.glow.scale.set(this.glowSize, this.glowSize, 1);
     this.mesh.add(this.glow);
   }
