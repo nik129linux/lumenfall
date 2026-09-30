@@ -11,7 +11,7 @@ import { audio } from '../core/audio.js';
 const TYPE_CHARS_PER_SEC = 46;
 
 const PANEL_DIR = 'assets/cutscenes/';
-const PANEL_IDS = ['01', '02', '03', '04', '05', '06'];
+const PANEL_IDS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10'];
 // An art id of two digits is a real still; anything else is one of the legacy
 // colour fields further down, which later stages still use.
 const isPanelId = (art) => /^[0-9]{2}$/.test(art || '');
@@ -175,7 +175,7 @@ export const CUTSCENES = {
   theft: [
     { art: '05', textKey: 'th1a' },
     { art: '05', speakerKey: 'spkElder', textKey: 'th1b' },
-    { art: '06', textKey: 'th2a' },
+    { art: '10', textKey: 'th2a' },
     { art: '06', speakerKey: 'spkKael', textKey: 'th2b' },
   ],
   // `intro` is the level 2 boss cutscene, kept because BOSS_INTRO still plays

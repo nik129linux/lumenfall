@@ -33,13 +33,13 @@ const BOSS_INTRO = { 1: 'intro', 2: 'reveal', 3: 'waking' };
 // The deal: in-game dialogue with the level still rendering behind it. `panel`
 // names a still that fades in over the level for that line; null shows the level.
 const DEAL = [
-  { panel: '03', who: 'elder', textKey: 'deal1a' },
-  { panel: '03', who: 'kael',  textKey: 'deal1b' },
-  { panel: null,  who: 'elder', textKey: 'deal2a' },
-  { panel: null,  who: 'elder', textKey: 'deal2b' },
-  { panel: '04', who: 'kael',  textKey: 'deal3a' },
-  { panel: '04', who: 'elder', textKey: 'deal3b' },
-  { panel: '04', who: 'kael',  textKey: 'deal3c' },
+  { panel: null,  who: 'elder', textKey: 'deal1a' },
+  { panel: '03',  who: 'kael',  textKey: 'deal1b' },
+  { panel: '07',  who: 'elder', textKey: 'deal2a' },
+  { panel: '08',  who: 'elder', textKey: 'deal2b' },
+  { panel: '04',  who: 'kael',  textKey: 'deal3a' },
+  { panel: '04',  who: 'elder', textKey: 'deal3b' },
+  { panel: '09',  who: 'kael',  textKey: 'deal3c' },
 ];
 const DEAL_RANGE = 28;      // px between Kael's centre and the elder
 const DEAL_EASE = 0.5;      // camera ease, seconds
