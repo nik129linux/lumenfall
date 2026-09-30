@@ -9,7 +9,7 @@ import { clamp, damp, makeRng } from './core/rng.js';
 import { Pipeline } from './render/pipeline.js';
 import { Parallax, Sky } from './render/parallax.js';
 import { Sprite } from './render/sprite.js';
-import { MinionArt, MinionSprite } from './render/minions.js';
+import { loadMinions, MinionArt, MinionSprite } from './render/minions.js';
 
 import { Level } from './game/level.js';
 import { Player } from './game/player.js';
@@ -92,6 +92,7 @@ class Game {
     this.model = new PlayerModel();
     this.governor = new Governor('normal');
     this.characters = null;
+    this.minionArt = null;
     this.player = null;
     this.deathTimer = 0;
     this.hintTimer = 0;
@@ -113,6 +114,14 @@ class Game {
         fill.style.width = `${Math.round(p * 100)}%`;
       });
       this.characters = loaded.characters;
+      // The minion atlases share the loading bar: 5 of 9 characters, then 4
+      // minion sheets. They are small, but a half-filled bar that then stalls
+      // reads as a hang.
+      const base = 5 / 9;
+      const minions = await loadMinions((p) => {
+        fill.style.width = `${Math.round((base + p * (1 - base)) * 100)}%`;
+      });
+      this.minionArt = new MinionArt(minions);
     } catch (err) {
       console.error('asset load failed', err);
       document.getElementById('boot-note').textContent = 'Error al cargar los recursos';
@@ -339,6 +348,9 @@ class Game {
         this.pipeline.scene.add(s.mesh);
       } else if (def.type === 'wisp' || def.type === 'crawler' || def.type === 'spitter') {
         const en = new Enemy(def, this.model, this.governor, (type) => this._bodySprite(type));
+        // The spitter's onFire was optional-chained and never assigned, so it
+        // had been holding position and shooting nothing at all.
+        if (def.type === 'spitter') en.onFire = this._spitterShot();
         this.pipeline.scene.add(en.mesh);
         this.enemies.push(en);
       } else if (def.type === 'elder') {
@@ -365,13 +377,31 @@ class Game {
     return new Sprite(this.characters[name], { speed, outline: 0x05080a });
   }
 
-  // Minions are drawn procedurally. They used to be assembled from the cast --
-  // wisps wore the demon, crawlers the statue, spitters Ul Burjo -- which put the
-  // level 3 boss on screen in level 1.
+  // Minions are drawn from the atlases in sprites/, cut from Nico's sheets by
+  // tools/cut_minions.py. They used to be assembled from the cast -- wisps wore
+  // the demon, crawlers the statue, spitters Ul Burjo -- which put the level 3
+  // boss on screen in level 1.
   _bodySprite(type) {
-    if (!this.minionArt) this.minionArt = new MinionArt();
-    const scale = { wisp: 0.8, crawler: 1.0, spitter: 1.0 }[type] ?? 1;
-    return new MinionSprite(this.minionArt, type, this.levelDef?.accent ?? 0x54f0a8, { scale });
+    if (!this.minionArt) throw new Error('minion art not loaded');
+    return new MinionSprite(this.minionArt, type, this.levelDef?.accent ?? 0x54f0a8);
+  }
+
+  // The spitter's projectile is the loose green fireball that sat between cast
+  // frames 3 and 4 on Nico's sheet, cut out as its own sprite. It flickers
+  // between two scales so a single still frame reads as thrown, not stuck.
+  _spitterShot() {
+    const shot = this.minionArt.character('spitterShot');
+    return (x, y, dir) => {
+      this.fx.projectiles.push(new Projectile(
+        this.pipeline.scene, x, y, dir * 88, 0, {
+          texture: shot.texture,
+          size: shot.display,
+          r: 4,
+          dmg: 1,
+          life: 2.4,
+          flicker: true,
+        }));
+    };
   }
 
   // ------------------------------------------------------------------ frame
@@ -520,7 +550,9 @@ class Game {
     // crawler walking off a ledge does not stand on the void forever.
     for (const e of this.enemies) {
       if (!e.dead && e.body && e.body.top < PIT_DEATH_Y) { e.body.enabled = false; e.dead = true; e.deathTimer = 0; }
-      if (e.dead && e.deathTimer > 0.45 && e.mesh.parent) {
+      // Long enough for the longest cut death clip (spitter, 4 frames at 6fps)
+      // to finish. Removing at the old 0.45s cut every dissolve short.
+      if (e.dead && e.deathTimer > 0.7 && e.mesh.parent) {
         e.mesh.parent.remove(e.mesh);
         e.mesh = null;
       }

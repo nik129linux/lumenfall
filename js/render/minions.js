@@ -1,88 +1,26 @@
 import * as THREE from '../vendor/three.module.js';
+import { makeSpriteMaterial } from './materials.js';
 
-// Procedural minion art.
+// Minion sprites, cut from Nico's painted sheets by tools/cut_minions.py.
 //
-// Stage 1 removed the old mapping that drew wisps with the demon, crawlers with
-// the statue and spitters with Ul Burjo -- which meant the final boss walked
-// around level 1 in his own sheet. These are silhouettes instead.
+// The sheets live in assets/ and are read-only, so the cut is committed to
+// sprites/ instead, and loaded the same way the painted cast is: a manifest plus
+// one PNG per enemy.
 //
-// They are silhouettes on purpose. The painted characters carry teal cloaks,
-// silver plate and orange rim light; anything with that much detail at 10-20px
-// would compete with Kael for attention. A black shape with two accent-coloured
-// eye pixels reads instantly against all three backdrops and stays clearly
-// secondary to the cast.
+// Every atlas keeps its cells at TWICE the size the minion is drawn in (the
+// `display` field in the manifest). The sheets are painted at 1300-2500px wide
+// but a wisp is 22px tall on screen, so the cut has to throw away most of the
+// pixels anyway -- doing it in the atlas and downscaling with NEAREST lands on
+// whole texels, where dropping to the final size first would chew the legs off
+// a crawler.
+//
+// The sprites are NOT tinted. They already carry the level's palette in the
+// paint, and the accent survives as the additive halo behind them.
+
+const ATLASES = ['wisp', 'crawler', 'spitter', 'spitterShot'];
 
 // Hard ceiling on an entity's additive halo, in buffer pixels. See makeGlowTexture.
 const MAX_GLOW_PX = 40;
-
-const SHAPES = {
-  wisp: [
-    '..1111..',
-    '.111111.',
-    '11222111',
-    '11222111',
-    '.111111.',
-    '..1111..',
-  ],
-  crawler: [
-    '.1111111111.',
-    '111111111111',
-    '112111111121',
-    '.1111111111.',
-    '..1.1.1.1.1.',
-  ],
-  // Second crawler pose: the leg pixels move, which is the whole walk cycle at
-  // this size. Anything finer just turns to noise.
-  'crawler:2': [
-    '.1111111111.',
-    '111111111111',
-    '112111111121',
-    '.1111111111.',
-    '.1.1.1.1.1..',
-  ],
-  spitter: [
-    '....1111....',
-    '..11111111..',
-    '.1111111111.',
-    '112111111211',
-    '112111111111',
-    '.1111111111.',
-    '.1111111111.',
-    '..11111111..',
-    '..11....11..',
-    '..11....11..',
-  ],
-};
-
-const VERT = /* glsl */`
-  varying vec2 vUv;
-  void main() {
-    vUv = uv;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }
-`;
-
-// Body and eyes are baked into two textures so one shape serves all three
-// levels: the eyes take the level's accent colour, the body stays black.
-const FRAG = /* glsl */`
-  precision mediump float;
-  uniform sampler2D bodyMask;
-  uniform sampler2D eyeMask;
-  uniform vec3  eyeColor;
-  uniform vec3  bodyColor;
-  uniform float alphaScale;
-  uniform float flash;
-  varying vec2 vUv;
-
-  void main() {
-    float b = texture2D(bodyMask, vUv).a;
-    float e = texture2D(eyeMask, vUv).a;
-    if (b < 0.02 && e < 0.02) discard;
-    vec3 col = mix(bodyColor, eyeColor, clamp(e, 0.0, 1.0));
-    col = mix(col, vec3(1.0), flash);
-    gl_FragColor = vec4(col, max(b, e) * alphaScale);
-  }
-`;
 
 function nearest(tex) {
   tex.magFilter = THREE.NearestFilter;
@@ -93,38 +31,18 @@ function nearest(tex) {
   return tex;
 }
 
-// '1' is body, '2' is an eye, '.' is empty.
-function makeShape(rows) {
-  const rw = rows[0].length;
-  const cw = rw + 4;
-  const ch = rows.length + 4;
-  const body = document.createElement('canvas');
-  body.width = cw; body.height = ch;
-  const bimg = body.getContext('2d').createImageData(cw, ch);
-  const eyes = document.createElement('canvas');
-  eyes.width = cw; eyes.height = ch;
-  const eimg = eyes.getContext('2d').createImageData(cw, ch);
-
-  const ox = 2, oy = 2;
-  for (let y = 0; y < rows.length; y++) {
-    for (let x = 0; x < rw; x++) {
-      const v = rows[y][x];
-      if (v === '.') continue;
-      const i = ((oy + y) * cw + (ox + x)) * 4;
-      bimg.data[i] = 255; bimg.data[i + 3] = 255;
-      if (v === '2') eimg.data[i] = 255; eimg.data[i + 3] = 255;
-    }
-  }
-  body.getContext('2d').putImageData(bimg, 0, 0);
-  eyes.getContext('2d').putImageData(eimg, 0, 0);
-  return { body: nearest(new THREE.CanvasTexture(body)),
-           eyes: nearest(new THREE.CanvasTexture(eyes)),
-           cell: [cw, ch] };
+function loadImage(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('failed to load ' + url));
+    img.src = url;
+  });
 }
 
 // The one texture in the game that is NOT NEAREST. A 32px radial gradient
 // sampled with NearestFilter shows its individual texels, so a halo read as a
-// grid of visible squares. Silhouettes stay NEAREST on purpose -- that
+// grid of visible squares. The sprites stay NEAREST on purpose -- that
 // crispness is what makes them read at 480x270 -- so this one is filtered
 // smoothly and nothing else changes.
 function smoothGlow(tex) {
@@ -142,8 +60,8 @@ function makeGlowTexture() {
   c.width = s; c.height = s;
   const ctx = c.getContext('2d');
   const g = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
-  // More stops than the old 32px version: with a smooth filter the falloff
-  // itself has to be smooth, or the steps between stops stay visible as rings.
+  // More stops than a 32px version: with a smooth filter the falloff itself has
+  // to be smooth, or the steps between stops stay visible as rings.
   g.addColorStop(0.00, 'rgba(255,255,255,0.75)');
   g.addColorStop(0.20, 'rgba(255,255,255,0.44)');
   g.addColorStop(0.45, 'rgba(255,255,255,0.20)');
@@ -155,55 +73,52 @@ function makeGlowTexture() {
   return smoothGlow(new THREE.CanvasTexture(c));
 }
 
+// Loads sprites/manifest.json plus one atlas per enemy and hands back the same
+// per-character shape loadAssets produces, so a minion can be drawn by the same
+// code path as the cast.
+export async function loadMinions(onProgress) {
+  const manifest = await fetch('sprites/manifest.json').then((r) => r.json());
+
+  const characters = {};
+  const jobs = ATLASES.map((name) => async () => {
+    const img = await loadImage(`sprites/${name}.png`);
+    const def = manifest[name];
+    // The manifest stores clips as [clipName, [[x, y], ...]] exactly like
+    // assets/atlases/manifest.json; rekey to the object form Sprite expects.
+    const frames = {};
+    for (const [clip, rects] of def.frames) frames[clip] = rects;
+    characters[name] = {
+      name,
+      texture: nearest(new THREE.Texture(img)),
+      // `cell` is the atlas cell; `display` is what is drawn. MinionSprite maps
+      // one onto the other, unlike Sprite where they are the same number.
+      cell: def.cell,
+      display: def.display ?? def.cell,
+      nativeFacing: def.nativeFacing ?? 1,
+      frames,
+    };
+  });
+
+  let done = 0;
+  for (const job of jobs) {
+    await job();
+    done++;
+    if (onProgress) onProgress(done / jobs.length);
+  }
+
+  return { characters, glow: makeGlowTexture() };
+}
+
 export class MinionArt {
-  constructor() {
-    this.shapes = {};
-    for (const [k, rows] of Object.entries(SHAPES)) this.shapes[k] = makeShape(rows);
-    this.glow = makeGlowTexture();
+  constructor(loaded) {
+    this.characters = loaded.characters;
+    this.glow = loaded.glow;
   }
 
-  material(kind, accent) {
-    const shape = this.shapes[kind];
-    if (!shape) throw new Error(`unknown minion kind: ${kind}`);
-    return new THREE.ShaderMaterial({
-      uniforms: {
-        bodyMask: { value: shape.body },
-        eyeMask: { value: shape.eyes },
-        eyeColor: { value: new THREE.Color(accent) },
-        bodyColor: { value: new THREE.Color(0x05070a) },
-        alphaScale: { value: 1 },
-        flash: { value: 0 },
-      },
-      vertexShader: VERT,
-      fragmentShader: FRAG,
-      transparent: true,
-      depthWrite: false,
-      depthTest: false,
-    });
-  }
-
-  cell(kind) { return this.shapes[kind].cell; }
-
-  // Builds the two-frame variant used by the crawler's walk.
-  materialVariant(kind, variant, accent) {
-    const key = `${kind}:${variant}`;
-    if (!this.shapes[key]) return this.material(kind, accent);
-    const shape = this.shapes[key];
-    return new THREE.ShaderMaterial({
-      uniforms: {
-        bodyMask: { value: shape.body },
-        eyeMask: { value: shape.eyes },
-        eyeColor: { value: new THREE.Color(accent) },
-        bodyColor: { value: new THREE.Color(0x05070a) },
-        alphaScale: { value: 1 },
-        flash: { value: 0 },
-      },
-      vertexShader: VERT,
-      fragmentShader: FRAG,
-      transparent: true,
-      depthWrite: false,
-      depthTest: false,
-    });
+  character(kind) {
+    const c = this.characters[kind];
+    if (!c) throw new Error(`unknown minion kind: ${kind}`);
+    return c;
   }
 
   glowMaterial(accent) {
@@ -219,72 +134,142 @@ export class MinionArt {
   }
 }
 
-// Adapter that gives the procedural art the same surface Sprite exposes, so
-// Enemy and the bosses need no special-casing.
+// Adapter that gives the cut sprites the same surface Sprite exposes, so Enemy
+// needs no special-casing. It differs from Sprite in exactly one way: frames are
+// sampled out of a cell twice the drawn size.
 export class MinionSprite {
   constructor(art, kind, accent, opts = {}) {
     this.kind = kind;
     this.art = art;
-    this.cell = art.cell(kind);
+    this.char = art.character(kind);
+    // `cell` is the DRAWN size, because Enemy squashes the death animation with
+    // sprite.cell[1] and reads that as world height.
+    this.cell = this.char.display;
+    this.clip = null;
+    this.frame = 0;
+    this.time = 0;
+    this.done = false;
+    this.speed = opts.speed ?? 8;
     this.facing = 1;
     this.t = 0;
-    this.frame = 0;
 
-    this.material = art.material(kind, accent);
+    this.material = makeSpriteMaterial(this.char.texture, {
+      outline: 0x05070a,
+      dither: 0.09,
+    });
     this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.material);
     this.mesh.frustumCulled = false;
+    this.mesh.renderOrder = 10;
+    // Feet at the origin, same anchoring as Sprite, so Enemy can place a minion
+    // by its body's bottom edge.
     this.mesh.geometry.translate(0, 0.5, 0);
-    this.mesh.scale.set(this.cell[0] * (opts.scale ?? 1), this.cell[1] * (opts.scale ?? 1), 1);
+    this.mesh.scale.set(this.cell[0], this.cell[1], 1);
 
-    // Additive halo behind the body. Wisps get it full strength; the ground
-    // types get a trace so their eyes still read in a dark level.
-    this.eyeColorHex = accent;
+    // Additive halo behind the body. Wisps get the most; the ground types get a
+    // trace so their eyes still read in a dark level. The art is never tinted --
+    // only this halo carries the accent.
+    //
+    // Kept well below the 0.45 the procedural silhouettes used. Those WERE a
+    // glow, so a strong halo was the sprite. These are painted creatures whose
+    // art already carries its own light, and at 0.45 the halo swallowed the
+    // wisp's tendrils into one green blob.
     this.glowMat = art.glowMaterial(accent);
-    this.glowMat.opacity = kind === 'wisp' ? 0.45 : 0.07;
+    this.glowMat.opacity = kind === 'wisp' ? 0.22 : 0.07;
     this.glow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.glowMat);
     this.glow.frustumCulled = false;
+    this.glow.renderOrder = 9;
     this.glow.position.z = -0.1;
-    // Halos are capped at 40 buffer px. A wisp cell is 12px, so 3x is 36 and
-    // already under the cap; the clamp is here so a bigger kind cannot turn an
-    // additive halo into a screen-wide wash that flattens the backdrop.
-    this.glowSize = Math.min(MAX_GLOW_PX, kind === 'wisp' ? this.cell[0] * 3.0 : this.cell[0] * 1.25);
-    this.glow.scale.set(this.glowSize, this.glowSize, 1);
+    // Halos are capped at 40 buffer px so a bigger kind cannot turn an additive
+    // glow into a screen-wide wash that flattens the backdrop. The halo is a
+    // child of a quad already scaled to `cell`, so its local size is the buffer
+    // size divided back out.
+    const glowPx = Math.min(MAX_GLOW_PX,
+      kind === 'wisp' ? this.cell[0] * 2.4 : this.cell[0] * 1.35);
+    this.glow.scale.set(glowPx / this.cell[0], glowPx / this.cell[1], 1);
     this.mesh.add(this.glow);
+
+    this._applyFlip();
+    this.applyFrame(0);
   }
 
   get object() { return this.mesh; }
 
-  play(clip, opts = {}) { this.clip = clip; }
-  setLoop() {}
+  get frameCount() {
+    const list = this.char.frames[this.clip];
+    return list ? list.length : 0;
+  }
 
+  play(clip, { restart = false, speed = null, loop = true } = {}) {
+    if (!this.char.frames[clip]) return;
+    if (this.clip === clip && !restart) {
+      if (speed !== null) this.speed = speed;
+      return;
+    }
+    this.clip = clip;
+    this.frame = 0;
+    this.time = 0;
+    this.done = false;
+    this.loop = loop;
+    if (speed !== null) this.speed = speed;
+  }
+
+  // `facing` is the world direction the minion should LOOK: +1 = screen right.
+  // All three sheets are drawn facing right, so this is a plain mirror of the
+  // same kind Sprite does -- one mechanism, expressed relative to nativeFacing.
   setFacing(dir) {
     if (!dir) return;
     this.facing = dir > 0 ? 1 : -1;
-    // Minions are drawn symmetric, so facing is a plain mirror with no
-    // nativeFacing to reason about.
-    this.mesh.scale.x = Math.abs(this.mesh.scale.x) * this.facing;
+    this._applyFlip();
+  }
+
+  _applyFlip() {
+    const native = this.char.nativeFacing ?? 1;
+    const flip = this.facing === native ? 1 : -1;
+    this.mesh.scale.x = this.cell[0] * flip;
+    this.flipped = flip < 0;
+  }
+
+  applyFrame(i) {
+    const list = this.char.frames[this.clip];
+    if (!list || !list.length) return;
+    const idx = list[Math.max(0, Math.min(list.length - 1, i))];
+    const tex = this.char.texture;
+    const w = this.char.cell[0], h = this.char.cell[1];
+    const u0 = idx[0] / tex.image.width;
+    const u1 = (idx[0] + w) / tex.image.width;
+    // U runs left-to-right always. The mirror is the scale, not the UVs.
+    const uv = this.mesh.geometry.attributes.uv;
+    uv.setXY(0, u0, 1); uv.setXY(1, u1, 1);
+    uv.setXY(2, u0, 0); uv.setXY(3, u1, 0);
+    uv.needsUpdate = true;
   }
 
   update(dt) {
     this.t += dt;
-    if (this.kind === 'wisp') {
-      this.mesh.position.y = (this.baseY ?? this.mesh.position.y) + Math.sin(this.t * 2.6) * 3;
-    } else if (this.kind === 'crawler') {
-      // Swap the leg pose at ~8Hz.
-      const want = Math.floor(this.t * 8) % 2;
-      if (want !== this.frame) {
-        this.frame = want;
-        const m = this.art.materialVariant('crawler', 2, this.eyeColorHex);
-        this.mesh.material = m;
-        this.material = m;
+    // A wisp never stops drifting, whatever the AI picked. Enemy re-seats the
+    // mesh position from its physics body every frame, so this adds to the
+    // fresh value rather than accumulating.
+    if (this.kind === 'wisp' && !this.done) {
+      this.mesh.position.y += Math.sin(this.t * 2.6) * 2.2;
+    }
+    const n = this.frameCount;
+    if (!n) return;
+    if (n === 1) { this.applyFrame(0); return; }
+    this.time += dt * this.speed;
+    while (this.time >= 1) {
+      this.time -= 1;
+      this.frame += 1;
+      if (this.frame >= n) {
+        if (this.loop === false) { this.frame = n - 1; this.done = true; break; }
+        this.frame = 0;
       }
     }
+    this.applyFrame(this.frame);
   }
 
-  setFlash(v) {
-    const u = this.material.uniforms;
-    if (u && u.flash) u.flash.value = v;
-  }
+  setFlash(v) { this.material.userData.uniforms.flash.value = v; }
 
-  setSquash(a) { /* silhouettes do not squash */ }
+  // Never called for minions -- the sheets have a real death clip -- but kept so
+  // Enemy can treat every sprite the same.
+  setSquash(a) { this.mesh.scale.y = this.cell[1] * (1 + a); }
 }

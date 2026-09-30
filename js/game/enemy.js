@@ -23,11 +23,33 @@ const WEIGHTS = {
   },
 };
 
+// Hitboxes follow the cut sprites (wisp 34x22, crawler 36x20, spitter 64x40)
+// rather than the old silhouettes. Each is inset from its cell: the sheets carry
+// a shadow stroke and smoke that the player should not have to shoot through.
 const STATS = {
-  wisp:    { w: 14, h: 14, hp: 2, speed: 34, dmg: 1, aggro: 150 },
-  crawler: { w: 18, h: 12, hp: 3, speed: 46, dmg: 1, aggro: 130 },
-  spitter: { w: 16, h: 18, hp: 3, speed: 30, dmg: 1, aggro: 190 },
+  wisp:    { w: 16, h: 15, hp: 2, speed: 34, dmg: 1, aggro: 150 },
+  crawler: { w: 26, h: 14, hp: 3, speed: 46, dmg: 1, aggro: 130 },
+  spitter: { w: 30, h: 32, hp: 3, speed: 30, dmg: 1, aggro: 190 },
 };
+
+// Which clip each enemy plays when. The crawler sheet has no idle frame -- it is
+// always walking or lunging -- so idle and move resolve to the same clip, and
+// play() short-circuits instead of restarting the cycle every frame.
+const CLIPS = {
+  wisp:    { idle: 'float', move: 'float', attack: 'dash' },
+  crawler: { idle: 'walk',  move: 'walk',  attack: 'lunge' },
+  spitter: { idle: 'idle',  move: 'walk',  attack: 'cast'  },
+};
+
+// Stage 1's facing rule: look where you are going, but snap at most once every
+// 0.15s. Without the cooldown a minion jitters between two directions while it
+// hovers around a threshold.
+const FLIP_COOLDOWN = 0.15;
+const HURT_TIME = 0.15;
+// The spitter's fireball leaves on the third cast frame, so a cast has to live
+// long enough to reach it. This is also the floor between shots, in case the AI
+// holds the attack action.
+const SPIT_INTERVAL = 0.9;
 
 let nextId = 1;
 
@@ -51,7 +73,11 @@ export class Enemy {
     this.dead = false;
     this.deathTimer = 0;
     this.hurtFlash = 0;
+    this.hurtTimer = 0;
     this.fireTimer = 0;
+    this.castFired = false;
+    this.flipTimer = 0;
+    this.toPlayer = 1;
     this.homeX = def.x;
 
     this.sprite = makeBodySprite(this.type);
@@ -69,6 +95,7 @@ export class Enemy {
     if (this.dead) return false;
     this.hp -= dmg;
     this.hurtFlash = 1;
+    this.hurtTimer = HURT_TIME;
     if (this.hp <= 0) { this.dead = true; this.deathTimer = 0; }
     return true;
   }
@@ -76,11 +103,16 @@ export class Enemy {
   update(dt, player, level) {
     if (this.dead) {
       this.deathTimer += dt;
-      this.mesh.scale.y = this.sprite.cell[1] * Math.max(0, 1 - this.deathTimer * 4);
+      // Play the cut death animation rather than squashing the sprite flat: the
+      // sheets have a real dissolve for all three, and it is the one clip that
+      // cannot be faked by scaling.
+      this.sprite.play('dead', { speed: 6, loop: false });
+      this.sprite.update(dt);
       this.sprite.setFlash(Math.max(0, 1 - this.deathTimer * 3));
       return;
     }
 
+    this.hurtTimer = Math.max(0, this.hurtTimer - dt);
     this.hurtFlash = Math.max(0, this.hurtFlash - dt * 4);
     this.sprite.setFlash(this.hurtFlash * 0.8);
 
@@ -91,6 +123,7 @@ export class Enemy {
     const aggro = this.stats.aggro;
     const dx = player.cx - this.cx;
     const engaged = this.agent.sense.dist < aggro && !player.dead;
+    this.toPlayer = Math.sign(dx) || this.toPlayer;
 
     this._act(dt, action, player, engaged, dx);
 
@@ -110,7 +143,7 @@ export class Enemy {
     }
 
     this.mesh.position.set(this.cx, this.body.bottom, 0);
-    this._animate(dt, action);
+    this._animate(dt, action, player);
   }
 
   _act(dt, action, player, engaged, dx) {
@@ -158,13 +191,13 @@ export class Enemy {
           this.body.vx = dir * sp * 1.6;
           this._checkMelee(player);
         } else {
+          // Holding position, no vx. The cast clip and the fireball are driven
+          // from `action` in _animate, so there is no flag to set here.
           this.body.vx = approach(this.body.vx, 0, sp * 4 * dt);
-          this._spit(player);
         }
         break;
       case 'antiAir':
         this.body.vx = dir * sp * 0.8;
-        this._spit(player);
         break;
       default:
         this.body.vx = approach(this.body.vx, 0, sp * 3 * dt);
@@ -183,18 +216,46 @@ export class Enemy {
   _spit(player) {
     this.fireTimer -= 1 / 60;
     if (this.fireTimer > 0) return;
-    this.fireTimer = 1.1;
+    this.fireTimer = SPIT_INTERVAL;
     this.onFire?.(this.cx + Math.sign(player.cx - this.cx) * 8, this.cy + 4,
                    Math.sign(player.cx - this.cx) || 1);
   }
 
-  _animate(dt, action) {
+  _animate(dt, action, player) {
     const moving = Math.abs(this.body.vx) > 6;
-    this.sprite.setFacing(this.body.vx >= 0 ? 1 : -1);
-    if (this.dead) { this.sprite.update(dt); return; }
-    if (action === 'attack') this.sprite.play('attack', { speed: 7 });
-    else if (moving) this.sprite.play('walk', { speed: 6 });
-    else this.sprite.play('idle', { speed: 3 });
+    const attacking = action === 'attack' || action === 'antiAir';
+
+    // Facing: movement direction normally, but face the player while attacking
+    // so a spitter lines its shot up. Capped at one flip per FLIP_COOLDOWN.
+    this.flipTimer -= dt;
+    if (this.flipTimer <= 0) {
+      const want = attacking ? this.toPlayer : (this.body.vx >= 0 ? 1 : -1);
+      if (want && want !== this.sprite.facing) this.sprite.setFacing(want);
+      this.flipTimer = FLIP_COOLDOWN;
+    }
+
+    if (this.hurtTimer > 0) {
+      this.sprite.play('hurt', { speed: 6, loop: false });
+      this.sprite.update(dt);
+      return;
+    }
+
+    const map = CLIPS[this.type];
+    const clip = attacking ? map.attack : (moving ? map.move : map.idle);
+    const speed = attacking ? 7 : (moving ? 6 : 3);
+    this.sprite.play(clip, { speed });
+
+    // The fireball leaves on the third cast frame. `castFired` latches so a
+    // single pass through the clip spawns exactly one.
+    if (clip === 'cast') {
+      if (!this.castFired && this.sprite.frame >= 2) {
+        this.castFired = true;
+        this._spit(player);
+      }
+    } else if (this.castFired) {
+      this.castFired = false;
+    }
+
     this.sprite.update(dt);
   }
 

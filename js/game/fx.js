@@ -1,6 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { tileAt } from './physics.js';
 import { makeRng } from '../core/rng.js';
+import { makeSpriteMaterial } from '../render/materials.js';
 
 // Particles and one-shot effects. Everything is a pooled sprite in a single
 // group: at this resolution a particle is a few pixels, so the cost that matters
@@ -137,15 +138,34 @@ export class Projectile {
     this.color = opts.color ?? 0xa86cf0;
     this.dmg = opts.dmg ?? 1;
     this.gravity = opts.gravity ?? 0;
-    this.mesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(this.r * 2, this.r * 2),
-      new THREE.MeshBasicMaterial({ color: this.color, transparent: true, opacity: 0.95, depthTest: false })
-    );
+    // A sprite projectile draws the cut frame instead of a coloured square. The
+    // spitter's is the loose green fireball from Nico's sheet, so it needs a
+    // ShaderMaterial rather than MeshBasicMaterial -- which also means it has no
+    // `.opacity`, and the fade below has to go through the uniform instead.
+    //
+    // No outline on it. The outline shader offsets by one TEXEL, which suits a
+    // character cell drawn 1:1, but the fireball is 25x16 texels drawn at
+    // 12x8 and is solid green through the middle -- so almost every texel is
+    // opaque and every interior gap has four opaque neighbours, and the outline
+    // fills those gaps and turns the fireball into a solid block.
+    this.sprite = opts.texture
+      ? makeSpriteMaterial(opts.texture, { outline: 0 })
+      : null;
+    if (this.sprite) {
+      const [w, h] = opts.size ?? [this.r * 2, this.r * 2];
+      this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), this.sprite);
+    } else {
+      this.mesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(this.r * 2, this.r * 2),
+        new THREE.MeshBasicMaterial({ color: this.color, transparent: true, opacity: 0.95, depthTest: false })
+      );
+    }
     this.mesh.position.set(x, y, 0);
     this.mesh.frustumCulled = false;
     scene.add(this.mesh);
     this.scene = scene;
     this.t = 0;
+    this.flicker = !!opts.flicker;
   }
 
   update(dt, level, player) {
@@ -155,7 +175,19 @@ export class Projectile {
     this.x += this.vx * dt;
     this.y += this.vy * dt;
     this.mesh.position.set(this.x, this.y, 0);
-    this.mesh.material.opacity = 0.6 + Math.sin(this.t * 18) * 0.3;
+
+    if (this.sprite) {
+      this.sprite.userData.uniforms.alphaScale.value = 0.92;
+      // Two-frame flicker. A single still frame of a fireball reads as a
+      // floating blob that happens to be moving; the size step is what sells it
+      // as being spat.
+      if (this.flicker) {
+        const k = Math.floor(this.t * 16) % 2 ? 0.9 : 1.0;
+        this.mesh.scale.set(k, k, 1);
+      }
+    } else {
+      this.mesh.material.opacity = 0.6 + Math.sin(this.t * 18) * 0.3;
+    }
 
     if (this.life <= 0) { this.dead = true; return; }
     if (tileAt(level, Math.floor(this.x / 8), Math.floor(this.y / 8)) === 1) { this.dead = true; return; }
