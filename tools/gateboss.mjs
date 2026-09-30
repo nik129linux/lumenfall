@@ -16,7 +16,7 @@ try {
   await page.goto(`${URL}?level=${CFG.level}&boss=1`);
   await page.waitForTimeout(3500);
 
-  const r = await page.evaluate(async () => {
+  const r = await page.evaluate(async (CFG) => {
     const g = window.__lumenfall, p = g.player, b = g.boss;
     if (!b) return { noBoss: true };
     b.wake && b.wake();
@@ -52,7 +52,7 @@ try {
     b.hurt(9999);
     await watch(2500, () => false);
     return { st, phase1, all, rot: g.level.rotCount || 0, atkAfterDeath: b.atk, teleAfterDeath: g.fx.telegraphs.length, dead: b.dead };
-  });
+  }, CFG);
 
   if (r.noBoss) check('E0 ?boss=1 spawns the boss', false, 'g.boss is null');
   else if (r.noContract) check('E0 boss exposes atk and atkLog', false, 'the boss class must define this.atk (null|object) and this.atkLog (array), see js/game/boss/statue.js');
