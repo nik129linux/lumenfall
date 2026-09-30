@@ -11,7 +11,10 @@ import { audio } from '../core/audio.js';
 const TYPE_CHARS_PER_SEC = 46;
 
 const PANEL_DIR = 'assets/cutscenes/';
-const PANEL_IDS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10'];
+const PANEL_IDS = [
+  '01', '02', '03', '04', '05', '06', '07', '08', '09', '10',
+  '11', '12', '13', '14', '15', '16', '17', '18', '19',
+];
 // An art id of two digits is a real still; anything else is one of the legacy
 // colour fields further down, which later stages still use.
 const isPanelId = (art) => /^[0-9]{2}$/.test(art || '');
@@ -187,21 +190,21 @@ export const CUTSCENES = {
     { art: 'elder', titleKey: 'cs1Title', textKey: 'cs1c' },
   ],
   reveal: [
-    { art: 'ulburjo', titleKey: 'cs3Title', textKey: 'cs3a' },
-    { art: 'ulburjo', titleKey: 'cs3Title', textKey: 'cs3b' },
-    { art: 'demon', titleKey: 'cs3Title', textKey: 'cs3c' },
+    { art: '11', titleKey: 'cs3Title', textKey: 'cs3a' },
+    { art: '12', titleKey: 'cs3Title', textKey: 'cs3b' },
+    { art: '13', titleKey: 'cs3Title', textKey: 'cs3c' },
   ],
   waking: [
-    { art: 'demon', titleKey: 'cs4Title', textKey: 'cs4a' },
-    { art: 'demon', titleKey: 'cs4Title', textKey: 'cs4b' },
-    { art: 'dark', titleKey: 'cs4Title', textKey: 'cs4c' },
+    { art: '14', titleKey: 'cs4Title', textKey: 'cs4a' },
+    { art: '14', titleKey: 'cs4Title', textKey: 'cs4b' },
+    { art: '15', titleKey: 'cs4Title', textKey: 'cs4c' },
   ],
   return: [
-    { art: 'ember', titleKey: 'cs5Title', textKey: 'cs5a' },
-    { art: 'kael', titleKey: 'cs5Title', textKey: 'cs5b' },
-    { art: 'green', titleKey: 'cs5Title', textKey: 'cs5c' },
-    { art: 'green', titleKey: 'cs5Title', textKey: 'cs5d' },
-    { art: 'green', titleKey: 'cs5Title', textKey: 'cs5e' },
+    { art: '16', titleKey: 'cs5Title', textKey: 'cs5a' },
+    { art: '17', titleKey: 'cs5Title', textKey: 'cs5b' },
+    { art: '18', titleKey: 'cs5Title', textKey: 'cs5c' },
+    { art: '19', titleKey: 'cs5Title', textKey: 'cs5d' },
+    { art: '19', titleKey: 'cs5Title', textKey: 'cs5e' },
   ],
 };
 

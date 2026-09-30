@@ -1,0 +1,126 @@
+[0m
+> build · space-bunny-free
+[0m
+I'll start by reading the stage document.
+[0m→ [0mRead docs/stage6.md
+[0m→ [0mRead tools/gate6.mjs
+[0m→ [0mRead js/ui/cutscene.js
+[0m✱ [0mGrep "ulburjo|demon|dark|ember|kael|green|elder"[90m in . · 100 matches[0m
+[0m
+[0m$ [0mls -la assets/cutscenes/ 2>&1 | head -30; echo "---CSS FILES---"; ls css/
+total 34256
+drwxrwxr-x 2 nico nico    4096 Sep 30 17:40 .
+drwxrwxr-x 5 nico nico    4096 Sep 29 12:42 ..
+-rw-rw-r-- 1 nico nico 2707101 Sep 30 09:04 01.png
+-rw-rw-r-- 1 nico nico 2985512 Sep 30 09:02 02.png
+-rw-rw-r-- 1 nico nico  880892 Sep 29 00:00 03.png
+-rw-rw-r-- 1 nico nico 1001260 Sep 29 00:12 04.png
+-rw-rw-r-- 1 nico nico  763516 Sep 29 00:10 05.png
+-rw-rw-r-- 1 nico nico  763762 Sep 29 00:06 06.png
+-rw-rw-r-- 1 nico nico  151459 Sep 29 12:32 07.png
+-rw-rw-r-- 1 nico nico  181373 Sep 29 12:33 08.png
+-rw-rw-r-- 1 nico nico  125446 Sep 29 12:34 09.png
+-rw-rw-r-- 1 nico nico 2165367 Sep 29 12:35 10.png
+-rw-rw-r-- 1 nico nico 4861966 Sep 30 17:14 11.png
+-rw-rw-r-- 1 nico nico 3668203 Sep 30 17:20 12.png
+-rw-rw-r-- 1 nico nico 2125976 Sep 30 17:25 13.png
+-rw-rw-r-- 1 nico nico 1734917 Sep 30 17:28 14.png
+-rw-rw-r-- 1 nico nico 1470212 Sep 30 17:30 15.png
+-rw-rw-r-- 1 nico nico 1789328 Sep 30 17:39 16.png
+-rw-rw-r-- 1 nico nico 2217925 Sep 30 17:40 17.png
+-rw-rw-r-- 1 nico nico 2507120 Sep 30 17:40 18.png
+-rw-rw-r-- 1 nico nico 2932520 Sep 30 17:40 19.png
+---CSS FILES---
+style.css
+[0m
+[0m✱ [0mGrep "data-art|dataset\.art|panelArt"[90m in js · 3 matches[0m
+[0m→ [0mRead css/style.css[90m [offset=320, limit=60][0m
+All 9 images exist. Making the two edits in `js/ui/cutscene.js`:
+[0m
+[0m← [0mEdit js/ui/cutscene.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/cutscene.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/cutscene.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/cutscene.js
+@@ -10,9 +10,12 @@
+ 
+ const TYPE_CHARS_PER_SEC = 46;
+ 
+ const PANEL_DIR = 'assets/cutscenes/';
+-const PANEL_IDS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10'];
++const PANEL_IDS = [
++  '01', '02', '03', '04', '05', '06', '07', '08', '09', '10',
++  '11', '12', '13', '14', '15', '16', '17', '18', '19',
++];
+ // An art id of two digits is a real still; anything else is one of the legacy
+ // colour fields further down, which later stages still use.
+ const isPanelId = (art) => /^[0-9]{2}$/.test(art || '');
+ 
+
+[0m
+[0m← [0mEdit js/ui/cutscene.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/cutscene.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/cutscene.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/cutscene.js
+@@ -189,23 +189,23 @@
+     { art: 'kael', titleKey: 'cs1Title', textKey: 'cs1b' },
+     { art: 'elder', titleKey: 'cs1Title', textKey: 'cs1c' },
+   ],
+   reveal: [
+-    { art: 'ulburjo', titleKey: 'cs3Title', textKey: 'cs3a' },
+-    { art: 'ulburjo', titleKey: 'cs3Title', textKey: 'cs3b' },
+-    { art: 'demon', titleKey: 'cs3Title', textKey: 'cs3c' },
++    { art: '11', titleKey: 'cs3Title', textKey: 'cs3a' },
++    { art: '12', titleKey: 'cs3Title', textKey: 'cs3b' },
++    { art: '13', titleKey: 'cs3Title', textKey: 'cs3c' },
+   ],
+   waking: [
+-    { art: 'demon', titleKey: 'cs4Title', textKey: 'cs4a' },
+-    { art: 'demon', titleKey: 'cs4Title', textKey: 'cs4b' },
+-    { art: 'dark', titleKey: 'cs4Title', textKey: 'cs4c' },
++    { art: '14', titleKey: 'cs4Title', textKey: 'cs4a' },
++    { art: '14', titleKey: 'cs4Title', textKey: 'cs4b' },
++    { art: '15', titleKey: 'cs4Title', textKey: 'cs4c' },
+   ],
+   return: [
+-    { art: 'ember', titleKey: 'cs5Title', textKey: 'cs5a' },
+-    { art: 'kael', titleKey: 'cs5Title', textKey: 'cs5b' },
+-    { art: 'green', titleKey: 'cs5Title', textKey: 'cs5c' },
+-    { art: 'green', titleKey: 'cs5Title', textKey: 'cs5d' },
+-    { art: 'green', titleKey: 'cs5Title', textKey: 'cs5e' },
++    { art: '16', titleKey: 'cs5Title', textKey: 'cs5a' },
++    { art: '17', titleKey: 'cs5Title', textKey: 'cs5b' },
++    { art: '18', titleKey: 'cs5Title', textKey: 'cs5c' },
++    { art: '19', titleKey: 'cs5Title', textKey: 'cs5d' },
++    { art: '19', titleKey: 'cs5Title', textKey: 'cs5e' },
+   ],
+ };
+ 
+ // Per-line speaker when the script sets one (the theft); otherwise the
+
+[0m
+Now running the gate:
+[0m$ [0mnode tools/gate6.mjs 2>&1
+PASS  G1 reveal uses panels 11,12,13  [got=["11","12","13"]]
+PASS  G1 waking uses panels 14,14,15  [got=["14","14","15"]]
+PASS  G1 return uses panels 16,17,18,19,19  [got=["16","17","18","19","19"]]
+PASS  G2 panels 11-19 are requested (preloaded)  [never requested: none]
+PASS  G3 all nine files load (HTTP 200)  [ok]
+PASS  G4 no console or page errors
+GATE PASS
+[0m
+[0m$ [0mgit status --porcelain; echo "--- diff stat ---"; git diff --stat
+M .autopilot/run6.log
+ M js/ui/cutscene.js
+?? .autopilot/6.0.out
+--- diff stat ---
+ .autopilot/run6.log |  1 +
+ js/ui/cutscene.js   | 27 +++++++++++++++------------
+ 2 files changed, 16 insertions(+), 12 deletions(-)
+[0m
+Gate passes on the first run. Only `js/ui/cutscene.js` was edited by me (the `.autopilot/` files are autopilot-owned logs, not touched by me).
+
+Files changed: `js/ui/cutscene.js` only — `PANEL_IDS` extended to `11`–`19`, and `reveal`/`waking`/`return` art ids repointed to the panels exactly as specified.
+Gate result: `node tools/gate6.mjs` → **GATE PASS** (G1 ×3, G2 preload, G3 HTTP 200, G4 no errors). No `git commit` run.
+Not done: left the now-unused `.panel-art[data-art="ulburjo"/"demon"/"dark"/"ember"/"green"]` gradient rules in `css/style.css` — deletion was optional, and the comment in `cutscene.js:15` says later stages still use those legacy colour fields, so I couldn't confirm nothing else depends on them.

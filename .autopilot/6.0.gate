@@ -1,0 +1,7 @@
+PASS  G1 reveal uses panels 11,12,13  [got=["11","12","13"]]
+PASS  G1 waking uses panels 14,14,15  [got=["14","14","15"]]
+PASS  G1 return uses panels 16,17,18,19,19  [got=["16","17","18","19","19"]]
+PASS  G2 panels 11-19 are requested (preloaded)  [never requested: none]
+PASS  G3 all nine files load (HTTP 200)  [ok]
+PASS  G4 no console or page errors
+GATE PASS
