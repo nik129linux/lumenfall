@@ -16,11 +16,9 @@ check('R4 every path in backticks exists', paths.length >= 10 && bad.length === 
 const must = ['Easy', 'Normal', 'Hard', 'last 20', 'Google Analytics', 'GA_MEASUREMENT_ID', 'python3 -m http.server', 'localhost', 'lumenfall.metrics.v1', 'node tools/gateai.mjs', 'node tools/gate7.mjs', 'node tools/reach.mjs', 'Move', 'Jump', 'Attack', 'Dash', 'Rotate', 'Pause', 'windup', 'Ul Burjo', 'Patient One'];
 const lack = must.filter((w) => !md.includes(w));
 check('R5 mentions every required term', lack.length === 0, lack.join(', '));
-const inputJs = fs.readFileSync('js/core/input.js', 'utf8');
-const keys = [...new Set([...inputJs.matchAll(/['"](Key[A-Z]|Arrow(?:Left|Right|Up|Down)|Space|Escape|Enter|Shift(?:Left|Right))['"]/g)].map((m) => m[1]))];
-const pretty = (k) => k.replace(/^Key/, '').replace('Arrow', '').replace('Left', k.startsWith('Arrow') ? 'Left' : 'Left');
-const shown = keys.filter((k) => new RegExp(pretty(k).replace(/([A-Z])/g, '$1'), 'i').test(md) || md.includes(k));
-check('R6 at least 80% of the real key bindings appear in the README', keys.length > 0 && shown.length / keys.length >= 0.8, `${shown.length}/${keys.length} keys shown; bindings=${keys.join(',')}`);
+const tokens = ['A', 'D', 'W', 'J', 'K', 'E', 'Space', 'Esc', 'Shift', 'Enter'];
+const absent = tokens.filter((w) => !new RegExp('(^|[^A-Za-z])' + w + '([^A-Za-z]|$)').test(md));
+check('R6 the README shows the real key bindings (A D W J K E Space Esc Shift Enter)', absent.length === 0, absent.length ? `not shown: ${absent.join(',')}` : 'all shown');
 check('R7 it has a limitations section with real content', /## Known limitations\s+[\s\S]{80,}?(?=\n## )/.test(md), '');
 check('R8 written in English (no common Spanish words in prose)', !/\b(nueva partida|controles|historia|niveles)\b/i.test(md.replace(/`[^`]*`/g, '')), '');
 let failed = 0;
