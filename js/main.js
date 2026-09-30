@@ -313,6 +313,7 @@ class Game {
   _loadLevel(index, opts = {}) {
     this.levelIndex = index;
     this.levelDef = LEVELS[index];
+    this.fx.clearTelegraphs();
     const data = this.level.load(index);
 
     this._resetPitFlash();
@@ -759,6 +760,13 @@ class Game {
       this.boss.characterSet = { badwitch: { char: alt.char, material: alt.material, paletteLevel: this.levelDef.id } };
     }
     this.pipeline.scene.add(this.boss);
+
+    // A boss arena is a duel. The L1 crawler's patrol runs straight through the
+    // arena gate, so it used to keep landing hits with no tell at all for the
+    // whole fight -- chip damage the player could not read and could not
+    // punish, which is the one thing a boss fight must not contain. Marked dead
+    // rather than deleted, so they dissolve on their own death clip.
+    for (const e of this.enemies) { e.dead = true; e.deathTimer = 0; }
 
     const keys = { statue: 'bossStatue', ulburjo: 'bossUlBurjo', patientone: 'bossPatient' };
     this.ui.setBoss(keys[this.bossDef.boss], 1, 1, this.boss.phases);

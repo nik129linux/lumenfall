@@ -1,0 +1,11 @@
+PASS  E1 at least 3 complete attacks in phase 1  [complete=4 of 4]
+PASS  E2 stages always in order windup,active,recover  [windup>active>recover | windup>active>recover | windup>active>recover | windup>active>recover]
+PASS  E3 every phase-1 windup lasts >= 0.5 s  [durs=0.65,0.65,0.85,0.65]
+PASS  E4 no damage during windup or recover (unless touching the body)  [bad=]
+PASS  E5 a telegraph marker is up during >= 90% of windup frames  [165/169]
+PASS  E6 phase 2 uses roots with phase>=2 and windup >= 0.7 s  [roots windups=2:0.72]
+PASS  E7 the swing windup in phase 1 is about 0.65 s  [swing durs=0.65,0.65,0.65]
+PASS  E8 boss died  [dead=true]
+PASS  E9 after death atk is null and no markers remain  [atk=null markers=0]
+PASS  F1 no console or page errors
+GATE PASS

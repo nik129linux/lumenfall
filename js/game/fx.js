@@ -13,6 +13,7 @@ export class FX {
   constructor(scene) {
     this.scene = scene;
     this.items = [];
+    this.telegraphs = [];
     this.rng = makeRng(9182);
     this.group = new THREE.Group();
     scene.add(this.group);
@@ -110,7 +111,49 @@ export class FX {
     }
   }
 
+  // ---- telegraphs
+  //
+  // A telegraph is the floor decal that says "this is about to happen here". It
+  // is a plain quad rather than a pooled particle because it has to live for a
+  // whole wind-up (up to a second) with a predictable size, and because it must
+  // be removable as a group when a boss is interrupted mid-attack.
+
+  // `x` is the CENTRE of the marker and `y` its BOTTOM edge, in level pixels --
+  // the same convention as the hurt rectangles they mirror.
+  telegraph(x, y, w, h, dur, color = 0xff3b3b) {
+    const mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.55, depthTest: false, depthWrite: false }));
+    mesh.scale.set(w, h, 1);
+    mesh.position.set(x, y + h / 2, 0);
+    mesh.renderOrder = 5;
+    this.group.add(mesh);
+    const t = { mesh, life: dur, age: 0 };
+    this.telegraphs.push(t);
+    return t;
+  }
+
+  // Drops every live marker. A boss that is interrupted, defeated or changed
+  // phase calls this, so a decal is never left lying on a floor nothing is
+  // about to hit.
+  clearTelegraphs() {
+    for (const t of this.telegraphs) { this.group.remove(t.mesh); t.mesh.geometry.dispose(); t.mesh.material.dispose(); }
+    this.telegraphs = [];
+  }
+
   update(dt) {
+    // Telegraphs first: a marker placed this frame has to start blinking on the
+    // frame it appears, not one frame later.
+    for (const t of this.telegraphs) {
+      t.age += dt; t.life -= dt;
+      t.mesh.visible = Math.floor(t.age / 0.07) % 2 === 0;   // blink
+    }
+    this.telegraphs = this.telegraphs.filter((t) => {
+      if (t.life > 0) return true;
+      this.group.remove(t.mesh); t.mesh.geometry.dispose(); t.mesh.material.dispose();
+      return false;
+    });
+
     for (const p of this.items) {
       if (p.life <= 0) continue;
       p.life -= dt;
