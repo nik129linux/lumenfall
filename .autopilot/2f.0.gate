@@ -1,0 +1,11 @@
+FAIL  wisp/float[2] 38% of pixels are detached pieces
+FAIL  wisp/dash[2] 38% of pixels are detached pieces
+FAIL  crawler/walk[2] 32% of pixels are detached pieces
+FAIL  crawler/walk[3] 20% of pixels are detached pieces
+FAIL  crawler/lunge[2] 31% of pixels are detached pieces
+FAIL  spitter/walk[1] 50% of pixels are detached pieces
+FAIL  spitter/walk[2] 24% of pixels are detached pieces
+FAIL  spitter/cast[2] 17% of pixels are detached pieces
+FAIL  spitter/hurt[0] 31% of pixels are detached pieces
+checked 26 frames
+GATE FAIL (9)

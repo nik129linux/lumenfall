@@ -1,0 +1,901 @@
+[0m
+> build · space-bunny-free
+[0m
+I'll start by reading the stage document.
+[0m→ [0mRead docs/stage2f.md
+[0m
+[0m$ [0mls -la; echo "---TOOLS---"; ls -la tools/; echo "---SPRITES---"; ls -la sprites/ 2>/dev/null; echo "---ASSETS---"; ls -la assets/ 2>/dev/null
+total 6496
+drwxrwxr-x 12 nico nico    4096 Sep 30 00:17 .
+drwxrwxr-x  6 nico nico    4096 Sep 28 10:14 ..
+drwxrwxr-x  2 nico nico    4096 Sep 30 00:17 .autopilot
+-rw-rw-r--  1 nico nico     204 Sep 30 00:17 .bunny-autopilot.log
+-rwxrwxr-x  1 nico nico    3634 Sep 30 00:17 .bunny-autopilot.sh
+-rwxrwxr-x  1 nico nico     348 Sep 30 00:17 .bunny-chain.sh
+-rw-rw-r--  1 nico nico 1251971 Sep 29 23:32 .bunny-loop.log
+-rwxrwxr-x  1 nico nico     861 Sep 28 14:45 .bunny-loop.sh
+-rw-rw-r--  1 nico nico    1482 Sep 28 14:27 .bunny-prompt.txt
+-rw-rw-r--  1 nico nico     718 Sep 28 14:34 .bunny-reply.txt
+-rw-rw-r--  1 nico nico      61 Sep 30 00:17 .bunny-status.txt
+drwxrwxr-x  7 nico nico    4096 Sep 30 00:17 .git
+-rw-rw-r--  1 nico nico      76 Sep 29 12:44 .gitignore
+drwxrwxr-x 14 nico nico    4096 Sep 30 00:07 .scratch
+-rw-rw-r--  1 nico nico 5054241 Sep 28 10:24 1.png
+-rw-rw-r--  1 nico nico  121701 Sep 28 10:24 2.jpg
+-rw-rw-r--  1 nico nico  113915 Sep 28 10:24 3.jpg
+-rw-rw-r--  1 nico nico    4809 Sep 28 22:31 README.md
+drwxrwxr-x  5 nico nico    4096 Sep 29 12:42 assets
+drwxrwxr-x  2 nico nico    4096 Sep 28 15:01 css
+drwxrwxr-x  3 nico nico    4096 Sep 30 00:17 docs
+-rw-rw-r--  1 nico nico    5545 Sep 29 12:25 index.html
+drwxrwxr-x  7 nico nico    4096 Sep 29 23:56 js
+drwxrwxr-x  2 nico nico    4096 Sep 28 15:06 node_modules
+-rw-rw-r--  1 nico nico     872 Sep 29 23:57 output.log
+drwxrwxr-x  2 nico nico    4096 Sep 29 22:06 sprites
+drwxrwxr-x  3 nico nico    4096 Sep 30 00:17 tools
+---TOOLS---
+total 188
+drwxrwxr-x  3 nico nico  4096 Sep 30 00:17 .
+drwxrwxr-x 12 nico nico  4096 Sep 30 00:17 ..
+drwxrwxr-x  2 nico nico  4096 Sep 29 23:20 __pycache__
+-rw-rw-r--  1 nico nico 17354 Sep 29 00:12 build-atlas.py
+-rw-rw-r--  1 nico nico 22785 Sep 29 22:28 cut_minions.py
+-rw-rw-r--  1 nico nico  1695 Sep 30 00:16 gate2f.py
+-rw-rw-r--  1 nico nico  6916 Sep 29 23:56 gate3a.mjs
+-rw-rw-r--  1 nico nico  5539 Sep 29 23:58 gate3b.mjs
+-rw-rw-r--  1 nico nico   323 Sep 30 00:16 gate4.mjs
+-rw-rw-r--  1 nico nico   324 Sep 30 00:16 gate5.mjs
+-rw-rw-r--  1 nico nico  5805 Sep 30 00:17 gateboss.mjs
+-rw-rw-r--  1 nico nico 21834 Sep 29 14:05 reach.mjs
+-rw-rw-r--  1 nico nico 23203 Sep 28 22:44 smoke.mjs
+-rw-rw-r--  1 nico nico  8877 Sep 29 00:51 stage1.mjs
+-rw-rw-r--  1 nico nico 10769 Sep 29 02:37 stage1b.mjs
+-rw-rw-r--  1 nico nico  9735 Sep 29 23:11 stage2e.mjs
+-rw-rw-r--  1 nico nico 11662 Sep 29 12:26 story.mjs
+---SPRITES---
+total 220
+drwxrwxr-x  2 nico nico   4096 Sep 29 22:06 .
+drwxrwxr-x 12 nico nico   4096 Sep 30 00:17 ..
+-rw-rw-r--  1 nico nico  28724 Sep 29 22:28 crawler.png
+-rw-rw-r--  1 nico nico   3704 Sep 29 22:28 manifest.json
+-rw-rw-r--  1 nico nico 128067 Sep 29 22:28 spitter.png
+-rw-rw-r--  1 nico nico   1076 Sep 29 22:28 spitterShot.png
+-rw-rw-r--  1 nico nico  41820 Sep 29 22:28 wisp.png
+---ASSETS---
+total 5788
+drwxrwxr-x  5 nico nico    4096 Sep 29 12:42 .
+drwxrwxr-x 12 nico nico    4096 Sep 30 00:17 ..
+drwxrwxr-x  2 nico nico    4096 Sep 28 14:46 atlases
+-rw-rw-r--  1 nico nico  353115 Sep 28 14:08 badwitch.jpeg
+drwxrwxr-x  2 nico nico    4096 Sep 29 01:50 bg
+-rw-rw-r--  1 nico nico 1893449 Sep 29 12:40 crawler.png
+drwxrwxr-x  2 nico nico    4096 Sep 29 12:37 cutscenes
+-rw-rw-r--  1 nico nico  333741 Sep 28 14:07 demon.jpeg
+-rw-rw-r--  1 nico nico  332091 Sep 28 14:07 goodwitch.jpeg
+-rw-rw-r--  1 nico nico  288469 Sep 28 14:08 kael.jpeg
+-rw-rw-r--  1 nico nico 1746586 Sep 29 12:42 spitter.jpeg
+-rw-rw-r--  1 nico nico  388498 Sep 28 14:07 statue.jpeg
+-rw-rw-r--  1 nico nico  551738 Sep 29 12:40 wisp.jpeg
+[0m
+[0m→ [0mRead tools/gate2f.py
+[0m
+[0m$ [0mpython3 tools/gate2f.py 2>&1
+FAIL  wisp/float[2] 38% of pixels are detached pieces
+FAIL  wisp/dash[2] 38% of pixels are detached pieces
+FAIL  crawler/walk[2] 32% of pixels are detached pieces
+FAIL  crawler/walk[3] 20% of pixels are detached pieces
+FAIL  crawler/lunge[2] 31% of pixels are detached pieces
+FAIL  spitter/walk[1] 50% of pixels are detached pieces
+FAIL  spitter/walk[2] 24% of pixels are detached pieces
+FAIL  spitter/cast[2] 17% of pixels are detached pieces
+FAIL  spitter/hurt[0] 31% of pixels are detached pieces
+checked 26 frames
+GATE FAIL (9)
+[0m
+[0m$ [0mls .scratch/
+05-old-kael-steals.png
+ab-30.png
+ab-60.png
+ab.mjs
+allprobe.png
+atlases.png
+bgcheck.mjs
+bossprobe.mjs
+bossreach.mjs
+bounds.mjs
+bright.mjs
+burcheck.mjs
+cmp.mjs
+crop-both.png
+crop-preview-03.png
+crop-preview-04.png
+diag.mjs
+diag10.mjs
+diag11.mjs
+diag12.mjs
+diag13.mjs
+diag14.mjs
+diag15.mjs
+diag16.mjs
+diag2.mjs
+diag3.mjs
+diag4.mjs
+diag5.mjs
+diag6.mjs
+diag7.mjs
+diag8.mjs
+diag9.mjs
+diagc.mjs
+diagd.mjs
+dom.mjs
+dom2.mjs
+eldercheck.mjs
+endcheck.mjs
+fadetrace.mjs
+glowprobe.mjs
+grid-03.png
+grid-04.png
+hollow-crown
+immortal.mjs
+jumpdbg.mjs
+layerdump.mjs
+levels-grid.png
+lipcheck.mjs
+load.mjs
+load.png
+manifest.orig.json
+panel-off.png
+panel-on.png
+panelcheck.mjs
+plat-10.png
+plat-5.png
+plat.mjs
+plat2.mjs
+platdbg.mjs
+playthrough.mjs
+preload2d.mjs
+probe
+probe2.mjs
+probe3.mjs
+probe3b.mjs
+probe3b2.mjs
+reach-output.txt
+reach2.txt
+reach2c.txt
+rowscan.mjs
+s1-menu.png
+s2.png
+s3.png
+s4.png
+server.log
+shot.mjs
+shot1c.mjs
+shot2.mjs
+shots
+shots.mjs
+sim-both.png
+sim-elder.png
+sim-kael.png
+smoke2.mjs
+smoke3.mjs
+stage1
+stage1b
+stage1c
+stage1c-verify.mjs
+stage1c.mjs
+stage1d
+stage1d-onplat.mjs
+stage1d-shots.mjs
+stage2
+stage2b
+stage2b-shots.mjs
+stage2c
+stage2c-shots.mjs
+stage2d
+stage2d-shots.mjs
+stage2e
+tune.mjs
+urlcheck.mjs
+verify1d-end.mjs
+verify1d.mjs
+which.mjs
+[0m
+[0m→ [0mRead tools/cut_minions.py
+[0m→ [0mRead sprites/manifest.json
+[0m
+[0m$ [0mpython3 -c "
+from PIL import Image
+for n in ['assets/wisp.jpeg','assets/crawler.png','assets/spitter.jpeg']:
+    im=Image.open(n); print(n, im.size, im.mode)
+"; echo "---"; python3 -c "import scipy, numpy, PIL; print('scipy',scipy.__version__,'numpy',numpy.__version__,'PIL',PIL.__version__)"
+assets/wisp.jpeg (1264, 842) RGB
+assets/crawler.png (1536, 1024) RGBA
+assets/spitter.jpeg (2528, 1684) RGB
+---
+scipy 1.16.3 numpy 2.3.5 PIL 12.1.1
+[0m
+Let me look at the current contact sheet and the source sheets.
+[0m$ [0mls -la .scratch/stage2e/ 2>/dev/null; ls -la .scratch/stage2d/ 2>/dev/null | head -20
+total 1940
+drwxrwxr-x  2 nico nico   4096 Sep 29 23:13 .
+drwxrwxr-x 14 nico nico   4096 Sep 30 00:07 ..
+-rw-rw-r--  1 nico nico 146969 Sep 29 22:27 crawler-compare.png
+-rw-rw-r--  1 nico nico 129097 Sep 29 23:04 dbg-proj.png
+-rw-rw-r--  1 nico nico 151930 Sep 29 23:19 death.png
+-rw-rw-r--  1 nico nico 146251 Sep 29 23:19 l1-crawler.png
+-rw-rw-r--  1 nico nico 150118 Sep 29 23:19 l1-wisp.png
+-rw-rw-r--  1 nico nico 128402 Sep 29 23:19 l2-spitter-cast.png
+-rw-rw-r--  1 nico nico 301436 Sep 29 22:28 minions.png
+-rw-rw-r--  1 nico nico 207205 Sep 29 21:46 preview-crawler.png
+-rw-rw-r--  1 nico nico 131457 Sep 29 21:46 preview-spitter.png
+-rw-rw-r--  1 nico nico 163991 Sep 29 21:46 preview-wisp.png
+-rw-rw-r--  1 nico nico   4246 Sep 29 22:57 zoom-box.png
+-rw-rw-r--  1 nico nico   6366 Sep 29 23:06 zoom-box2.png
+-rw-rw-r--  1 nico nico  36687 Sep 29 22:21 zoom-crawler.png
+-rw-rw-r--  1 nico nico  12097 Sep 29 22:54 zoom-crawler2.png
+-rw-rw-r--  1 nico nico  10144 Sep 29 23:11 zoom-death.png
+-rw-rw-r--  1 nico nico  15956 Sep 29 23:12 zoom-death2.png
+-rw-rw-r--  1 nico nico  27227 Sep 29 23:13 zoom-death3.png
+-rw-rw-r--  1 nico nico   5254 Sep 29 23:05 zoom-proj.png
+-rw-rw-r--  1 nico nico   2095 Sep 29 22:59 zoom-shot.png
+-rw-rw-r--  1 nico nico   8800 Sep 29 23:02 zoom-spitter.png
+-rw-rw-r--  1 nico nico  17266 Sep 29 23:20 zoom-wisp.png
+-rw-rw-r--  1 nico nico 130738 Sep 29 22:16 zoom.png
+total 1288
+drwxrwxr-x  2 nico nico   4096 Sep 29 21:35 .
+drwxrwxr-x 14 nico nico   4096 Sep 30 00:07 ..
+-rw-rw-r--  1 nico nico 347034 Sep 29 21:35 panel-07.png
+-rw-rw-r--  1 nico nico 386454 Sep 29 21:35 panel-08.png
+-rw-rw-r--  1 nico nico 279164 Sep 29 21:35 panel-09.png
+-rw-rw-r--  1 nico nico 288826 Sep 29 21:35 panel-10.png
+[0m
+[0m→ [0mRead .scratch/stage2e/minions.png
+[0m
+[0m$ [0mmkdir -p .scratch/stage2f && cat > .scratch/stage2f/probe.py <<'EOF'
+import json, os, sys
+import numpy as np
+from PIL import Image
+sys.path.insert(0, 'tools')
+import cut_minions as cm
+
+for name in ('wisp','crawler','spitter'):
+    im = Image.open(cm.SOURCES[name]).convert('RGB')
+    W,H = im.size
+    px = im.load()
+    flat=[px[x,y] for y in range(H) for x in range(W)]
+    alpha = cm.magenta_alpha(flat) if name!='crawler' else cm.local_contrast_alpha(im,W,H)
+    solid=[[alpha[y*W+x][0]>0.5 for x in range(W)] for y in range(H)]
+    if name!='crawler':
+        solid=cm.erode(solid,W,H,1)
+    sep=[sum(1 for x in range(W) if solid[y][x])<W*0.02 for y in range(H)]
+    rows=cm.bands([not f for f in sep],W,H)
+    rows=[r for r in rows if r[1]-r[0]>H*0.05]
+    w=lambda r: sum(1 for y in range(r[0],r[1]+1) for x in range(W) if solid[y][x])
+    top=max(w(r) for r in rows)
+    rows=[r for r in rows if w(r)>top*0.15]
+    print(f'== {name} {W}x{H} rows={rows}')
+    boxes=[]
+    for (y0,y1) in rows:
+        colf=[all(not solid[y][x] for y in range(y0,y1+1)) for x in range(W)]
+        br=cm.merge_fragments(cm.split_row(colf))
+        got=[(x0,y0,x1,y1) for (x0,x1) in br if (x1-x0)>W*0.01 and (y1-y0)>H*0.05]
+        boxes+=got
+        print(f'  row {y0}-{y1} n={len(got)}:')
+        for (x0,_,x1,_) in got:
+            n=sum(1 for y in range(y0,y1+1) for x in range(x0,x1+1) if solid[y][x])
+            print(f'     x {x0}-{x1} w={x1-x0+1} solid={n}')
+    print('  total', len(boxes))
+EOF
+python3 .scratch/stage2f/probe.py
+== wisp 1264x842 rows=[(47, 266), (329, 520), (585, 776)]
+  row 47-266 n=4:
+     x 74-257 w=184 solid=26210
+     x 377-565 w=189 solid=26412
+     x 685-867 w=183 solid=26086
+     x 991-1178 w=188 solid=26482
+  row 329-520 n=3:
+     x 70-343 w=274 solid=29785
+     x 412-770 w=359 solid=33783
+     x 835-1186 w=352 solid=33544
+  row 585-776 n=4:
+     x 71-268 w=198 solid=26724
+     x 381-580 w=200 solid=24133
+     x 692-903 w=212 solid=16588
+     x 988-1180 w=193 solid=11384
+  total 11
+== crawler 1536x1024 rows=[(143, 338), (448, 636), (738, 943)]
+  row 143-338 n=4:
+     x 64-351 w=288 solid=22883
+     x 413-709 w=297 solid=22644
+     x 776-1066 w=291 solid=22293
+     x 1117-1423 w=307 solid=23015
+  row 448-636 n=3:
+     x 79-422 w=344 solid=23766
+     x 505-929 w=425 solid=26705
+     x 994-1446 w=453 solid=27811
+  row 738-943 n=4:
+     x 62-328 w=267 solid=20621
+     x 415-717 w=303 solid=22556
+     x 775-1098 w=324 solid=17439
+     x 1150-1490 w=341 solid=15103
+  total 11
+== spitter 2528x1684 rows=[(148, 546), (670, 1058), (1210, 1577)]
+  row 148-546 n=6:
+     x 146-368 w=223 solid=54775
+     x 471-690 w=220 solid=54027
+     x 880-1177 w=298 solid=53418
+     x 1272-1600 w=329 solid=57521
+     x 1645-1963 w=319 solid=57056
+     x 2051-2358 w=308 solid=60671
+  row 670-1058 n=5:
+     x 136-458 w=323 solid=64905
+     x 532-910 w=379 solid=60966
+     x 940-1366 w=427 solid=64107
+     x 1388-1562 w=175 solid=7691
+     x 1757-2087 w=331 solid=60542
+  row 1210-1577 n=4:
+     x 147-482 w=336 solid=65056
+     x 622-912 w=291 solid=55503
+     x 1295-1747 w=453 solid=35172
+     x 1928-2429 w=502 solid=37678
+  total 15
+[0m
+[0m$ [0mcat > .scratch/stage2f/diag.py <<'EOF'
+import sys
+import numpy as np
+from PIL import Image
+from scipy import ndimage
+sys.path.insert(0,'tools')
+import cut_minions as cm
+
+def boxes_for(name):
+    im=Image.open(cm.SOURCES[name]).convert('RGB'); W,H=im.size; px=im.load()
+    flat=[px[x,y] for y in range(H) for x in range(W)]
+    alpha=cm.magenta_alpha(flat) if name!='crawler' else cm.local_contrast_alpha(im,W,H)
+    solid=[[alpha[y*W+x][0]>0.5 for x in range(W)] for y in range(H)]
+    if name!='crawler': solid=cm.erode(solid,W,H,1)
+    sep=[sum(1 for x in range(W) if solid[y][x])<W*0.02 for y in range(H)]
+    rows=cm.bands([not f for f in sep],W,H); rows=[r for r in rows if r[1]-r[0]>H*0.05]
+    w=lambda r: sum(1 for y in range(r[0],r[1]+1) for x in range(W) if solid[y][x])
+    top=max(w(r) for r in rows); rows=[r for r in rows if w(r)>top*0.15]
+    out=[]
+    for (y0,y1) in rows:
+        colf=[all(not solid[y][x] for y in range(y0,y1+1)) for x in range(W)]
+        for (x0,x1) in cm.merge_fragments(cm.split_row(colf)):
+            if (x1-x0)>W*0.01 and (y1-y0)>H*0.05: out.append((x0,y0,x1,y1))
+    return solid,W,H,out
+
+for name in ('wisp','crawler','spitter'):
+    solid,W,H,boxes=boxes_for(name)
+    S=np.array(solid)
+    print(f'== {name}')
+    for i,(x0,y0,x1,y1) in enumerate(boxes):
+        sub=S[y0:y1+1,x0:x1+1]
+        lab,k=ndimage.label(sub,structure=np.ones((3,3)))
+        sizes=ndimage.sum(sub,lab,range(1,k+1))
+        order=np.argsort(sizes)[::-1]
+        tot=sub.sum()
+        parts=[]
+        for o in order[:4]:
+            ys,xs=np.where(lab==o+1)
+            parts.append(f'{int(sizes[o])}px x{xs.min()}-{xs.max()} y{ys.min()}-{ys.max()}')
+        # also global label of this box region on the whole sheet
+        print(f'  f{i} x{x0}-{x1} tot={tot} k={k} | ' + ' ; '.join(parts))
+EOF
+python3 .scratch/stage2f/diag.py
+== wisp
+  f0 x74-257 tot=26210 k=1 | 26210px x0-183 y0-219
+  f1 x377-565 tot=26412 k=1 | 26412px x0-188 y0-209
+  f2 x685-867 tot=26086 k=1 | 26086px x0-182 y0-219
+  f3 x991-1178 tot=26482 k=1 | 26482px x0-187 y0-210
+  f4 x70-343 tot=29785 k=1 | 29785px x0-273 y0-191
+  f5 x412-770 tot=33783 k=5 | 33602px x10-358 y0-191 ; 75px x61-82 y64-67 ; 52px x0-14 y109-115 ; 52px x25-40 y64-67
+  f6 x835-1186 tot=33544 k=8 | 32912px x0-351 y1-183 ; 175px x42-69 y112-127 ; 125px x108-129 y27-35 ; 115px x59-81 y42-51
+  f7 x71-268 tot=26724 k=2 | 26565px x0-197 y0-191 ; 159px x9-20 y30-52
+  f8 x381-580 tot=24133 k=6 | 23875px x0-199 y2-191 ; 108px x9-19 y30-48 ; 75px x13-23 y139-147 ; 57px x21-28 y18-27
+  f9 x692-903 tot=16588 k=27 | 14937px x30-194 y15-186 ; 262px x119-140 y13-29 ; 216px x198-211 y70-89 ; 207px x55-72 y127-141
+  f10 x988-1180 tot=11384 k=46 | 10885px x49-192 y33-182 ; 199px x77-103 y27-51 ; 39px x80-85 y58-65 ; 26px x40-50 y86-93
+== crawler
+  f0 x64-351 tot=22883 k=24 | 22686px x0-287 y0-195 ; 92px x126-132 y109-133 ; 25px x157-159 y152-163 ; 22px x121-127 y97-102
+  f1 x413-709 tot=22644 k=28 | 22548px x0-296 y0-195 ; 19px x77-82 y110-118 ; 13px x268-271 y134-140 ; 13px x144-148 y107-110
+  f2 x776-1066 tot=22293 k=34 | 22153px x0-290 y0-195 ; 17px x140-147 y99-104 ; 16px x224-225 y135-143 ; 16px x82-86 y125-129
+  f3 x1117-1423 tot=23015 k=42 | 21880px x0-306 y0-195 ; 951px x217-275 y130-193 ; 41px x115-119 y112-127 ; 22px x133-137 y111-121
+  f4 x79-422 tot=23766 k=40 | 23402px x16-343 y0-188 ; 186px x256-278 y104-138 ; 23px x250-255 y111-115 ; 20px x155-160 y18-23
+  f5 x505-929 tot=26705 k=59 | 25466px x9-417 y0-188 ; 978px x154-213 y135-187 ; 36px x203-208 y104-115 ; 24px x418-424 y104-109
+  f6 x994-1446 tot=27811 k=60 | 27232px x1-415 y0-188 ; 155px x287-301 y122-158 ; 120px x206-221 y105-127 ; 32px x419-424 y125-133
+  f7 x62-328 tot=20621 k=46 | 20136px x12-239 y0-205 ; 62px x235-243 y21-36 ; 60px x249-258 y58-67 ; 43px x113-124 y118-129
+  f8 x415-717 tot=22556 k=41 | 22281px x5-302 y44-205 ; 137px x181-191 y18-38 ; 45px x279-286 y114-127 ; 12px x261-263 y68-72
+  f9 x775-1098 tot=17439 k=22 | 17366px x0-314 y83-205 ; 29px x217-223 y92-99 ; 7px x276-279 y127-129 ; 7px x251-253 y101-104
+  f10 x1150-1490 tot=15103 k=15 | 15053px x9-319 y107-205 ; 13px x3-7 y175-178 ; 9px x9-13 y176-178 ; 7px x2-7 y202-203
+== spitter
+  f0 x146-368 tot=54775 k=8 | 54662px x0-222 y0-398 ; 47px x199-217 y74-88 ; 34px x193-199 y89-105 ; 24px x207-214 y93-102
+  f1 x471-690 tot=54027 k=1 | 54027px x0-219 y0-398
+  f2 x880-1177 tot=53418 k=1 | 53418px x0-297 y41-398
+  f3 x1272-1600 tot=57521 k=1 | 57521px x0-328 y20-398
+  f4 x1645-1963 tot=57056 k=3 | 56805px x0-318 y19-398 ; 142px x33-43 y183-207 ; 109px x10-18 y208-226
+  f5 x2051-2358 tot=60671 k=3 | 60406px x0-307 y40-398 ; 175px x20-30 y197-221 ; 90px x40-47 y223-240
+  f6 x136-458 tot=64905 k=1 | 64905px x0-322 y0-388
+  f7 x532-910 tot=60966 k=4 | 60848px x0-378 y16-388 ; 61px x309-315 y12-26 ; 56px x349-354 y33-48 ; 1px x348-348 y31-31
+  f8 x940-1366 tot=64107 k=1 | 64107px x0-426 y23-388
+  f9 x1388-1562 tot=7691 k=6 | 7356px x43-174 y85-182 ; 161px x15-45 y83-96 ; 79px x13-32 y131-140 ; 48px x26-36 y177-182
+  f10 x1757-2087 tot=60542 k=2 | 60540px x0-327 y12-388 ; 2px x330-330 y248-249
+  f11 x147-482 tot=65056 k=1 | 65056px x0-335 y0-361
+  f12 x622-912 tot=55503 k=1 | 55503px x0-290 y24-361
+  f13 x1295-1747 tot=35172 k=1 | 35172px x0-452 y248-365
+  f14 x1928-2429 tot=37678 k=5 | 37413px x0-501 y214-367 ; 125px x450-458 y187-214 ; 99px x396-404 y203-223 ; 33px x420-423 y169-180
+[0m
+[0m$ [0mcat > .scratch/stage2f/packed.py <<'EOF'
+import json
+import numpy as np
+from PIL import Image
+from scipy import ndimage
+m=json.load(open('sprites/manifest.json'))
+for name,d in m.items():
+    if 'frames' not in d: continue
+    a=np.asarray(Image.open(f'sprites/{name}.png').convert('RGBA'))[:,:,3]>40
+    cw,ch=d['cell']
+    print(f'== {name} cell {cw}x{ch}')
+    for clip,cells in d['frames']:
+        for i,(x,y) in enumerate(cells):
+            f=a[y:y+ch,x:x+cw]
+            lab,k=ndimage.label(f,structure=np.ones((3,3)))
+            sizes=ndimage.sum(f,lab,range(1,k+1))
+            o=np.argsort(sizes)[::-1]
+            tot=f.sum()
+            parts=[]
+            for j in o[:3]:
+                ys,xs=np.where(lab==j+1)
+                parts.append(f'{int(sizes[j])}px x{xs.min()}-{xs.max()} y{ys.min()}-{ys.max()}')
+            print(f'  {clip}[{i}] @x{x} tot={tot} k={k} | '+' ; '.join(parts))
+EOF
+python3 .scratch/stage2f/packed.py
+== wisp cell 67x44
+  float[0] @x0 tot=2108 k=1 | 2108px x0-66 y0-43
+  float[1] @x67 tot=1590 k=1 | 1590px x19-66 y0-42
+  float[2] @x134 tot=1322 k=2 | 825px x37-66 y0-43 ; 497px x0-18 y3-38
+  float[3] @x201 tot=1461 k=4 | 1281px x0-36 y0-43 ; 129px x57-66 y5-23 ; 41px x56-66 y28-34
+  dash[0] @x268 tot=2015 k=1 | 2015px x0-66 y0-43
+  dash[1] @x335 tot=868 k=2 | 862px x21-66 y17-43 ; 6px x25-28 y31-32
+  dash[2] @x402 tot=389 k=5 | 243px x0-20 y25-43 ; 128px x46-66 y27-43 ; 11px x56-61 y26-28
+  hurt[0] @x469 tot=1006 k=1 | 1006px x0-65 y17-43
+  dead[0] @x536 tot=409 k=3 | 377px x29-66 y32-43 ; 28px x21-28 y36-43 ; 4px x30-31 y32-34
+  dead[1] @x603 tot=197 k=6 | 85px x0-16 y34-43 ; 81px x48-66 y35-43 ; 15px x58-63 y32-34
+  dead[2] @x670 tot=174 k=5 | 144px x0-20 y34-43 ; 21px x21-26 y37-41 ; 5px x27-29 y42-43
+== crawler cell 71x40
+  walk[0] @x0 tot=1420 k=1 | 1420px x0-70 y0-39
+  walk[1] @x71 tot=1090 k=3 | 1088px x18-70 y0-39 ; 1px x70-70 y27-27 ; 1px x70-70 y3-3
+  walk[2] @x142 tot=938 k=4 | 636px x36-70 y0-39 ; 265px x0-17 y3-29 ; 22px x0-5 y33-39
+  walk[3] @x213 tot=953 k=2 | 763px x0-35 y1-39 ; 190px x53-70 y14-39
+  lunge[0] @x284 tot=1287 k=1 | 1287px x0-70 y0-39
+  lunge[1] @x355 tot=569 k=2 | 568px x28-70 y15-39 ; 1px x0-0 y26-26
+  lunge[2] @x426 tot=398 k=3 | 275px x0-20 y19-39 ; 121px x52-70 y29-39 ; 2px x70-70 y23-24
+  hurt[0] @x497 tot=622 k=1 | 622px x0-61 y15-39
+  dead[0] @x568 tot=3 k=1 | 3px x48-50 y39-39
+  dead[1] @x639 tot=0 k=0 | 
+  dead[2] @x710 tot=0 k=0 | 
+== spitter cell 128x80
+  idle[0] @x0 tot=6732 k=1 | 6732px x1-127 y0-79
+  idle[1] @x128 tot=6589 k=2 | 6588px x19-127 y0-79 ; 1px x0-0 y79-79
+  walk[0] @x256 tot=2906 k=3 | 2828px x42-127 y17-79 ; 42px x0-3 y38-52 ; 36px x0-18 y77-79
+  walk[1] @x384 tot=4136 k=2 | 2073px x0-41 y8-79 ; 2063px x64-127 y16-79
+  walk[2] @x512 tot=3715 k=6 | 2834px x0-63 y3-79 ; 661px x84-127 y38-65 ; 166px x101-127 y59-79
+  walk[3] @x640 tot=4540 k=6 | 4143px x0-83 y3-79 ; 339px x107-127 y47-70 ; 26px x114-120 y39-44
+  cast[0] @x768 tot=4717 k=1 | 4717px x8-127 y8-79
+  cast[1] @x896 tot=2509 k=2 | 2502px x36-127 y32-79 ; 7px x126-127 y31-34
+  cast[2] @x1024 tot=2554 k=4 | 2123px x52-127 y33-79 ; 417px x0-21 y34-61 ; 11px x11-14 y35-38
+  hurt[0] @x1152 tot=1766 k=2 | 1211px x91-127 y31-79 ; 555px x0-44 y35-65
+  dead[0] @x1280 tot=2011 k=2 | 1992px x0-97 y32-79 ; 19px x107-118 y78-79
+  dead[1] @x1408 tot=382 k=1 | 382px x81-127 y64-79
+  dead[2] @x1536 tot=380 k=1 | 380px x0-26 y64-79
+  dead[3] @x1664 tot=0 k=0 | 
+== spitterShot cell 25x16
+  shot[0] @x0 tot=198 k=5 | 191px x2-24 y1-15 ; 3px x2-4 y8-9 ; 2px x15-16 y0-0
+[0m
+The `pack()` step looks suspicious. Let me instrument it rather than guess.
+[0m$ [0mcat > .scratch/stage2f/packdbg.py <<'EOF'
+import sys
+import numpy as np
+from PIL import Image
+sys.path.insert(0,'tools')
+import cut_minions as cm
+
+orig_pack = cm.pack
+def dbg(name, frames, display_h):
+    xs=[f[0] for f in frames]; ys=[f[1] for f in frames]
+    rights=[f[0]+len(f[2][0]) for f in frames]; bots=[f[1]+len(f[2]) for f in frames]
+    cx0,cy0=min(xs),min(ys); cw,ch=max(rights)-cx0,max(bots)-cy0
+    th=display_h*2; k=ch/th; tw=max(1,round(cw/k))
+    print(f'{name}: box origin ({cx0},{cy0}) cw={cw} ch={ch} k={k:.2f} cell {tw}x{th}')
+    for i,(fx,fy,a,rgb) in enumerate(frames):
+        fh,fw=len(a),len(a[0])
+        # where the content sits inside its own tile
+        solid=np.array(a)>0.5
+        ys_,xs_=np.where(solid) if solid.any() else (np.array([0]),np.array([0]))
+        print(f'  f{i} box=({fx},{fy}) size {fw}x{fh} local content x{xs_.min()}-{xs_.max()} y{ys_.min()}-{ys_.max()}'
+              f' -> paste at cell x={i*tw}+{round((fx-cx0)/k)}')
+    return orig_pack(name, frames, display_h)
+cm.pack=dbg
+cm.main()
+EOF
+python3 .scratch/stage2f/packdbg.py 2>&1 | head -60
+wisp:
+wisp: box origin (70,47) cw=1117 ch=730 k=16.59 cell 67x44
+  f0 box=(74,47) size 184x220 local content x0-183 y0-219 -> paste at cell x=0+0
+  f1 box=(377,47) size 189x220 local content x0-188 y0-211 -> paste at cell x=67+19
+  f2 box=(685,47) size 183x220 local content x0-182 y0-219 -> paste at cell x=134+37
+  f3 box=(991,47) size 188x220 local content x0-187 y0-211 -> paste at cell x=201+56
+  f4 box=(70,329) size 274x192 local content x0-273 y0-191 -> paste at cell x=268+0
+  f5 box=(412,329) size 359x192 local content x0-358 y0-191 -> paste at cell x=335+21
+  f6 box=(835,329) size 352x192 local content x0-351 y0-184 -> paste at cell x=402+46
+  f7 box=(71,585) size 198x192 local content x0-197 y0-191 -> paste at cell x=469+0
+  f8 box=(381,585) size 200x192 local content x0-199 y1-191 -> paste at cell x=536+19
+  f9 box=(692,585) size 212x192 local content x0-211 y1-187 -> paste at cell x=603+37
+  f10 box=(988,585) size 193x192 local content x0-192 y0-188 -> paste at cell x=670+55
+  sheet 737x44 cell 67x44 display 34x22  frames 11
+crawler:
+crawler: box origin (62,143) cw=1429 ch=801 k=20.02 cell 71x40
+  f0 box=(64,143) size 288x196 local content x2-285 y2-193 -> paste at cell x=0+0
+  f1 box=(413,143) size 297x196 local content x2-294 y2-193 -> paste at cell x=71+18
+  f2 box=(776,143) size 291x196 local content x2-288 y2-193 -> paste at cell x=142+36
+  f3 box=(1117,143) size 307x196 local content x2-304 y2-193 -> paste at cell x=213+53
+  f4 box=(79,448) size 344x189 local content x17-341 y2-186 -> paste at cell x=284+1
+  f5 box=(505,448) size 425x189 local content x10-416 y2-186 -> paste at cell x=355+22
+  f6 box=(994,448) size 453x189 local content x3-413 y2-186 -> paste at cell x=426+47
+  f7 box=(62,738) size 267x206 local content x13-238 y2-203 -> paste at cell x=497+0
+  f8 box=(415,738) size 303x206 local content x8-300 y45-203 -> paste at cell x=568+18
+  f9 box=(775,738) size 324x206 local content x2-313 y84-203 -> paste at cell x=639+36
+  f10 box=(1150,738) size 341x206 local content x10-318 y108-203 -> paste at cell x=710+54
+  sheet 781x40 cell 71x40 display 36x20  frames 11
+spitter:
+  spitter: cut the loose fireball out as spitterShot (1388, 670, 1562, 1058) (7691 solid px vs 60966 median)
+spitter: box origin (136,148) cw=2294 ch=1430 k=17.88 cell 128x80
+  f0 box=(146,148) size 223x399 local content x0-222 y0-398 -> paste at cell x=0+1
+  f1 box=(471,148) size 220x399 local content x0-219 y0-398 -> paste at cell x=128+19
+  f2 box=(880,148) size 298x399 local content x0-297 y40-398 -> paste at cell x=256+42
+  f3 box=(1272,148) size 329x399 local content x0-328 y19-398 -> paste at cell x=384+64
+  f4 box=(1645,148) size 319x399 local content x0-318 y18-398 -> paste at cell x=512+84
+  f5 box=(2051,148) size 308x399 local content x0-307 y39-398 -> paste at cell x=640+107
+  f6 box=(136,670) size 323x389 local content x0-322 y0-388 -> paste at cell x=768+0
+  f7 box=(532,670) size 379x389 local content x0-378 y11-388 -> paste at cell x=896+22
+  f8 box=(940,670) size 427x389 local content x0-426 y22-388 -> paste at cell x=1024+45
+  f9 box=(1757,670) size 331x389 local content x0-330 y11-388 -> paste at cell x=1152+91
+  f10 box=(147,1210) size 336x368 local content x0-335 y0-362 -> paste at cell x=1280+1
+  f11 box=(622,1210) size 291x368 local content x0-290 y23-362 -> paste at cell x=1408+27
+  f12 box=(1295,1210) size 453x368 local content x0-452 y247-366 -> paste at cell x=1536+65
+  f13 box=(1928,1210) size 502x368 local content x0-501 y163-367 -> paste at cell x=1664+100
+  sheet 1792x80 cell 128x80 display 64x40  frames 14
+  spitterShot 25x16
+contact sheet /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/.scratch/stage2e/minions.png
+
+wrote /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/sprites/manifest.json
+[0m
+Now I understand the structure. Let me examine the source sheets to see the actual artifacts.
+[0m$ [0mcat > .scratch/stage2f/sheetview.py <<'EOF'
+import sys
+from PIL import Image, ImageDraw
+sys.path.insert(0,'tools')
+import cut_minions as cm
+for name,box in (('wisp',(0,0,1264,320)),('crawler',(0,60,1536,400)),('spitter',(0,80,1264,600))):
+    im=Image.open(cm.SOURCES[name]).convert('RGB')
+    im.crop(box).resize(((box[2]-box[0])//2,(box[3]-box[1])//2),Image.LANCZOS).save(f'.scratch/stage2f/{name}-top.png')
+print('ok')
+EOF
+python3 .scratch/stage2f/sheetview.py
+ok
+[0m
+[0m✗ [0mRead /home/nico/Documents/U/Co/U/4s/courses/interfaces/tuego/.scratch/stage2f/wisp-top.png failed
+[91m[1mError: [0mFile not found: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tuego/.scratch/stage2f/wisp-top.png
+[0m→ [0mRead .scratch/stage2f/wisp-top.png
+[0m→ [0mRead .scratch/stage2f/crawler-top.png
+[0m
+[0m$ [0mrg -n "manifest|baseline|'figure'|\"figure\"" js/ --include='*.js' -g '!*.min.js' 2>/dev/null | head -40 || rg -n "manifest" js/ | head -40
+(no output)
+[0m
+Let me check how the game consumes the manifest before changing the packer.
+[0m$ [0mrg -n "sprites/manifest|manifest.json" js/ tools/*.mjs | head -30
+zsh:1: command not found: rg
+[0m
+[0m✱ [0mGrep "manifest"[90m in js · 16 matches[0m
+[0m→ [0mRead js/render/minions.js[90m [limit=120][0m
+The packer offsets look wrong. Let me dump the actual atlas cells to see.
+[0m
+[0m$ [0mcat > .scratch/stage2f/dumpatlas.py <<'EOF'
+import json, sys
+import numpy as np
+from PIL import Image, ImageDraw
+m=json.load(open('sprites/manifest.json'))
+for name in ('wisp','crawler','spitter'):
+    d=m[name]; cw,ch=d['cell']; im=Image.open(f'sprites/{name}.png').convert('RGBA')
+    Z=6
+    out=Image.new('RGBA',(cw*Z*6+40, (ch*Z+14)*4+20),(128,128,128,255))
+    dr=ImageDraw.Draw(out)
+    for r,(clip,cells) in enumerate(d['frames']):
+        for i,(x,y) in enumerate(cells):
+            c=im.crop((x,y,x+cw,y+ch)).resize((cw*Z,ch*Z),Image.NEAREST)
+            px=(i%6)*(cw*Z+6)+4; py=r*(ch*Z+14)+12
+            out.paste(c,(px,py),c)
+            dr.text((px,py-10),f'{clip}{i}',fill=(255,255,255,255))
+    out.save(f'.scratch/stage2f/atlas-{name}.png')
+print('ok')
+EOF
+python3 .scratch/stage2f/dumpatlas.py
+ok
+[0m
+[0m→ [0mRead .scratch/stage2f/atlas-crawler.png
+The atlas is badly broken — frames are interleaved. Let me check the source for components straddling box boundaries.
+[0m
+[0m$ [0mcat > .scratch/stage2f/straddle.py <<'EOF'
+import sys
+import numpy as np
+from PIL import Image
+from scipy import ndimage
+sys.path.insert(0,'tools')
+import cut_minions as cm
+
+def get(name):
+    im=Image.open(cm.SOURCES[name]).convert('RGB'); W,H=im.size; px=im.load()
+    flat=[px[x,y] for y in range(H) for x in range(W)]
+    alpha=cm.magenta_alpha(flat) if name!='crawler' else cm.local_contrast_alpha(im,W,H)
+    solid=[[alpha[y*W+x][0]>0.5 for x in range(W)] for y in range(H)]
+    if name!='crawler': solid=cm.erode(solid,W,H,1)
+    sep=[sum(1 for x in range(W) if solid[y][x])<W*0.02 for y in range(H)]
+    rows=cm.bands([not f for f in sep],W,H); rows=[r for r in rows if r[1]-r[0]>H*0.05]
+    w=lambda r: sum(1 for y in range(r[0],r[1]+1) for x in range(W) if solid[y][x])
+    top=max(w(r) for r in rows); rows=[r for r in rows if w(r)>top*0.15]
+    boxes=[]
+    for (y0,y1) in rows:
+        colf=[all(not solid[y][x] for y in range(y0,y1+1)) for x in range(W)]
+        for (x0,x1) in cm.merge_fragments(cm.split_row(colf)):
+            if (x1-x0)>W*0.01 and (y1-y0)>H*0.05: boxes.append((x0,y0,x1,y1))
+    return solid,W,H,boxes
+
+for name in ('wisp','crawler','spitter'):
+    solid,W,H,boxes=get(name)
+    S=np.array(solid)
+    lab,k=ndimage.label(S,structure=np.ones((3,3)))
+    print(f'== {name}  sheet comps={k} boxes={len(boxes)}')
+    for i,b in enumerate(boxes):
+        x0,y0,x1,y1=b
+        sub=lab[y0:y1+1,x0:x1+1]
+        inside=np.unique(sub); inside=inside[inside>0]
+        stray=[c for c in inside if (lab==c).sum()!= (sub==c).sum()]
+        if stray:
+            for c in stray:
+                tot=(lab==c).sum(); part=(sub==c).sum()
+                ys,xs=np.where(lab==c)
+                print(f'  box{i} x{x0}-{x1}: comp {c} straddles, {part}px inside / {tot}px total'
+                      f' abs x{xs.min()}-{xs.max()} y{ys.min()}-{ys.max()}')
+EOF
+python3 .scratch/stage2f/straddle.py
+== wisp  sheet comps=99 boxes=11
+  box0 x74-257: comp 1 straddles, 26210px inside / 26213px total abs x74-257 y47-268
+  box2 x685-867: comp 3 straddles, 26086px inside / 26090px total abs x685-867 y47-268
+  box4 x70-343: comp 5 straddles, 29785px inside / 29786px total abs x70-343 y328-520
+  box5 x412-770: comp 6 straddles, 33602px inside / 33604px total abs x422-770 y328-520
+  box8 x381-580: comp 21 straddles, 23875px inside / 23881px total abs x381-580 y587-777
+  box10 x988-1180: comp 19 straddles, 1px inside / 3px total abs x1044-1044 y583-585
+== crawler  sheet comps=415 boxes=11
+  box0 x64-351: comp 1 straddles, 22686px inside / 22708px total abs x64-351 y137-338
+  box1 x413-709: comp 2 straddles, 22548px inside / 22607px total abs x413-709 y137-338
+  box3 x1117-1423: comp 3 straddles, 21880px inside / 21924px total abs x1117-1423 y137-338
+  box4 x79-422: comp 130 straddles, 23402px inside / 23431px total abs x95-422 y444-636
+  box5 x505-929: comp 129 straddles, 25466px inside / 25503px total abs x514-922 y442-636
+  box6 x994-1446: comp 131 straddles, 27232px inside / 27255px total abs x995-1409 y444-636
+  box7 x62-328: comp 290 straddles, 20136px inside / 20466px total abs x74-301 y720-943
+== spitter  sheet comps=40 boxes=15
+  box0 x146-368: comp 2 straddles, 54662px inside / 54683px total abs x146-368 y147-546
+  box1 x471-690: comp 1 straddles, 54027px inside / 54121px total abs x471-690 y144-546
+  box6 x136-458: comp 19 straddles, 64905px inside / 64997px total abs x136-458 y667-1058
+  box11 x147-482: comp 33 straddles, 65056px inside / 65325px total abs x147-482 y1203-1571
+  box14 x1928-2429: comp 39 straddles, 37413px inside / 37526px total abs x1928-2429 y1424-1580
+[0m
+The atlas is interleaved — that's a packer geometry bug, not just a mask bug. Let me see the source boxes before rewriting.
+[0m$ [0mcat > .scratch/stage2f/look.py <<'EOF'
+import sys
+import numpy as np
+from PIL import Image, ImageDraw
+sys.path.insert(0,'tools')
+import cut_minions as cm
+
+def get(name):
+    im=Image.open(cm.SOURCES[name]).convert('RGB'); W,H=im.size; px=im.load()
+    flat=[px[x,y] for y in range(H) for x in range(W)]
+    alpha=cm.magenta_alpha(flat) if name!='crawler' else cm.local_contrast_alpha(im,W,H)
+    solid=[[alpha[y*W+x][0]>0.5 for x in range(W)] for y in range(H)]
+    if name!='crawler': solid=cm.erode(solid,W,H,1)
+    sep=[sum(1 for x in range(W) if solid[y][x])<W*0.02 for y in range(H)]
+    rows=cm.bands([not f for f in sep],W,H); rows=[r for r in rows if r[1]-r[0]>H*0.05]
+    w=lambda r: sum(1 for y in range(r[0],r[1]+1) for x in range(W) if solid[y][x])
+    top=max(w(r) for r in rows); rows=[r for r in rows if w(r)>top*0.15]
+    boxes=[]
+    for (y0,y1) in rows:
+        colf=[all(not solid[y][x] for y in range(y0,y1+1)) for x in range(W)]
+        for (x0,x1) in cm.merge_fragments(cm.split_row(colf)):
+            if (x1-x0)>W*0.01 and (y1-y0)>H*0.05: boxes.append((x0,y0,x1,y1))
+    return im,W,H,boxes,solid
+
+for name in ('wisp','crawler','spitter'):
+    im,W,H,boxes,solid=get(name)
+    S=np.array(solid)
+    # overlay boxes on the source
+    ov=im.copy().resize((W//3,H//3),Image.LANCZOS); d=ImageDraw.Draw(ov)
+    for (x0,y0,x1,y1) in boxes:
+        d.rectangle([x0//3,y0//3,x1//3,y1//3],outline=(255,0,0),width=2)
+    ov.save(f'.scratch/stage2f/ov-{name}.png')
+    # masked crops on grey
+    Z=2; cols=6
+    cw=max(b[2]-b[0]+1 for b in boxes); chh=max(b[3]-b[1]+1 for b in boxes)
+    rows_n=(len(boxes)+cols-1)//cols
+    out=Image.new('RGBA',(cols*(cw//Z+2), rows_n*(chh//Z+12)),(128,128,128,255)); dd=ImageDraw.Draw(out)
+    for i,(x0,y0,x1,y1) in enumerate(boxes):
+        a=np.asarray(im.crop((x0,y0,x1+1,y1+1)),dtype=np.float64)/255
+        al=np.array([[solid[y][x] for x in range(x0,x1+1)] for y in range(y0,y1+1)])
+        tile=a.copy(); tile[...,3]=al
+        t=Image.fromarray((tile*255).astype(np.uint8),'RGBA').resize(((x1-x0+1)//Z,(y1-y0+1)//Z),Image.BOX)
+        px_=(i%cols)*(cw//Z+2); py=(i//cols)*(chh//Z+12)+10
+        out.paste(t,(px_,py),t); dd.text((px_,py-9),f'{i} x{x0}-{x1}',fill=(255,255,255,255))
+    out.save(f'.scratch/stage2f/boxes-{name}.png')
+print('ok')
+EOF
+python3 .scratch/stage2f/look.py
+Traceback (most recent call last):
+  File "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/.scratch/stage2f/look.py", line 40, in <module>
+    tile=a.copy(); tile[...,3]=al
+                   ~~~~^^^^^^^
+IndexError: index 3 is out of bounds for axis 2 with size 3
+[0m
+[0m$ [0mcd '/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego' && sed -i 's|tile=a.copy(); tile\[...,3\]=al|tile=np.dstack([a,al])|' .scratch/stage2f/look.py && python3 .scratch/stage2f/look.py
+ok
+[0m
+[0m→ [0mRead .scratch/stage2f/ov-crawler.png
+[0m→ [0mRead .scratch/stage2f/ov-wisp.png
+Let me look at the wisp/spitter sources and how the game anchors a minion.
+[0m→ [0mRead .scratch/stage2f/boxes-wisp.png
+Now let me check how the game anchors a minion sprite, and whether stage2e references the scratch path.
+[0m→ [0mRead js/render/minions.js[90m [offset=120, limit=100][0m
+The atlas packing is itself broken (frames resized to the full cell then offset → cut lines + interleaving). Let me check the crawler source channels.
+[0m
+[0m$ [0mcat > .scratch/stage2f/crawl.py <<'EOF'
+import numpy as np
+from PIL import Image
+im=Image.open('assets/crawler.png')
+a=np.asarray(im)
+print('mode',im.mode,'shape',a.shape)
+for i,ch in enumerate('RGBA'):
+    v=a[...,i]
+    print(ch,'min',v.min(),'max',v.max(),'mean',round(float(v.mean()),2))
+# corner / background sample
+for (x,y) in [(5,5),(760,10),(100,900),(1200,1000),(768,512)]:
+    print((x,y), a[y,x])
+EOF
+python3 .scratch/stage2f/crawl.py
+mode RGBA shape (1024, 1536, 4)
+R min 0 max 253 mean 22.96
+G min 0 max 255 mean 19.54
+B min 0 max 255 mean 16.21
+A min 0 max 254 mean 46.65
+(5, 5) [0 0 0 0]
+(760, 10) [0 0 0 0]
+(100, 900) [ 62  45  38 235]
+(1200, 1000) [20 14 16  0]
+(768, 512) [104  97  66 251]
+[0m
+[0m$ [0mcat > .scratch/stage2f/cralpha.py <<'EOF'
+import numpy as np
+from PIL import Image
+from scipy import ndimage
+a=np.asarray(Image.open('assets/crawler.png')).astype(int)
+A=a[...,3]
+print('alpha hist', np.histogram(A,bins=[0,1,10,50,128,200,240,254,255])[0])
+# how well does alpha>40 separate?
+m=A>40
+lab,k=ndimage.label(m,structure=np.ones((3,3)))
+sizes=np.bincount(lab.ravel())[1:]
+print('comps',k,'largest',sorted(sizes)[-5:])
+# saturation of background vs creature
+mx=a[...,:3].max(-1); mn=a[...,:3].min(-1)
+sat=np.where(mx>0,(mx-mn)/np.maximum(mx,1),0)
+print('sat in alpha>40: p50',np.percentile(sat[m],50),'p95',np.percentile(sat[m],95))
+print('luma in alpha>40: p5',np.percentile(mx[m],5))
+bg=~m
+print('sat in alpha<40: p50',np.percentile(sat[bg],50))
+print('luma in alpha<40: p50',np.percentile(mx[bg],50),'p95',np.percentile(mx[bg],95))
+EOF
+python3 .scratch/stage2f/cralpha.py
+alpha hist [1116282  128693   18556   15423   17794   28180  247860      76]
+comps 49 largest [np.int64(29106), np.int64(30295), np.int64(30767), np.int64(34397), np.int64(34998)]
+sat in alpha>40: p50 0.32407407407407407 p95 0.6666666666666666
+luma in alpha>40: p5 5.0
+sat in alpha<40: p50 0.3076923076923077
+luma in alpha<40: p50 19.0 p95 35.0
+[0m
+The atlas packing is itself broken (tiles resized to the full cell, then offset → overlap + cut lines). Let me prototype the doc's mask method first.
+[0m$ [0mcat > .scratch/stage2f/masktest.py <<'EOF'
+import sys
+import numpy as np
+from PIL import Image
+from scipy import ndimage
+sys.path.insert(0,'tools')
+import cut_minions as cm
+
+def bg_alpha(arr, luma_t, sat_t):
+    """near-black low-saturation background, flood filled from the borders."""
+    rgb = arr[...,:3].astype(np.int32)
+    mx = rgb.max(-1); mn = rgb.min(-1)
+    sat = np.where(mx>0, (mx-mn)/np.maximum(mx,1), 0.0)
+    bgish = (mx <= luma_t) & (sat <= sat_t)
+    free = np.zeros_like(bgish)
+    border = np.zeros_like(bgish); border[0,:]=border[-1,:]=True; border[:,0]=border[:,-1]=True
+    free[border & bgish] = True
+    # iterative dilate within bgish
+    while True:
+        nxt = ndimage.binary_dilation(free) & bgish
+        if nxt.sum()==free.sum(): break
+        free = nxt
+    return ~free
+
+arr = np.asarray(Image.open('assets/crawler.png'))
+for luma_t, sat_t in ((40,0.45),(48,0.5),(56,0.5),(64,0.55)):
+    solid = bg_alpha(arr, luma_t, sat_t)
+    lab,k = ndimage.label(solid, structure=np.ones((3,3)))
+    sizes = np.bincount(lab.ravel())[1:]
+    big = sizes[sizes>2000]
+    print(f'luma<={luma_t} sat<={sat_t}: sheet px={solid.sum()} comps={k} big={sorted(big)[-4:]} nbig={len(big)}')
+EOF
+python3 .scratch/stage2f/masktest.py
+luma<=40 sat<=0.45: sheet px=507343 comps=6397 big=[np.int64(21892), np.int64(26383), np.int64(86580), np.int64(127912)] nbig=18
+luma<=48 sat<=0.5: sheet px=363806 comps=6919 big=[np.int64(13271), np.int64(17308), np.int64(54323), np.int64(95326)] nbig=17
+luma<=56 sat<=0.5: sheet px=336177 comps=7529 big=[np.int64(10618), np.int64(11598), np.int64(53667), np.int64(95326)] nbig=18
+luma<=64 sat<=0.55: sheet px=303858 comps=7708 big=[np.int64(8259), np.int64(10072), np.int64(50597), np.int64(95206)] nbig=18
+[0m
+The atlas packing is genuinely broken — tiles are resized to the *full cell* then offset, so frames overflow into each other (that's the cut lines + detached pieces). Let me verify by prototyping.
+[0m✗ [0mInvalid Tool
+The arguments provided to the tool are invalid: Invalid input for tool bash: JSON parsing failed: Text: {"command": "cat > .scratch/stage2f/proto.py <<'EOF'\nimport sys, json\nimport numpy as np\nfrom PIL import Image\nfrom scipy import ndimage\nsys.path.insert(0,'tools')\nimport cut_minions as cm\n\nCELL={'wisp':(67,44),'crawler':(71,40),'spitter':(128,80)}\n\ndef sheet_mask(name):\n    im=Image.open(cm.SOURCES[name]).convert('RGB'); W,H=im.size; px=im.load()\n    flat=[px[x,y] for y in range(H) for x in range(W)]\n    a=cm.magenta_alpha(flat) if name!='crawler' else cm.local_contrast_alpha(im,W,H)\n    solid=np.array([[a[y*W+x][0]>0.5 for x in range(W)] for y in range(H)])\n    if name!='crawler': solid=np.array(cm.erode(solid.tolist(),W,H,1))\n    return im,W,H,solid\n\ndef boxes_of(solid,W,H):\n    sep=[sum(1 for x in range(W) if solid[y][x])<W*0.02 for y in range(H)]\n    rows=cm.bands([not f for f in sep],W,H); rows=[r for r in rows if r[1]-r[0]>H*0.05]\n    w=lambda r: sum(1 for y in range(r[0],r[1]+1) for x in range(W) if solid[y][x])\n    top=max(w(r) for r in rows); rows=[r for r in rows if w(r)>top*0.15]\n    out=[]\n    for (y0,y1) in rows:\n        colf=[all(not solid[y][x] for y in range(y0,y1.
+Error message: JSON Parse error: Unterminated string
+[0m
+I'll write the prototype with the write tool instead.
+[0m← [0mWrite .scratch/stage2f/proto.py
+Wrote file successfully.
+[0m
+[0m$ [0mpython3 .scratch/stage2f/proto.py
+== wisp boxes=11 sheet comps=99
+  f0 x74-257 y47-266 px=26210 stray=0.0% | 1:26210
+  f1 x377-565 y47-266 px=52824 stray=0.0% | 2:26412
+  f2 x685-867 y47-266 px=78258 stray=0.0% | 3:26086
+  f3 x991-1178 y47-266 px=105928 stray=0.0% | 4:26482
+  f4 x70-343 y329-520 px=148925 stray=0.0% | 5:29785
+  f5 x412-770 y329-520 px=204009 stray=0.0% | 6:33602 13:75 15:52 12:52
+  f6 x835-1186 y329-520 px=238502 stray=0.0% | 7:32912 16:175 8:125 10:115
+  f7 x71-268 y585-776 px=537342 stray=0.0% | 20:26565 38:159
+  f8 x381-580 y585-776 px=513939 stray=0.0% | 21:23875 39:108 83:75 29:57
+  f9 x692-903 y585-776 px=500201 stray=0.0% | 27:14937 26:262 62:216 79:207
+  f10 x988-1180 y585-776 px=526490 stray=0.0% | 46:10885 37:199 57:39 67:26
+== crawler boxes=11 sheet comps=415
+  f0 x64-351 y143-338 px=33718 stray=0.1% | 1:22686 52:92 112:25 22:22
+  f1 x413-709 y143-338 px=51011 stray=0.1% | 2:22548 57:19 99:13 48:13
+  f2 x776-1066 y143-338 px=98471 stray=0.0% | 4:22153 25:17 102:16 78:16
+  f3 x1117-1423 y143-338 px=168953 stray=0.0% | 3:21880 94:951 65:41 62:22
+  f4 x79-422 y448-636 px=3111891 stray=0.0% | 130:23402 183:186 203:23 132:20
+  f5 x505-929 y448-636 px=3593589 stray=0.0% | 129:25466 260:978 184:36 186:24
+  f6 x994-1446 y448-636 px=3688503 stray=0.0% | 131:27232 237:155 190:120 245:32
+  f7 x62-328 y738-943 px=5997527 stray=0.0% | 290:20136 297:62 310:60 347:43
+  f8 x415-717 y738-943 px=6861456 stray=0.0% | 304:22281 295:137 345:45 312:12
+  f9 x775-1098 y738-943 px=5600113 stray=0.0% | 321:17366 327:29 352:7 336:7
+  f10 x1150-1490 y738-943 px=5152386 stray=0.0% | 341:15053 380:13 386:9 407:7
+== spitter boxes=15 sheet comps=40
+  f0 x146-368 y148-546 px=110291 stray=0.0% | 2:54662 7:47 9:34 10:24
+  f1 x471-690 y148-546 px=54027 stray=0.2% | 1:54027
+  f2 x880-1177 y148-546 px=320508 stray=0.0% | 6:53418
+  f3 x1272-1600 y148-546 px=230084 stray=0.0% | 4:57521
+  f4 x1645-1963 y148-546 px=174147 stray=0.0% | 3:56805 14:142 16:109
+  f5 x2051-2358 y148-546 px=306185 stray=0.0% | 5:60406 15:175 17:90
+  f6 x136-458 y670-1058 px=1233195 stray=0.0% | 19:64905
+  f7 x532-910 y670-1058 px=1341300 stray=0.0% | 22:60848 20:61 25:56 24:1
+  f8 x940-1366 y670-1058 px=1474461 stray=0.0% | 23:64107
+  f9 x1388-1562 y670-1058 px=215376 stray=0.0% | 28:7356 27:161 29:79 31:48
+  f10 x1757-2087 y670-1058 px=1271404 stray=0.0% | 21:60540 32:2
+  f11 x147-482 y1210-1577 px=2146848 stray=0.0% | 33:65056
+  f12 x622-912 y1210-1577 px=1887102 stray=0.0% | 34:55503
+  f13 x1295-1747 y1210-1577 px=1406880 stray=0.0% | 40:35172
+  f14 x1928-2429 y1210-1577 px=1468962 stray=0.0% | 39:37413 37:125 38:99 36:33
+[0m

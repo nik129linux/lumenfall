@@ -262,6 +262,77 @@ def largest_component(mask, w, h, seed_extra=()):
 
 # ------------------------------------------------------------------- per sheet
 
+def assign_components(solid, boxes, W, H):
+    """One mask per frame box, built from whole-sheet connected components.
+
+    The components are labelled once on the whole sheet (8-connectivity) and
+    each is given to the box that holds most of its pixels, so a sliver of the
+    neighbour that falls inside this box is handed back to the neighbour and
+    never enters the frame. A component under 6px that touches no other
+    component of its box is a speck and is dropped.
+    """
+    import numpy as np
+    from scipy import ndimage
+    labels, n = ndimage.label(np.asarray(solid, dtype=bool),
+                              structure=np.ones((3, 3)))
+    masks = [[[False] * (x1 - x0 + 1) for _ in range(y1 - y0 + 1)]
+             for (x0, y0, x1, y1) in boxes]
+    if n == 0:
+        return masks
+
+    box_at = np.full((H, W), -1, dtype=np.int32)
+    for bi, (x0, y0, x1, y1) in enumerate(boxes):
+        box_at[y0:y1 + 1, x0:x1 + 1] = bi
+
+    votes = [{} for _ in range(n + 1)]
+    lys, lxs = np.nonzero(labels)
+    for y, x in zip(lys, lxs):
+        bi = box_at[y, x]
+        if bi >= 0:
+            v = votes[labels[y, x]]
+            v[bi] = v.get(bi, 0) + 1
+    assign = {}
+    for c in range(1, n + 1):
+        if votes[c]:
+            assign[c] = max(votes[c].items(), key=lambda kv: kv[1])[0]
+    sizes = np.bincount(labels.ravel(), minlength=n + 1)
+
+    # 8-connectivity adjacency, forward directions only (right, down, and the
+    # two diagonals). Boxes are separated by empty gaps, so a component only
+    # ever touches components of its own box.
+    adj = [set() for _ in range(n + 1)]
+    for a, b in ((labels[:, :-1], labels[:, 1:]),
+                 (labels[:-1, :], labels[1:, :]),
+                 (labels[:-1, :-1], labels[1:, 1:]),
+                 (labels[:-1, 1:], labels[1:, :-1])):
+        diff = (a != b) & (a > 0) & (b > 0)
+        ys, xs = np.nonzero(diff)
+        for y, x in zip(ys, xs):
+            ca, cb = a[y, x], b[y, x]
+            adj[ca].add(cb)
+            adj[cb].add(ca)
+
+    keep = {}
+    for c in range(1, n + 1):
+        if c not in assign:
+            keep[c] = False
+        elif sizes[c] < 6 and not adj[c]:
+            keep[c] = False
+        else:
+            keep[c] = True
+
+    for y, x in zip(lys, lxs):
+        c = labels[y, x]
+        # A component is given whole to its majority box, but only the pixels
+        # that actually sit in that box are drawn; anything reaching into a
+        # neighbour's range is the neighbour's and must not enter.
+        if keep[c] and box_at[y, x] == assign[c]:
+            bi = assign[c]
+            x0, y0, _, _ = boxes[bi]
+            masks[bi][y - y0][x - x0] = True
+    return masks
+
+
 def cut(name):
     src = os.path.join(ROOT, SOURCES[name])
     im = Image.open(src).convert('RGB')
@@ -327,21 +398,21 @@ def cut(name):
     if len(boxes) != expect:
         raise SystemExit(f'{name}: expected {expect} frames, found {len(boxes)}')
 
-    # Crawler: keep only the largest connected blob in each frame box. The
-    # contrast mask is clean enough on its own, but JPEG ringing around the
-    # legs leaves stray specks, and a sprite must not drag debris along.
+    # One mask per frame, built from whole-sheet connected components: a
+    # component belongs to the box holding most of its pixels, so nothing
+    # from a neighbouring frame can enter.
+    masks = assign_components(solid, boxes, W, H)
     frames = []
-    for (x0, y0, x1, y1) in boxes:
+    for bi, (x0, y0, x1, y1) in enumerate(boxes):
         bw, bh = x1 - x0 + 1, y1 - y0 + 1
+        m = masks[bi]
         if name == 'crawler':
-            local = [[solid[y][x] for x in range(x0, x1 + 1)] for y in range(y0, y1 + 1)]
-            local = fill_holes(local, bw, bh)
-            local = close_mask(local, bw, bh, 1)
-            keep = largest_component(local, bw, bh)
-            keep = fill_holes(keep, bw, bh)
-            a = [[(1.0 if keep[y][x] else 0.0) for x in range(bw)] for y in range(bh)]
+            m = fill_holes(m, bw, bh)
+            m = close_mask(m, bw, bh, 1)
+            a = [[(1.0 if m[y][x] else 0.0) for x in range(bw)] for y in range(bh)]
         else:
-            a = [[alpha[y * W + x][0] for x in range(x0, x1 + 1)] for y in range(y0, y1 + 1)]
+            a = [[alpha[(y0 + y) * W + (x0 + x)][0] if m[y][x] else 0.0
+                  for x in range(bw)] for y in range(bh)]
         frames.append((x0, y0, a))
 
     if name == 'crawler':
@@ -467,7 +538,7 @@ def pack(name, frames, display_h):
         rgbv = np.where(aa[..., None] > 1e-6, rgbv / np.maximum(aa[..., None], 1e-6), 0.0)
         tile = np.concatenate([np.clip(rgbv, 0, 1), aa[..., None]], -1)
         sheet.paste(Image.fromarray(np.round(tile * 255).astype(np.uint8), 'RGBA'),
-                    (i * tw + round((fx - cx0) / k), round((fy - cy0) / k)))
+                    (i * tw, 0))
     return sheet, tw, th
 
 
