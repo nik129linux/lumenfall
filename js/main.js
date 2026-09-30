@@ -925,8 +925,10 @@ class Game {
       this.cutscene.play(buildScript('return'), () => this._showEnding());
       return;
     }
+    const arenaTurns = this.level.rotCount;
     this.levelIndex++;
     this._loadLevel(this.levelIndex, { silent: true });
+    this.level.rotCount = arenaTurns;
     audio.ambient(this.levelIndex);
     this.machine.to(S.CUTSCENE);
     this.ui.show('cutscene');
