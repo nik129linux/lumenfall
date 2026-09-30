@@ -118,6 +118,7 @@ export class Pipeline {
       fade: { value: 1 },
       hurt: { value: 0 },
     };
+    this.lightScale = 1;
 
     this.postScene = new THREE.Scene();
     this.postCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -166,8 +167,14 @@ export class Pipeline {
 
   setLight(px, py, radius) {
     this.postUniforms.lightPos.value.set(px, py);
-    this.postUniforms.lightRadius.value = radius;
+    this.postUniforms.lightRadius.value = radius * this.lightScale;
   }
+
+  // A gameplay effect (the L3 boss closing the dark in) can squeeze the halo
+  // without owning the per-frame setLight call. It is a scale rather than a
+  // radius, so the call site keeps passing the real value and the light comes
+  // back on its own the moment the scale goes back to 1.
+  setLightScale(k) { this.lightScale = k; }
 
   setFade(v) { this.postUniforms.fade.value = v; }
 

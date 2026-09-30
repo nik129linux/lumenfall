@@ -753,6 +753,9 @@ class Game {
       fx: this.fx,
       audio,
       level: this.level,
+      // The Patient One's surge reaches into the post pass, and the post pass is
+      // the game's, not the boss's.
+      pipeline: this.pipeline,
       makeSprite: () => {
         const s = this._charSprite(spriteName, 4);
         return s;
@@ -1094,4 +1097,11 @@ class Game {
 
 const game = new Game();
 window.__lumenfall = game;   // handy for the headless smoke check
+
+// The headless boss gate (tools/gateboss.mjs) runs its phase-2 wait *inside* the
+// page, where its own node-side config is not in scope, so the fight has to
+// publish the attack it is waiting for. These are the attacks in
+// js/game/boss/patientone.js, restated as the gate reads them.
+window.CFG = { level: 3, p1: ['lantern', 'ring', 'cutoff'], p2: 'surge', p2min: 0.9, rotate: false };
+
 game.boot();

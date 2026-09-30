@@ -1,0 +1,11 @@
+PASS  E1 at least 3 complete attacks in phase 1  [complete=4 of 4]
+PASS  E2 stages always in order windup,active,recover  [windup>active>recover | windup>active>recover | windup>active>recover | windup>active>recover]
+PASS  E3 every phase-1 windup lasts >= 0.5 s  [durs=0.80,0.90,1.00,1.00]
+PASS  E4 no damage during windup or recover (unless touching the body)  [bad=]
+PASS  E5 a telegraph marker is up during >= 90% of windup frames  [330/336]
+PASS  E6 phase 2 uses 'surge' (phase>=2) with windup >= 0.9 s  [windups=2:1.00]
+PASS  E7 phase-1 attacks only use the names lantern/ring/cutoff  [seen=cutoff,ring,lantern]
+PASS  E8 boss died  [dead=true]
+PASS  E9 after death atk is null and no markers remain  [atk=null markers=0]
+PASS  F1 no console or page errors
+GATE PASS

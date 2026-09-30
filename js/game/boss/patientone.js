@@ -1,8 +1,6 @@
-import * as THREE from '../../vendor/three.module.js';
 import { Boss } from './base.js';
-import { Projectile } from '../fx.js';
 import { predictLight } from '../ai.js';
-import { AI, LEVELS } from '../../core/config.js';
+import { AI } from '../../core/config.js';
 import { audio } from '../../core/audio.js';
 
 // L3 boss: The Patient One. Gets the most AI budget because the mechanic is the
@@ -10,34 +8,71 @@ import { audio } from '../../core/audio.js';
 //
 // It does not track Kael. It tracks the *light*. In a level with no ambient
 // light, the sword halo is the only thing that betrays where the player is, and
-// this boss reads that halo's path and strikes where it is going rather than
-// where the player currently is. The counter-play falls out of that honestly:
-// stand still in the dark and you are nearly invisible, but you also cannot
-// attack, so it is a real trade rather than a trick.
+// this boss reads that halo and drops a column of dark on it. The counter-play
+// falls out of that honestly: stand still in the dark and you are nearly
+// invisible, but you also cannot attack, so it is a real trade rather than a
+// trick.
 //
-// Prediction confidence is capped and falls off when the player is weaving, so
-// a moving target is genuinely harder to lead than a still one.
+// It barely moves. Every attack lands from wherever it already is, so the fight
+// is about reading the floor, not about a chase -- and the darkness is the only
+// thing that has to arrive.
+//
+// Same three-stage contract as the statue and Ul Burjo: windup (planted,
+// blinking marker on the floor) -> active (the damage, decided on ONE frame) ->
+// recover (still, safe to hit). Nothing outside `active` can hurt the player,
+// which is what makes standing beside a winding-up Patient One a legitimate
+// thing to do. `surge` is the one attack with no damage of its own: the arena
+// going dark is the weapon.
 
 const WEIGHTS_P1 = {
-  fade: 1.0,
-  reposition: 0.9,
+  // The AI calls the light-strike `strike`; the attack is logged as `lantern`,
+  // which is the name the fight and the gate both use.
   strike: 1.2,
-  bait: 0.7,
-  idle: 0.4,
+  ring: 0.9,
+  cutoff: 1.0,
+  drift: 0.6,
+  idle: 0.35,
   strike_hold: 0.7,
-  reposition_hold: 0.8,
+  ring_hold: 0.7,
+  cutoff_hold: 0.7,
+  drift_hold: 0.9,
 };
 
 const WEIGHTS_P2 = {
-  fade: 1.2,
-  reposition: 0.7,
-  strike: 1.5,
-  ring: 1.1,
-  bait: 0.6,
-  idle: 0.25,
-  strike_hold: 0.5,
-  reposition_hold: 0.6,
-  ring_hold: 1.0,
+  strike: 1.0,
+  ring: 1.0,
+  cutoff: 1.2,
+  surge: 0.8,
+  drift: 0.4,
+  idle: 0.2,
+  strike_hold: 0.6,
+  ring_hold: 0.6,
+  cutoff_hold: 0.6,
+  surge_hold: 0.6,
+  drift_hold: 0.8,
+};
+
+// [windup, active, recover], in seconds. The recover is the longest part of a
+// strike on purpose: it is the player's window to punish.
+const T = {
+  lantern: [1.00, 0.15, 1.00],
+  ring: [0.90, 0.20, 1.00],
+  cutoff: [0.80, 0.15, 0.90],
+  surge: [1.00, 0.10, 1.20],
+};
+const P2_WINDUP = 0.8;      // phase 2 multiplies every windup by this
+const AFTER_ATTACK = 0.35;  // pause after recover before the next decision
+const SURGE_CD = 6.0;       // the dark can only close in so often
+const SURGE_DARK = 0.6;     // light radius during the surge
+const SURGE_TIME = 3.0;     // ...and for this long afterwards
+const DRIFT_SPEED = 12;     // it barely moves
+const DRIFT_STOP = 60;      // and it stops well short of the player
+const CUTOFF_LEAD = 0.6;    // seconds of the player's velocity the cutoff reads
+const MARK = {
+  lantern: { w: 16, h: 60 },
+  ring: { w: 90, h: 14 },
+  cutoff: { w: 20, h: 40 },
+  surge: { w: 220, h: 6 },
 };
 
 export class PatientOne extends Boss {
@@ -54,13 +89,19 @@ export class PatientOne extends Boss {
     this.body.y = opts.y;
     this.homeX = opts.x;
     this.fx = opts.fx;
+    this.pipeline = opts.pipeline;
 
     this.opacity = 1;
-    this.fadeTimer = 0;
-    this.strikeTimer = 0;
-    this.ringTimer = 0;
-    this.lastPredicted = null;
     this.visionReveal = 0;
+    this.lastPredicted = null;
+    // The attack in flight, or null. `stage`/`t`/`dur` are the clock; `tx` is
+    // where the attack was aimed when the windup began, which is the only fair
+    // thing to aim at -- re-aiming on the frame it lands would be undodgeable.
+    this.atk = null;
+    this.atkLog = [];
+    this.pause = 0;
+    this.surgeCd = SURGE_CD;
+    this.surgeTime = 0;
   }
 
   wake() {
@@ -69,122 +110,231 @@ export class PatientOne extends Boss {
     audio.sfxBoss();
   }
 
-  update(dt, player, level, fx) {
+  update(dt, player, level) {
     if (this.state === 'sleep') { this.updateCommon(dt, player, level); return; }
     this.updateCommon(dt, player, level);
     if (this.dead) return;
 
+    // The surge is a timed squeeze on the post pass rather than a hit box, so it
+    // runs its own clock here. It survives the attack that cast it, a phase
+    // change and even the fight ending, because a light that never came back on
+    // would be a bug the player can see.
+    if (this.surgeTime > 0) {
+      this.surgeTime -= dt;
+      if (this.surgeTime <= 0) this._restoreLight();
+    }
+
     const weights = this.phase === 1 ? WEIGHTS_P1 : WEIGHTS_P2;
     const action = this.think(dt, player, level, weights);
     const dx = player.cx - this.cx;
-    this.facing = dx >= 0 ? 1 : -1;
-    this.strikeTimer -= dt;
-    this.ringTimer -= dt;
+    // Tracking stops when the windup does. An attack that re-aimed on the frame
+    // it landed would make the dodge -- the one the whole tell exists to allow --
+    // not work.
+    if (!this.atk || this.atk.stage === 'windup') this.facing = dx >= 0 ? 1 : -1;
+    this.pause = Math.max(0, this.pause - dt);
+    this.surgeCd = Math.max(0, this.surgeCd - dt);
 
-    if (this.state === 'phase') {
-      this.body.vx = 0;
-    } else {
-      this._act(dt, action, player, dx, fx);
-    }
+    if (this.state === 'phase') this.body.vx = 0;
+    else if (this.atk) this._runAttack(dt, player);
+    else if (this.pause <= 0) this._decide(action, player, dx);
+    else this.body.vx *= 0.8;
 
     this.integrate(dt, level);
 
-    // It is a shadow; it cannot simply stand in full opacity and swing. The fade
-    // is the tell, and the strike is what it costs to reveal itself.
-    const target = this.state === 'fade' ? 0.25 : 0.75 + this.visionReveal * 0.25;
+    // It is a shadow; it cannot simply stand in full opacity and strike. It is
+    // dim while it drifts and it flares when an attack resolves, which is what
+    // spends the tell -- the strike is what it costs to reveal itself.
+    const target = this.atk ? 0.9 : 0.45 + this.visionReveal * 0.45;
     this.opacity += (target - this.opacity) * Math.min(1, dt * 5);
     this.sprite.material.userData.uniforms.alphaScale.value = this.opacity;
     this.visionReveal = Math.max(0, this.visionReveal - dt * 2);
 
-    this._animate(dt, action);
+    this._animate(dt);
   }
 
-  _act(dt, action, player, dx, fx) {
-    const speed = 22 + this.phase * 6;
-    switch (action) {
-      case 'fade':
-        this.body.vx = Math.sign(dx) * speed * 0.7;
-        this.fadeTimer -= dt;
-        if (this.fadeTimer <= 0) this.fadeTimer = 2.5;
-        break;
-      case 'reposition':
-        this.body.vx = Math.sign(dx) * speed;
-        break;
-      case 'bait':
-        this.body.vx *= 0.9;
-        break;
-      case 'strike':
-        this.body.vx = 0;
-        if (this.strikeTimer <= 0) {
-          this.strikeTimer = 1.6 - this.phase * 0.4;
-          this._strikeLight(player, fx);
-        }
-        break;
-      case 'ring':
-        this.body.vx = 0;
-        if (this.ringTimer <= 0) {
-          this.ringTimer = 2.4;
-          this._ring(player, fx);
-        }
-        break;
-      default:
-        this.body.vx *= 0.9;
+  _decide(action, player, dx) {
+    // The surge comes first in phase 2, and only off its cooldown: it is the
+    // one attack that does not hurt, so it has to be used to say something
+    // about the room rather than to be a free one.
+    if (this.phase >= 2 && this.surgeCd <= 0 && action === 'surge') { this._begin('surge', player); return; }
+    if (action === 'strike') { this._begin('lantern', player); return; }
+    if (action === 'ring' || action === 'cutoff') { this._begin(action, player); return; }
+    // A drift is a shuffle, not a chase. It closes the gap a little and stops
+    // well short: the patient one wins by standing still, so it must never be
+    // the thing that walks the player into a hit.
+    if (action === 'drift' && Math.abs(dx) > DRIFT_STOP) {
+      this.body.vx = Math.sign(dx) * DRIFT_SPEED;
+      return;
+    }
+    this.body.vx *= 0.9;
+  }
+
+  _begin(name, player) {
+    // The read it makes while the lantern is charging: where the halo is
+    // heading over the prediction horizon, and how much it trusts that. The
+    // column it drops is on the halo itself, so this is a diagnosis rather than
+    // an aim -- but it is the read the whole fight is named after, and it is
+    // what the light path AI is there to produce.
+    if (name === 'lantern') this.lastPredicted = predictLight(this.agent, this.model, AI.predictHorizon);
+    this.atk = {
+      name,
+      stage: 'windup',
+      t: 0,
+      dur: T[name][0] * (this.phase >= 2 && name !== 'surge' ? P2_WINDUP : 1),
+      // The lantern reads the light, the cutoff reads the body's momentum, and
+      // both are frozen here so the marker and the hit box are the same patch of
+      // floor.
+      tx: name === 'lantern' ? player.lightX
+        : name === 'cutoff' ? player.cx + player.body.vx * CUTOFF_LEAD
+        : this.cx,
+    };
+    this.body.vx = 0;
+    this.agent.markAttack();
+    this._log();
+    this._mark();
+  }
+
+  // The markers are the promise: same ground, same width, same lifetime as the
+  // hit box that is coming, for as long as the player has to move.
+  _mark() {
+    const a = this.atk;
+    const y = this.body.bottom;
+    if (a.name === 'ring') {
+      // Two strips, one either side of it. The wave leaves it, so the floor
+      // under the boss is the one place it does not reach -- and it is a jump,
+      // not a walk, that gets you off a fourteen-pixel strip.
+      const m = MARK.ring;
+      this.fx.telegraph(this.cx - m.w / 2, y, m.w, m.h, a.dur);
+      this.fx.telegraph(this.cx + m.w / 2, y, m.w, m.h, a.dur);
+      return;
+    }
+    const m = MARK[a.name];
+    this.fx.telegraph(a.tx, y, m.w, m.h, a.dur);
+  }
+
+  _log() {
+    const a = this.atk;
+    this.atkLog.push({ name: a.name, stage: a.stage, dur: a.dur, phase: this.phase });
+  }
+
+  _runAttack(dt, player) {
+    const a = this.atk;
+    a.t += dt;
+    // It does not move through an attack: the darkness does the travelling, so
+    // it can never drift into the player during its own tell.
+    this.body.vx = 0;
+
+    if (a.t < a.dur) return;
+    if (a.stage === 'windup') {
+      a.stage = 'active'; a.t = 0; a.dur = T[a.name][1];
+      this._log();
+      this._strike(a, player);
+    } else if (a.stage === 'active') {
+      a.stage = 'recover'; a.t = 0; a.dur = T[a.name][2];
+      this._log();
+    } else {
+      this.atk = null;
+      this.pause = AFTER_ATTACK;
+      if (a.name === 'surge') this.surgeCd = SURGE_CD;
     }
   }
 
-  // The signature move: read the halo's path, then strike it.
-  _strikeLight(player, fx) {
-    const pred = predictLight(this.agent, this.model, AI.predictHorizon);
-    this.lastPredicted = pred;
-
-    // A low-confidence read (player is weaving) falls back to the actual
-    // position, so the boss is not a perfect oracle.
-    const aimX = pred ? (player.lightX + (pred.x - player.lightX) * pred.confidence) : player.lightX;
-    const aimY = pred ? (player.lightY + (pred.y - player.lightY) * pred.confidence) : player.lightY;
-
-    const dir = Math.sign(aimX - this.cx) || this.facing;
-    audio.sfxSlash();
+  // One frame, one decision, and nothing in here runs again until the next
+  // attack. That is what makes the marker a promise instead of a decoration.
+  _strike(a, player) {
+    if (a.name === 'surge') { this._surge(); return; }
     this.visionReveal = 1;
     this.sprite.setFlash(0.6);
-
-    // The lantern arc: it throws where it thinks the light will be. If the read
-    // was right the bolts land on the player; if not, they land on empty air.
-    const spread = pred ? 0.06 * (1 - pred.confidence) + 0.02 : 0.10;
-    for (let i = -1; i <= 1; i++) {
-      const a = Math.atan2(aimY - this.cy, aimX - this.cx) + i * spread * 2;
-      const sp = 96;
-      fx.projectiles.push(new Projectile(
-        fx.scene, this.cx + dir * 10, this.cy + 4,
-        Math.cos(a) * sp, Math.sin(a) * sp,
-        { color: 0xff9a3c, r: 3, life: 2.0 }
-      ));
+    const r = this._hitRect(a);
+    if (a.name === 'lantern') {
+      audio.sfxSlash();
+      this.fx.burst(a.tx, this.body.bottom + 6, 0xff9a3c, 8, 70);
+    } else if (a.name === 'ring') {
+      audio.sfxHit();
+      for (const x of [this.cx - MARK.ring.w / 2, this.cx + MARK.ring.w / 2]) {
+        this.fx.burst(x, this.body.bottom + 2, 0xffb060, 7, 80);
+      }
+    } else {
+      audio.sfxSlash();
+      this.fx.burst(a.tx, this.body.bottom + 6, 0x8a6cf0, 8, 70);
     }
-    this.fx.burst(this.cx + dir * 10, this.cy + 4, 0xff9a3c, 5, 50);
+    if (this._hits(player, r)) player.hurt();
   }
 
-  // Phase 2: an expanding ring, which punishes standing still. Deliberately the
-  // opposite of the strike's counter-play, so the two cannot both be answered the
-  // same way.
-  _ring(player, fx) {
+  // The lantern drops a column of dark on the halo it locked during the windup:
+  // a sixteen-pixel-wide column, sixty tall, the full height of the thing it is
+  // reading. Kael's body is fourteen wide, so the marker's width is the honest
+  // one -- if the halo is inside it, he is inside it.
+  _hitRect(a) {
+    const y = this.body.bottom;
+    if (a.name === 'lantern') {
+      const m = MARK.lantern;
+      return { left: a.tx - m.w / 2, right: a.tx + m.w / 2, bottom: y, top: y + m.h };
+    }
+    if (a.name === 'ring') {
+      const m = MARK.ring;
+      return [
+        { left: this.cx - m.w, right: this.cx, bottom: y, top: y + m.h },
+        { left: this.cx, right: this.cx + m.w, bottom: y, top: y + m.h },
+      ];
+    }
+    const m = MARK.cutoff;
+    return { left: a.tx - m.w / 2, right: a.tx + m.w / 2, bottom: y, top: y + m.h };
+  }
+
+  // Harmless by design: the marker across the whole floor is the attack, and
+  // what lands three seconds later is not a hit but a smaller world. It closes
+  // the light around the player, so the next read of the halo is a read of a
+  // third of the ground -- which is the trade the whole fight is about.
+  _surge() {
     audio.sfxPhase();
-    const n = 10;
-    for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2 + (this.agent.time % 6) * 0.3;
-      fx.projectiles.push(new Projectile(
-        fx.scene, this.cx, this.cy + 6,
-        Math.cos(a) * 54, Math.sin(a) * 54,
-        { color: 0xffb060, r: 3, life: 2.6 }
-      ));
-    }
+    this.surgeTime = SURGE_TIME;
+    this.surgeCd = SURGE_CD;
+    this.pipeline?.setLightScale(SURGE_DARK);
   }
 
-  _animate(dt, action) {
+  _restoreLight() {
+    this.surgeTime = 0;
+    this.pipeline?.setLightScale(1);
+  }
+
+  _hits(player, r) {
+    if (player.dead || player.isInvulnerable) return false;
+    for (const rect of [].concat(r)) {
+      if (player.body.left < rect.right && player.body.right > rect.left &&
+          player.body.bottom < rect.top && player.body.top > rect.bottom) return true;
+    }
+    return false;
+  }
+
+  // A phase change and a death are both hard interrupts: half an attack would
+  // leave the player reading a tell that never resolves, so the attack and its
+  // markers go together.
+  enterPhase(n) {
+    super.enterPhase(n);
+    this.atk = null;
+    this.fx.clearTelegraphs();
+  }
+
+  onDefeated() {
+    super.onDefeated();
+    this.atk = null;
+    this.fx.clearTelegraphs();
+    this._restoreLight();
+  }
+
+  _animate(dt) {
     if (this.dead) { this.sprite.update(dt); return; }
     this.sprite.setFacing(this.facing);
     if (this.state === 'phase') this.sprite.play('teleport', { speed: 6 });
-    else if (action === 'strike' || action === 'ring') this.sprite.play('raise', { speed: 6 });
-    else if (action === 'fade') this.sprite.play('vanish', { speed: 8 });
-    else if (Math.abs(this.body.vx) > 4) this.sprite.play('walk', { speed: 4 });
+    else if (this.atk) {
+      // Restarted on the strike: play() is a no-op while the clip is unchanged,
+      // and the active window is a tenth of a second, so the follow-through has
+      // to start there for the speed to be worth anything.
+      if (this.atk.stage === 'windup') this.sprite.play('raise', { speed: 3 });
+      else if (this.atk.stage === 'active') this.sprite.play('raise', { speed: 12, restart: true });
+      else this.sprite.play('idle', { speed: 2.5 });
+    } else if (Math.abs(this.body.vx) > 4) this.sprite.play('walk', { speed: 4 });
     else this.sprite.play('idle', { speed: 2.5 });
     this.sprite.update(dt);
   }
