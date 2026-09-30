@@ -332,8 +332,10 @@ class Game {
     for (const s of this.shards) s.mesh.parent?.remove(s.mesh);
     for (const pr of this.fx.projectiles) pr.dispose();
     if (this.elder) this.elder.mesh.parent?.remove(this.elder.mesh);
-    // Mirrors the removal on the boss death path below.
-    if (this.boss) this.pipeline.scene.remove(this.boss);
+    // Mirrors the removal on the boss death path below. The boss lives in the
+    // level's group, not the scene: L2 turns that group, and a boss outside it
+    // would stay put while the arena swung away underneath him.
+    if (this.boss) this.level.group.remove(this.boss);
 
     this.enemies = [];
     this.shards = [];
@@ -511,15 +513,18 @@ class Game {
     if (this.level.canRotate && this.level.isRotating) {
       const done = this.level.updateRotation(dt);
       // The player is pinned in world space for the whole turn: the room swings
-      // around them rather than them swinging around the room. The pinned point
-      // is owned by the Level, not aliased to the body.
-      const w = this.level.localToWorld(this.level.pinnedLocal);
+      // around them rather than them swinging around the room. The pin is their
+      // OWN spot, not `level.pinnedLocal` -- that is the spot whoever asked for
+      // the turn, and when the boss is the one asking it is his, which used to
+      // park the player on top of him for the turn and leave them there after it.
+      p.body.enabled = false;
+      const w = this.level.localToWorld(new THREE.Vector3(p.cx, p.body.bottom, 0));
       p.mesh.position.set(w.x, w.y, 0);
       if (done) {
-        // `done` is already in local space (it came back out of worldToLocal).
-        p.body.x = done.x; p.body.y = done.y;
+        // The body never moved, so there is nothing to write back: drop the
+        // momentum the frozen frames built up and hand the controls over.
+        p.body.vx = 0; p.body.vy = 0;
         p.body.enabled = true;
-        p.mesh.position.set(done.x, done.y, 0);
         this.boss?.onRotationDone?.();
       }
     } else {
@@ -759,7 +764,7 @@ class Game {
       const alt = this._charSprite('badwitch', 4);
       this.boss.characterSet = { badwitch: { char: alt.char, material: alt.material, paletteLevel: this.levelDef.id } };
     }
-    this.pipeline.scene.add(this.boss);
+    this.level.group.add(this.boss);
 
     // A boss arena is a duel. The L1 crawler's patrol runs straight through the
     // arena gate, so it used to keep landing hits with no tell at all for the
@@ -782,7 +787,7 @@ class Game {
       this.boss.hpFrac, this.boss.phase, this.boss.phases);
 
     if (this.boss.dead && this.boss.deathTimer > 2.2 && this.boss.mesh.parent) {
-      this.pipeline.scene.remove(this.boss);
+      this.level.group.remove(this.boss);
       this.boss = null;
       this.bossAwake = false;
       this.ui.setBoss(null);
