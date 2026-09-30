@@ -39,6 +39,7 @@ export class Player {
     this.attackTimer = 0;
     this.attackHit = false;
     this.hurtTimer = 0;
+    this.hurtEvent = false;   // set once per hit, consumed by main.js
     this.dead = false;
     this.deadTimer = 0;
     this.pitDeath = false;   // set when the death was a fall out of a pit
@@ -72,6 +73,7 @@ export class Player {
     this.body.vx = -this.facing * 90;
     this.body.vy = 110;
     this.sprite.setFlash(0.9);
+    this.hurtEvent = true;
     return true;
   }
 

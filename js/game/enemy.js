@@ -3,6 +3,7 @@ import { Body, moveX, moveY, tileAt, TILE, SOLID } from './physics.js';
 import { Agent } from './ai.js';
 import { clamp, approach } from '../core/rng.js';
 import { audio } from '../core/audio.js';
+import { ENEMY_STAGGER } from '../core/config.js';
 
 const GRAVITY = 620;
 
@@ -74,6 +75,7 @@ export class Enemy {
     this.deathTimer = 0;
     this.hurtFlash = 0;
     this.hurtTimer = 0;
+    this.staggerTimer = 0;
     this.fireTimer = 0;
     this.castFired = false;
     this.flipTimer = 0;
@@ -96,6 +98,7 @@ export class Enemy {
     this.hp -= dmg;
     this.hurtFlash = 1;
     this.hurtTimer = HURT_TIME;
+    this.staggerTimer = ENEMY_STAGGER;
     if (this.hp <= 0) { this.dead = true; this.deathTimer = 0; }
     return true;
   }
@@ -113,6 +116,7 @@ export class Enemy {
     }
 
     this.hurtTimer = Math.max(0, this.hurtTimer - dt);
+    this.staggerTimer = Math.max(0, this.staggerTimer - dt);
     this.hurtFlash = Math.max(0, this.hurtFlash - dt * 4);
     this.sprite.setFlash(this.hurtFlash * 0.8);
 
@@ -125,7 +129,10 @@ export class Enemy {
     const engaged = this.agent.sense.dist < aggro && !player.dead;
     this.toPlayer = Math.sign(dx) || this.toPlayer;
 
-    this._act(dt, action, player, engaged, dx);
+    // A staggered enemy is knocked out of its action: it keeps the knockback
+    // velocity instead of acting, which is what makes a hit feel like it landed.
+    if (this.staggerTimer <= 0) this._act(dt, action, player, engaged, dx);
+    else this.body.vx *= 0.9;
 
     // Physics
     this.body.vy = Math.max(-280, this.body.vy - GRAVITY * dt);

@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three.module.js';
 
-import { LOW_RES_W, LOW_RES_H, LEVELS, CAM, DASH_COOLDOWN, ROTATE_TIME, PIT_DEATH_Y } from './core/config.js';
+import { LOW_RES_W, LOW_RES_H, LEVELS, CAM, DASH_COOLDOWN, ROTATE_TIME, PIT_DEATH_Y, HITSTOP, SHAKE, ENEMY_KNOCKBACK } from './core/config.js';
 import { loadAssets } from './core/assets.js';
 import { Input } from './core/input.js';
 import { audio } from './core/audio.js';
@@ -79,6 +79,8 @@ class Game {
     this.fadeTarget = 1;
 
     this.hp = HP_PER_LEVEL;
+    this.hitstop = 0;        // seconds of simulation freeze still owed to a hit
+    this.hurtOverlay = 0;    // 0..1 red screen wash after Kael is hurt
     this.ember = 0;
     this.levelIndex = 0;
     this.enemies = [];
@@ -420,7 +422,19 @@ class Game {
     this.ui.update(dt);
     this.machine.tick(dt);
 
-    switch (this.machine.state) {
+    // Hitstop: while it is owed, the simulation (and the particles) stand still
+    // and only the camera keeps running, so the shake still plays. simDt is what
+    // the simulation sees; 0 means "skip the step", never "step by zero".
+    let simDt = dt;
+    const playing = this.machine.state === S.PLAY || this.machine.state === S.BOSS;
+    if (playing && this.hitstop > 0) {
+      this.hitstop = Math.max(0, this.hitstop - dt);
+      simDt = 0;
+    }
+
+    if (playing && simDt === 0) {
+      this._updateCamera(dt);
+    } else switch (this.machine.state) {
       case S.MENU: this._updateMenu(dt); break;
       case S.CUTSCENE: this._updateCutscene(dt); break;
       case S.STORY: this._updateStory(dt); break;
@@ -432,10 +446,10 @@ class Game {
       default: break;
     }
 
-    this.fx.update(dt);
+    this.fx.update(simDt);
     this.level.updateRunes(this.machine.time);
     this.pipeline.updateSky(this.sky);
-    this.input.endFrame(dt);
+    this.input.endFrame(simDt);   // the input buffer must not drain while frozen
     this.pipeline.render();
   };
 
@@ -604,10 +618,21 @@ class Game {
     this._updateBoss(dt);
 
     // ---- player hurt
-    if (p.hurtTimer > 0 && !p.dead) {
-      this.cam.shake = Math.max(this.cam.shake, 4);
+    // One event per hit (Player.hurt sets hurtEvent). This used to run every frame
+    // of the invulnerability window, which replayed the hurt sound 50 times and
+    // never took any health.
+    if (p.hurtEvent && !p.dead) {
+      p.hurtEvent = false;
+      this.hp = Math.max(0, this.hp - 1);
+      this.ui.setHealth(this.hp, HP_PER_LEVEL);
       audio.sfxHurt();
+      this.addHitstop(HITSTOP.playerHurt);
+      this.cam.shake = Math.max(this.cam.shake, SHAKE.playerHurt);
+      this.hurtOverlay = 0.6;
+      if (this.hp <= 0) p.kill();
     }
+    this.hurtOverlay = Math.max(0, this.hurtOverlay - dt * 1.5);
+    if (!p.pitDeath) this.pipeline.setHurt(this.hurtOverlay);
     // A fall out of a pit gets its own short sequence: red flash, then a
     // fall-out fade, then the normal death flow. The player is already dead
     // when this starts, so the generic path is held off until the fade is done.
@@ -673,22 +698,32 @@ class Game {
       if (r.left < er.right && r.right > er.left && r.bottom < er.top && r.top > er.bottom) {
         e.hurt(1);
         this.fx.burst(e.cx, e.cy, 0xffd08a, 6, 60);
-        // Small knockback sells the hit even though the enemy has no physics.
-        e.body.vx += Math.sign(p.facing) * 40;
+        // Knockback away from the blade; the enemy is staggered so it keeps it.
+        e.body.vx += Math.sign(p.facing) * ENEMY_KNOCKBACK;
+        this.addHitstop(HITSTOP.enemy);
+        this.cam.shake = Math.max(this.cam.shake, SHAKE.enemy);
       }
     }
     if (this.boss && !this.boss.dead && this.boss.state !== 'sleep') {
       const br = this.boss.rect;
+      let landed = false;
       if (r.left < br.right && r.right > br.left && r.bottom < br.top && r.top > br.bottom) {
-        this.boss.hurt(1);
+        landed = this.boss.hurt(1);
       } else {
         const hr = this.boss.hurtRect();
         if (r.left < hr.right && r.right > hr.left && r.bottom < hr.top && r.top > hr.bottom) {
-          this.boss.hurt(1);
+          landed = this.boss.hurt(1);
         }
+      }
+      if (landed) {
+        const kill = this.boss.dead;
+        this.addHitstop(kill ? HITSTOP.bossKill : HITSTOP.boss);
+        this.cam.shake = Math.max(this.cam.shake, kill ? SHAKE.bossKill : SHAKE.boss);
       }
     }
   }
+
+  addHitstop(seconds) { this.hitstop = Math.max(this.hitstop, seconds); }
 
   _startBoss() {
     if (!this.bossDef) return;

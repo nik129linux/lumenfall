@@ -46,6 +46,13 @@ export const ATTACK_REACH = 26;
 export const ATTACK_DMG = 1;
 export const IFRAMES_ON_HIT = 0.9;  // seconds
 
+// Impact feel. Hitstop freezes the simulation for a few frames on a hit, and the
+// screen shakes: together they are what makes a blade read as heavy.
+export const HITSTOP = { enemy: 0.05, boss: 0.07, bossKill: 0.16, playerHurt: 0.10 };  // seconds
+export const SHAKE = { enemy: 2, boss: 3.5, bossKill: 6, playerHurt: 6 };            // px amplitude
+export const ENEMY_STAGGER = 0.18;   // seconds an enemy loses control after a hit
+export const ENEMY_KNOCKBACK = 90;   // px/s pushed away from the blade
+
 // The standing surface, in world pixels. The ground occupies the lowest tile
 // rows, so its top face is (GROUND + 1) * TILE = 4 * 8. Lives here because the
 // pit-death test needs it in the player's update, not just in the level builder.
