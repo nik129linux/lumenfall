@@ -411,10 +411,8 @@ console.log('\n=== pit death (L1) ===');
   await page2.close();
 }
 
-// The same fall, but in a rotated L2 room. After a quarter turn "down" is a
-// local +X edge rather than the bottom, so this exercises the rotation-aware
-// branch of the void check rather than the hole case above.
-console.log('\n=== pit death, L2 after a rotation ===');
+// The same fall in L2 (world A): its three big holes are real pits until the world is shifted.
+console.log('\n=== pit death, L2 (world A) ===');
 {
   const page3 = await browser.newPage({ viewport: { width: 480, height: 270 } });
   page3.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
@@ -423,42 +421,13 @@ console.log('\n=== pit death, L2 after a rotation ===');
   await page3.waitForFunction(
     () => ['play', 'boss'].includes(window.__lumenfall?.machine?.state), { timeout: 20000 });
   await new Promise((r) => setTimeout(r, 600));
-
-  // Turn the room, the same way a player does, and wait for the tween to land.
-  await page3.evaluate(async () => {
-    const g = window.__lumenfall;
-    g.player.hurtTimer = 999;
-    // beginRotate only reads .x and .y, so a plain object is enough here.
-    g.level.beginRotate({ x: g.player.cx, y: g.player.cy });
-    for (let i = 0; i < 200 && g.level.isRotating; i++) {
-      await new Promise((r) => requestAnimationFrame(r));
-    }
-    g.player.hurtTimer = 0;
-  });
-  const rotQ = await page3.evaluate(() => window.__lumenfall.level.data.rotQ);
-  if (rotQ !== 1) {
-    fail(`L2 did not register a quarter turn (rotQ=${rotQ})`);
-  } else {
-    console.log(`  L2 rotated: rotQ=${rotQ}, open edge = ${await page3.evaluate(() => JSON.stringify(window.__lumenfall.level.data.openEdges))}`);
-    // Shoved out through the now-open edge, in the direction that is down.
-    await page3.evaluate(() => {
-      const g = window.__lumenfall;
-      const b = g.player.body;
-      b.vx = 0; b.vy = 0;
-      b.x = g.level.data.width * 8 + 24;    // past the open right edge
-      b.onGround = false;
-    });
-    const wentOut = await page3.waitForFunction(
-      () => {
-        const g = window.__lumenfall;
-        return g.player.dead && g.machine.state === 'dead';
-      }, { timeout: 4000 }).then(() => true, () => false);
-    const st3 = await page3.evaluate(() => ({
-      dead: window.__lumenfall.player.dead,
-      state: window.__lumenfall.machine.state,
-    }));
-    if (wentOut) console.log(`  pit: fell out of the rotated room and died (state=${st3.state}) OK`);
-    else fail(`falling out of a rotated L2 room did not kill: dead=${st3.dead} state=${st3.state}`);
+  const hole = await page3.evaluate(() => { const h = window.__lumenfall.level.data.holes || []; return h.length ? (Array.isArray(h[0]) ? h[0][0] + Math.floor(h[0][1] / 2) : h[0]) : -1; });
+  if (hole < 0) fail('L2 has no hole to test pit death with');
+  else {
+    await page3.evaluate((tx) => { const g = window.__lumenfall; const b = g.player.body; b.vx = 0; b.vy = 0; b.x = tx * 8; b.y = 40; b.onGround = false; }, hole);
+    const died = await page3.waitForFunction(() => { const g = window.__lumenfall; return g.player.dead; }, { timeout: 5000 }).then(() => true, () => false);
+    if (died) console.log(`  pit: fell into the L2 hole at tile ${hole} and died OK`);
+    else fail('falling into an L2 hole did not kill');
   }
   await page3.close();
 }

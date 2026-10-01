@@ -51,7 +51,7 @@ try {
     // death cleans up
     b.hurt(9999);
     await watch(2500, () => false);
-    return { st, phase1, all, rot: g.level.rotCount || 0, atkAfterDeath: b.atk, teleAfterDeath: g.fx.telegraphs.length, dead: b.dead };
+    return { st, phase1, all, rot: g.level[CFG.counter || 'rotCount'] || 0, atkAfterDeath: b.atk, teleAfterDeath: g.fx.telegraphs.length, dead: b.dead };
   }, CFG);
 
   if (r.noBoss) check('E0 ?boss=1 spawns the boss', false, 'g.boss is null');
@@ -74,7 +74,7 @@ try {
     const p2 = r.all.filter((e) => e.name === CFG.p2 && e.stage === 'windup');
     check(`E6 phase 2 uses '${CFG.p2}' (phase>=2) with windup >= ${CFG.p2min} s`, p2.some((e) => e.phase >= 2 && e.dur >= CFG.p2min), `windups=${p2.map((e) => e.phase + ':' + e.dur.toFixed(2)).join(',') || 'none'}`);
     check('E7 phase-1 attacks only use the names ' + CFG.p1.join('/'), attacks.filter((a) => a.phase === 1).every((a) => CFG.p1.includes(a.name)), `seen=${[...new Set(attacks.map((a) => a.name))].join(',')}`);
-    if (CFG.rotate) check('E7b the rotate attack really rotates the room (level.rotCount >= 1)', r.rot >= 1, `rotCount=${r.rot}`);
+    if (CFG.rotate) check(`E7b the boss attack really acts on the level (level.${CFG.counter || 'rotCount'} >= 1)`, r.rot >= 1, `counter=${r.rot}`);
     check('E8 boss died', r.dead, `dead=${r.dead}`);
     check('E9 after death atk is null and no markers remain', r.atkAfterDeath === null && r.teleAfterDeath === 0, `atk=${JSON.stringify(r.atkAfterDeath)} markers=${r.teleAfterDeath}`);
   }

@@ -13,7 +13,7 @@ check('R3 at most 250 lines', lines <= 250 && lines > 60, `lines=${lines}`);
 const paths = [...md.matchAll(/`((?:js|tools|assets|docs|css|sprites)\/[A-Za-z0-9_./-]+)`/g)].map((m) => m[1]).filter((p) => !p.includes('*'));
 const bad = [...new Set(paths)].filter((p) => !fs.existsSync(p));
 check('R4 every path in backticks exists', paths.length >= 10 && bad.length === 0, bad.length ? `missing: ${bad.join(', ')}` : `${new Set(paths).size} paths checked`);
-const must = ['Easy', 'Normal', 'Hard', 'last 20', 'Google Analytics', 'GA_MEASUREMENT_ID', 'python3 -m http.server', 'localhost', 'lumenfall.metrics.v1', 'node tools/gateai.mjs', 'node tools/gate7.mjs', 'node tools/reach.mjs', 'Move', 'Jump', 'Attack', 'Dash', 'Rotate', 'Pause', 'windup', 'Ul Burjo', 'Patient One'];
+const must = ['Easy', 'Normal', 'Hard', 'last 20', 'Google Analytics', 'GA_MEASUREMENT_ID', 'python3 -m http.server', 'localhost', 'lumenfall.metrics.v1', 'node tools/gateai.mjs', 'node tools/gate7.mjs', 'node tools/reach.mjs', 'Move', 'Jump', 'Attack', 'Dash', 'Shift', 'Pause', 'windup', 'Ul Burjo', 'Patient One'];
 const lack = must.filter((w) => !md.includes(w));
 check('R5 mentions every required term', lack.length === 0, lack.join(', '));
 const tokens = ['A', 'D', 'W', 'J', 'K', 'E', 'Space', 'Esc', 'Shift', 'Enter'];
