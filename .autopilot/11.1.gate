@@ -1,0 +1,9 @@
+PASS  K-prologue plays immediately with panels 01,01,02,02  [active=true arts=["01","01","02","02"]]
+PASS  K-theft plays immediately with panels 05,05,10,06  [active=true arts=["05","05","10","06"]]
+PASS  K-reveal plays immediately with panels 11,12,13  [active=true arts=["11","12","13"]]
+PASS  K-esc Esc ends the cutscene and shows the menu (no level starts)  [{"active":false,"menuVisible":true}]
+PASS  K-waking plays immediately with panels 14,14,15  [active=true arts=["14","14","15"]]
+PASS  K-return plays immediately with panels 16,17,18,19,19  [active=true arts=["16","17","18","19","19"]]
+PASS  K-bogus an unknown key just opens the menu
+PASS  K-err no console or page errors
+GATE PASS

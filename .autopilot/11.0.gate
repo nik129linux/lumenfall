@@ -7,3 +7,4 @@ PASS  K-return plays immediately with panels 16,17,18,19,19  [active=true arts=[
 PASS  K-bogus an unknown key just opens the menu
 PASS  K-err no console or page errors
 GATE PASS
+FAIL regression: tools/gate9.mjs broke: FAIL  R3 at most 250 lines  [lines=252] 

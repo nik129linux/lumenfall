@@ -25,8 +25,8 @@ Then open <http://localhost:8000>. Any static server works (`npx serve .`,
 Nothing to install, nothing to build. Three.js is vendored in
 `js/vendor/three.module.js`, every sound is synthesised at runtime by
 `js/core/audio.js`, and the game makes no network request unless you paste a Google
-Analytics id into `js/core/config.js`. The browser gates in the Tests section expect
-the game on port **8765** instead: `python3 -m http.server 8765`.
+Analytics id into `js/core/config.js`. The browser gates expect port **8765**:
+`python3 -m http.server 8765`.
 
 ## Controls
 
@@ -46,14 +46,12 @@ landing still fires on the first legal frame.
 
 Watch a cutscene directly: `index.html?cutscene=prologue|theft|reveal|waking|return`
 
-Menus, cutscenes and the story dialogue use `W`/`S` or `↑`/`↓` to move the selection,
-`Enter` / `Space` / `J` / `Z` to confirm or advance a line, and `Esc` to go back, close
-a sheet or skip a cutscene.
+Menus, cutscenes and story dialogue use `W`/`S` or `↑`/`↓` to move the selection,
+`Enter` / `Space` / `J` / `Z` to confirm or advance, and `Esc` to go back or skip a cutscene.
 
 Notes that matter more than they look:
 
-- The dash lasts 0.2 s, gives i-frames, and has a 1 s cooldown. One air dash, refreshed
-  on landing.
+- The dash lasts 0.2 s, gives i-frames, 1 s cooldown; one air dash, refreshed on landing.
 - The blade has a short active window; missing is cheap, committing is not.
 - `E` does nothing outside the Reliquary. That is the level, not a bug.
 
@@ -216,7 +214,7 @@ The browser gates drive a real Chromium through Playwright, so serve the game fi
 | `node tools/gatei18n.mjs` | Spanish and English have the same keys, none empty, nothing long left untranslated, and every key used in the code exists. No browser needed. |
 | `node tools/reach.mjs` | Every level is actually playable: support, the required spawn-to-arena path, a real jump apex, and pit death with a working respawn. |
 
-All nine pass on the current tree. `tools/smoke.mjs` is the older end-to-end pass
+All nine pass. `tools/smoke.mjs` is the older end-to-end pass
 (title, cutscene, movement, rotation, both boss phases, ending, language toggle) and
 fails on any console error.
 
