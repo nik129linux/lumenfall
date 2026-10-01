@@ -1,0 +1,224 @@
+[0m
+> build · space-bunny-free
+[0m
+[0m→ [0mRead docs/stage10.md
+I'll start by reading the stage documentation.
+[0m
+[0m$ [0mls -la && ls js js/ui tools 2>/dev/null
+total 6512
+drwxrwxr-x 13 nico nico    4096 Sep 30 20:07 .
+drwxrwxr-x  6 nico nico    4096 Sep 28 10:14 ..
+drwxrwxr-x  2 nico nico    4096 Sep 30 20:25 .autopilot
+-rw-rw-r--  1 nico nico    2208 Sep 30 20:25 .bunny-autopilot.log
+-rwxrwxr-x  1 nico nico    3861 Sep 30 20:25 .bunny-autopilot.sh
+-rwxrwxr-x  1 nico nico     348 Sep 30 00:17 .bunny-chain.sh
+-rwxrwxr-x  1 nico nico     491 Sep 30 18:53 .bunny-chain2.sh
+-rw-rw-r--  1 nico nico 1251971 Sep 29 23:32 .bunny-loop.log
+-rwxrwxr-x  1 nico nico     861 Sep 28 14:45 .bunny-loop.sh
+-rw-rw-r--  1 nico nico    1482 Sep 28 14:27 .bunny-prompt.txt
+-rw-rw-r--  1 nico nico     718 Sep 28 14:34 .bunny-reply.txt
+-rw-rw-r--  1 nico nico      61 Sep 30 20:25 .bunny-status.txt
+drwxrwxr-x  7 nico nico    4096 Sep 30 20:25 .git
+-rw-rw-r--  1 nico nico      76 Sep 29 12:44 .gitignore
+drwxrwxr-x 17 nico nico    4096 Sep 30 20:21 .scratch
+-rw-rw-r--  1 nico nico 5054241 Sep 28 10:24 1.png
+-rw-rw-r--  1 nico nico  121701 Sep 28 10:24 2.jpg
+-rw-rw-r--  1 nico nico  113915 Sep 28 10:24 3.jpg
+-rw-rw-r--  1 nico nico   14842 Sep 30 19:15 README.md
+drwxrwxr-x  5 nico nico    4096 Sep 29 12:42 assets
+drwxrwxr-x  4 nico nico    4096 Sep 30 20:07 assets-src
+drwxrwxr-x  2 nico nico    4096 Sep 28 15:01 css
+drwxrwxr-x  3 nico nico    4096 Sep 30 20:24 docs
+-rw-rw-r--  1 nico nico    5946 Sep 30 18:57 index.html
+drwxrwxr-x  7 nico nico    4096 Sep 29 23:56 js
+drwxrwxr-x  2 nico nico    4096 Sep 28 15:06 node_modules
+-rw-rw-r--  1 nico nico    1292 Sep 30 08:48 output.log
+drwxrwxr-x  2 nico nico    4096 Sep 29 22:06 sprites
+drwxrwxr-x  3 nico nico    4096 Sep 30 20:24 tools
+js:
+core
+game
+main.js
+render
+ui
+vendor
+
+js/ui:
+cutscene.js
+hud.js
+i18n.js
+strings.js
+
+tools:
+__pycache__
+build-atlas.py
+compress-panels.py
+cut_minions.py
+gate10.mjs
+gate2f.py
+gate3a.mjs
+gate3b.mjs
+gate4.mjs
+gate5.mjs
+gate6.mjs
+gate7.mjs
+gate8.py
+gate9.mjs
+gateai.mjs
+gateboss.mjs
+gatei18n.mjs
+reach.mjs
+serve.py
+smoke.mjs
+stage1.mjs
+stage1b.mjs
+stage2e.mjs
+story.mjs
+[0m
+[0m$ [0mnode tools/gate10.mjs 2>&1 | tail -40
+FAIL  H1 after boss 1 the cutscene uses panels 11,12,13  [got=["elder","kael","elder"]]
+FAIL  H2 after boss 2 the cutscene uses panels 14,14,15  [got=["11","12","13"]]
+PASS  H3 after boss 3 the cutscene uses panels 16,17,18,19,19  [got=["16","17","18","19","19"]]
+PASS  H4 after boss 1 level 2 is loaded, after boss 2 level 3 is loaded  [levels=2,3,3]
+FAIL  H5 no silent fallback to the theft cutscene
+FAIL  H6 the old gradient intro script is gone
+PASS  H7 level_complete is still tracked for every boss  [level_complete events=3]
+PASS  H8 no console or page errors
+GATE FAIL (4 of 8)
+[0m
+[0m→ [0mRead tools/gate10.mjs
+[0m
+[0m$ [0mgrep -n "BOSS_INTRO\|levelIndex\|_onBossDefeated\|buildScript\|beginPlay" js/main.js | head -60
+28:import { Cutscene, buildScript, PanelStage, preloadPanels } from './ui/cutscene.js';
+32:const BOSS_INTRO = { 1: 'intro', 2: 'reveal', 3: 'waking' };
+99:    this.levelIndex = 0;
+282:    this.levelIndex = 0;
+289:    this.playCutscene('prologue', () => this.beginPlay());
+293:    this.cutscene.play(buildScript(key), onDone);
+297:  beginPlay() {
+300:    this.ui.setZone(LEVELS[this.levelIndex].nameKey);
+307:    this.ui.showToast(t(LEVELS[this.levelIndex].nameKey), 2.2);
+336:    this._loadLevel(this.levelIndex, { silent: true });
+353:    this.levelIndex = index;
+838:      this._onBossDefeated();
+941:    this.cutscene.play(buildScript('theft'), () => {
+945:      this.beginPlay();
+961:  _onBossDefeated() {
+976:    if (this.levelIndex >= 2) {
+979:      this.cutscene.play(buildScript('return'), () => this._showEnding());
+983:    this.levelIndex++;
+984:    this._loadLevel(this.levelIndex, { silent: true });
+986:    audio.ambient(this.levelIndex);
+989:    this.cutscene.play(buildScript(BOSS_INTRO[this.levelIndex] || 'theft'), () => this.beginPlay());
+[0m
+[0m→ [0mRead js/main.js[90m [offset=955, limit=45][0m
+[0m
+[0m$ [0mgrep -n "intro\|theft\|reveal\|waking\|return" js/ui/cutscene.js | head -40
+33:  return preloaded.size;
+49:    if (!isPanelId(art)) { this.hide(); return; }
+100:  get current() { return this.lines[this.index] || null; }
+104:    if (!line) return;
+111:    if (!this.active) return;
+113:    if (!line) { this._finish(); return; }
+120:      return;
+127:    if (this.index >= this.lines.length) { this._finish(); return; }
+144:    if (!this.active) return;
+146:    if (!line) return;
+163:  get canAdvance() { return !this.typing; }
+178:  theft: [
+184:  // `intro` is the level 2 boss cutscene, kept because BOSS_INTRO still plays
+187:  intro: [
+192:  reveal: [
+197:  waking: [
+202:  return: [
+211:// Per-line speaker when the script sets one (the theft); otherwise the
+214:  return (CUTSCENES[key] || []).map((l) => ({
+[0m
+[0m→ [0mRead js/ui/cutscene.js[90m [offset=170, limit=50][0m
+[0m
+[0m← [0mEdit js/main.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+@@ -28,9 +28,9 @@
+ import { Cutscene, buildScript, PanelStage, preloadPanels } from './ui/cutscene.js';
+ import { t, loadStoredLang, toggleLang, getLang } from './ui/i18n.js';
+ 
+ const BOSSES = { statue: Statue, ulburjo: UlBurjo, patientone: PatientOne };
+-const BOSS_INTRO = { 1: 'intro', 2: 'reveal', 3: 'waking' };
++const BOSS_INTRO = { 1: 'reveal', 2: 'waking' };
+ 
+ // The deal: in-game dialogue with the level still rendering behind it. `panel`
+ // names a still that fades in over the level for that line; null shows the level.
+ const DEAL = [
+
+[0m
+[0m← [0mEdit js/main.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+@@ -985,9 +985,11 @@
+   this.level.rotCount = arenaTurns;
+   audio.ambient(this.levelIndex);
+   this.machine.to(S.CUTSCENE);
+   this.ui.show('cutscene');
+-  this.cutscene.play(buildScript(BOSS_INTRO[this.levelIndex] || 'theft'), () => this.beginPlay());
++  const key = BOSS_INTRO[this.levelIndex];
++  if (!key) { this.beginPlay(); return; }
++  this.cutscene.play(buildScript(key), () => this.beginPlay());
+ }
+ 
+ _showEnding() {
+   this.machine.to(S.ENDING);
+
+[0m
+[0m← [0mEdit js/ui/cutscene.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/cutscene.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/cutscene.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/cutscene.js
+@@ -180,16 +180,8 @@
+   { art: '05', speakerKey: 'spkElder', textKey: 'th1b' },
+   { art: '10', textKey: 'th2a' },
+   { art: '06', speakerKey: 'spkKael', textKey: 'th2b' },
+ ],
+-// `intro` is the level 2 boss cutscene, kept because BOSS_INTRO still plays
+-// it. Its lines predate the deal and are listed in the stage 2 report as
+-// contradicting it.
+-intro: [
+-  { art: 'elder', titleKey: 'cs1Title', textKey: 'cs1a' },
+-  { art: 'kael', titleKey: 'cs1Title', textKey: 'cs1b' },
+-  { art: 'elder', titleKey: 'cs1Title', textKey: 'cs1c' },
+-],
+ reveal: [
+   { art: '11', titleKey: 'cs3Title', textKey: 'cs3a' },
+   { art: '12', titleKey: 'cs3Title', textKey: 'cs3b' },
+   { art: '13', titleKey: 'cs3Title', textKey: 'cs3c' },
+
+[0m
+[0m$ [0mnode tools/gate10.mjs 2>&1 | tail -20
+PASS  H1 after boss 1 the cutscene uses panels 11,12,13  [got=["11","12","13"]]
+PASS  H2 after boss 2 the cutscene uses panels 14,14,15  [got=["14","14","15"]]
+PASS  H3 after boss 3 the cutscene uses panels 16,17,18,19,19  [got=["16","17","18","19","19"]]
+PASS  H4 after boss 1 level 2 is loaded, after boss 2 level 3 is loaded  [levels=2,3,3]
+PASS  H5 no silent fallback to the theft cutscene
+PASS  H6 the old gradient intro script is gone
+PASS  H7 level_complete is still tracked for every boss  [level_complete events=3]
+PASS  H8 no console or page errors
+GATE PASS
+[0m
+[0m$ [0mgit status --short && git diff --stat
+M .autopilot/run10.log
+ M js/main.js
+ M js/ui/cutscene.js
+?? .autopilot/10.0.out
+ .autopilot/run10.log | 1 +
+ js/main.js           | 6 ++++--
+ js/ui/cutscene.js    | 8 --------
+ 3 files changed, 5 insertions(+), 10 deletions(-)
+[0m
+Files changed: `js/main.js` (BOSS_INTRO rekeyed to `{1:'reveal',2:'waking'}`, `|| 'theft'` fallback replaced with a skip straight to `beginPlay()`), `js/ui/cutscene.js` (old `intro` script deleted, strings untouched).
+Gate: `node tools/gate10.mjs` → **GATE PASS** (8/8).
+Not done: nothing else; no commit run.

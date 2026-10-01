@@ -29,7 +29,7 @@ import { Cutscene, buildScript, PanelStage, preloadPanels } from './ui/cutscene.
 import { t, loadStoredLang, toggleLang, getLang } from './ui/i18n.js';
 
 const BOSSES = { statue: Statue, ulburjo: UlBurjo, patientone: PatientOne };
-const BOSS_INTRO = { 1: 'intro', 2: 'reveal', 3: 'waking' };
+const BOSS_INTRO = { 1: 'reveal', 2: 'waking' };
 
 // The deal: in-game dialogue with the level still rendering behind it. `panel`
 // names a still that fades in over the level for that line; null shows the level.
@@ -986,7 +986,9 @@ class Game {
     audio.ambient(this.levelIndex);
     this.machine.to(S.CUTSCENE);
     this.ui.show('cutscene');
-    this.cutscene.play(buildScript(BOSS_INTRO[this.levelIndex] || 'theft'), () => this.beginPlay());
+    const key = BOSS_INTRO[this.levelIndex];
+    if (!key) { this.beginPlay(); return; }
+    this.cutscene.play(buildScript(key), () => this.beginPlay());
   }
 
   _showEnding() {

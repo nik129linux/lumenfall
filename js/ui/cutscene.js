@@ -181,14 +181,6 @@ export const CUTSCENES = {
     { art: '10', textKey: 'th2a' },
     { art: '06', speakerKey: 'spkKael', textKey: 'th2b' },
   ],
-  // `intro` is the level 2 boss cutscene, kept because BOSS_INTRO still plays
-  // it. Its lines predate the deal and are listed in the stage 2 report as
-  // contradicting it.
-  intro: [
-    { art: 'elder', titleKey: 'cs1Title', textKey: 'cs1a' },
-    { art: 'kael', titleKey: 'cs1Title', textKey: 'cs1b' },
-    { art: 'elder', titleKey: 'cs1Title', textKey: 'cs1c' },
-  ],
   reveal: [
     { art: '11', titleKey: 'cs3Title', textKey: 'cs3a' },
     { art: '12', titleKey: 'cs3Title', textKey: 'cs3b' },
