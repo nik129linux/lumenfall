@@ -1,9 +1,14 @@
 // Axis-aligned tile collision.
 //
-// All of it runs in the level group's local space, which is axis-aligned when
-// the group is at rest. During the L2 rotation the physics is switched off
-// entirely (see level.js), which is what lets a 90-degree rotation happen
-// without any rotated-box maths anywhere in the codebase.
+// All of it runs in the level group's local space, which the group shares with
+// the world: nothing rotates any more, so "down" is -Y and the grid is always
+// axis-aligned.
+//
+// The level data carries two parallel grids. `grid` is the base map -- world A's
+// map -- and `layer` says which world each tile belongs to: 0 exists in both,
+// 1 only in world A, 2 only in world B. A tile is only in the map the level is
+// currently in, which is the whole of the L2 mechanic: nothing moves, tiles
+// appear and disappear.
 
 export const TILE = 8;
 
@@ -34,21 +39,24 @@ export const SPIKE = 3;
 export const DECOR = 4;
 
 export function tileAt(level, tx, ty) {
-  // Which edge of the world is open, if any. A rotated room can have a side
-  // wall as its floor, and the edge you fall out of is the one that is now
-  // underneath. The Level sets this from the current rotation.
-  const open = level.openEdges;
-  if (tx < 0) return (open && open.left) ? 0 : SOLID;
-  if (tx >= level.width) return (open && open.right) ? 0 : SOLID;
-  if (ty >= level.height) return (open && open.top) ? 0 : SOLID;   // ceiling
+  // Edges of the world are walls on every side now that nothing turns: a body
+  // can never leave sideways or upwards.
+  if (tx < 0 || tx >= level.width) return SOLID;
+  if (ty >= level.height) return SOLID;   // ceiling
   if (ty < 0) {
-    // Below the grid is normally a solid floor, so nothing can leave the level
-    // sideways or upwards. Directly under a hole it is open instead: the pit is
-    // bottomless and the fall-out is what kills. The player crosses the death
-    // line long before reaching anything down there.
+    // Below the grid is normally a solid floor. Directly under a hole it is open
+    // instead: the pit is bottomless and the fall-out is what kills. The player
+    // crosses the death line long before reaching anything down there.
     return (level.holeCol && level.holeCol[tx]) ? 0 : SOLID;
   }
-  return level.grid[ty * level.width + tx];
+  const i = ty * level.width + tx;
+  const v = level.grid[i];
+  const layer = level.layer ? level.layer[i] : 0;
+  if (layer === 0) return v;                          // common tile: it is in both maps
+  // A tile of the other world is not here at all. A tile of THIS world is here,
+  // with the type the grid gives it -- or solid, when the grid has nothing there
+  // and the level marks the cell as belonging to this world (the L2 bridges).
+  return layer === (level.world || 0) + 1 ? (v || SOLID) : 0;
 }
 
 export function isSolid(level, tx, ty) {

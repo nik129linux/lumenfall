@@ -40,7 +40,7 @@ landing still fires on the first legal frame.
 | **Jump** | `Space`, `W` or `↑` |
 | **Attack** | `J` or `Z` |
 | **Dash** | `K`, `X` or `Shift` |
-| **Rotate** the level (L2 only) | `E` |
+| **Shift** worlds (L2 only) | `E` |
 | **Pause** | `Esc` or `P` |
 | Switch language | `L` |
 
@@ -77,7 +77,7 @@ wore before, and the ending says so — the light came home, and that is the who
 | Level | Name | Mechanic | Boss |
 |---|---|---|---|
 | 1 | Shrine of Ember (190 tiles) | **A fixed map.** A hand-built platforming route: two bottomless gaps, stepped terraces, a long flat opening so the controls can be learned before the level asks for anything. | The **Marble statue** boss (in-game name: *Marble Mummy*) in `js/game/boss/statue.js`. The tutorial boss: it teaches only that an attack is a thing you can see coming. |
-| 2 | Rotting Reliquary (170 tiles) | **The world rotates 90°.** `E` turns the whole room over 0.6 s while you stay pinned in place. Gaps too wide to jump become ledges you can walk, and standing walls become bridges. Physics runs in the level group's local space, so the rotation needs no rotated-box maths anywhere. | **Ul Burjo** in `js/game/boss/ulburjo.js`. Phase 1 is a ranged duel; phase 2 turns the arena into the weapon and rotates it at you — your own tool, aimed at you. |
+| 2 | Rotting Reliquary (170 tiles) | **The world Shifts.** `E` toggles between two versions of the same map. Nothing moves; tiles appear and disappear and the palette changes. Gaps too wide to jump are pits in world A and bridges in world B, and standing walls exist only in world A. | **Ul Burjo** in `js/game/boss/ulburjo.js`. Phase 1 is a ranged duel; phase 2 Shifts the arena under you — your own tool, aimed at you. |
 | 3 | Lantern Wood (180 tiles) | **Near-total darkness.** The sword halo is the only light in the level. Standing still makes you nearly invisible; attacking makes you a moving lamp. | **The Patient One** in `js/game/boss/patientone.js`. It does not track you, it tracks your *light*: it extrapolates the halo's path and drops a column of dark on it. Phase 2 closes the light radius in for 3 s. |
 
 All three bosses have two phases, a phase change at 55 % health, and the same attack contract.
@@ -206,7 +206,7 @@ The browser gates drive a real Chromium through Playwright, so serve the game fi
 |---|---|
 | `node tools/gate3a.mjs` | Damage is real and hits have weight: one hit costs 1 hp, hitstop, camera shake, stagger and knockback on enemies, and no console errors. |
 | `node tools/gate3b.mjs` | The L1 statue honours the attack contract: stages in order, no damage outside `active`, a marker up during ≥ 90 % of windup frames, and clean teardown on death. |
-| `node tools/gate4.mjs` | The same contract for Ul Burjo, plus that his phase-2 `rotate` attack really turns the room. |
+| `node tools/gate4.mjs` | The same contract for Ul Burjo, plus that his phase-2 `shift` attack really Shifts the world. |
 | `node tools/gate5.mjs` | The same contract for The Patient One, plus that phase 2 uses the light surge. |
 | `node tools/gate6.mjs` | The reveal, waking and return cutscenes use the painted panels 11-19, that all nine files load, and that they are preloaded. |
 | `node tools/gate7.mjs` | Metrics: summary maths, `gtag` forwarding, survival across a reload, the in-game panel, and that nothing is sent to Google while the id is empty. |

@@ -1,0 +1,113 @@
+
+=== L1 ===
+  19 standable runs, level width 190 tiles
+  L1 plat@x=0 ty=3 OK
+  L1 plat@x=74 ty=3 OK
+  L1 plat@x=117 ty=3 OK
+  L1 plat@x=12 ty=8 OK
+  L1 plat@x=34 ty=8 OK
+  L1 plat@x=84 ty=8 OK
+  L1 plat@x=128 ty=8 OK
+  L1 plat@x=24 ty=9 OK
+  L1 plat@x=44 ty=9 OK
+  L1 plat@x=108 ty=9 OK
+  L1 plat@x=118 ty=9 OK
+  L1 plat@x=154 ty=9 OK
+  L1 plat@x=54 ty=10 OK
+  L1 plat@x=92 ty=10 OK
+  L1 plat@x=138 ty=10 OK
+  L1 plat@x=66 ty=11 OK
+  L1 plat@x=98 ty=12 OK
+  L1 plat@x=146 ty=12 OK
+  L1 plat@x=74 ty=15 OK
+  support: 19/19 runs hold the player
+  required path (spawn -> arena), 10 surfaces, rises <= 40px:
+    x0-61@32 -> x34-38@72 -> x44-49@80 -> x54-59@88 -> x66-71@96 -> x74-103@32 -> x84-90@72 -> x98-102@104 -> x108-113@80 -> x117-189@32
+  reach: all 19 surfaces reachable from spawn
+  reach: all 9 shards/boss arenas on a reachable surface
+  jump: max body.y 138.7 > floor+55 (87) OK
+
+=== L2 ===
+  34 standable runs, level width 170 tiles
+  L2 plat@x=0 ty=3 OK
+  L2 plat@x=33 ty=3 OK
+  L2 plat@x=54 ty=3 OK
+  L2 plat@x=65 ty=3 OK
+  L2 plat@x=84 ty=3 OK
+  L2 plat@x=117 ty=3 OK
+  L2 plat@x=125 ty=3 OK
+  L2 plat@x=58 ty=7 OK
+  L2 plat@x=92 ty=7 OK
+  L2 plat@x=10 ty=8 OK
+  L2 plat@x=16 ty=8 OK
+  L2 plat@x=26 ty=8 OK
+  L2 plat@x=36 ty=8 OK
+  L2 plat@x=65 ty=8 OK
+  L2 plat@x=72 ty=8 OK
+  L2 plat@x=87 ty=8 OK
+  L2 plat@x=96 ty=8 OK
+  L2 plat@x=118 ty=8 OK
+  L2 plat@x=132 ty=8 OK
+  L2 plat@x=142 ty=8 OK
+  L2 plat@x=150 ty=8 OK
+  L2 plat@x=155 ty=8 OK
+  L2 plat@x=163 ty=8 OK
+  L2 plat@x=126 ty=9 OK
+  L2 plat@x=160 ty=9 OK
+  L2 plat@x=20 ty=10 OK
+  L2 plat@x=78 ty=10 OK
+  L2 plat@x=144 ty=10 OK
+  L2 plat@x=136 ty=11 OK
+  L2 plat@x=62 ty=12 OK
+  L2 plat@x=30 ty=13 OK
+  L2 plat@x=122 ty=13 OK
+  L2 plat@x=146 ty=14 OK
+  L2 plat@x=82 ty=15 OK
+  support: 34/34 runs hold the player
+  required path (spawn -> arena), 8 surfaces, rises <= 40px:
+    x0-29@32 -> x36-39@72 -> x54-61@32 -> x65-67@72 -> x84-101@32 -> x117-121@32 -> x118-120@72 -> x125-169@32
+  reach: all 34 surfaces reachable from spawn
+  reach: all 8 shards/boss arenas on a reachable surface
+  jump: max body.y 130.7 > floor+55 (87) OK
+
+=== L3 ===
+  24 standable runs, level width 180 tiles
+  L3 plat@x=0 ty=3 OK
+  L3 plat@x=47 ty=3 OK
+  L3 plat@x=65 ty=3 OK
+  L3 plat@x=95 ty=3 OK
+  L3 plat@x=112 ty=3 OK
+  L3 plat@x=143 ty=3 OK
+  L3 plat@x=10 ty=8 OK
+  L3 plat@x=54 ty=8 OK
+  L3 plat@x=66 ty=8 OK
+  L3 plat@x=100 ty=8 OK
+  L3 plat@x=114 ty=8 OK
+  L3 plat@x=160 ty=8 OK
+  L3 plat@x=18 ty=11 OK
+  L3 plat@x=74 ty=11 OK
+  L3 plat@x=124 ty=11 OK
+  L3 plat@x=150 ty=11 OK
+  L3 plat@x=26 ty=14 OK
+  L3 plat@x=82 ty=14 OK
+  L3 plat@x=132 ty=14 OK
+  L3 plat@x=34 ty=17 OK
+  L3 plat@x=136 ty=17 OK
+  L3 plat@x=92 ty=19 OK
+  L3 plat@x=44 ty=21 OK
+  L3 plat@x=140 ty=21 OK
+  support: 24/24 runs hold the player
+  required path (spawn -> arena), 17 surfaces, rises <= 40px:
+    x0-43@32 -> x10-14@72 -> x18-22@96 -> x26-29@120 -> x34-38@144 -> x44-46@176 -> x54-59@72 -> x66-70@72 -> x74-77@96 -> x82-86@120 -> x92-94@160 -> x100-105@72 -> x112-139@32 -> x114-119@72 -> x124-128@96 -> x132-135@120 -> x143-179@32
+  reach: all 24 surfaces reachable from spawn
+  reach: all 9 shards/boss arenas on a reachable surface
+  jump: max body.y 91.3 > floor+55 (87) OK
+
+=== pit death (L1) ===
+  pit: hole at tile 68 -> dead in the death state after 937ms OK (red flash peak 0.35, fade bottomed at 0.05)
+  pit: respawn returned to play OK
+
+=== pit death, L2 (world A) ===
+  pit: fell into the L2 hole at tile 47 and died OK
+
+PASS reach.mjs

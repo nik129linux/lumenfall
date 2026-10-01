@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three.module.js';
 
-import { LOW_RES_W, LOW_RES_H, LEVELS, CAM, DASH_COOLDOWN, ROTATE_TIME, PIT_DEATH_Y, HITSTOP, SHAKE, ENEMY_KNOCKBACK, GA_MEASUREMENT_ID } from './core/config.js';
+import { LOW_RES_W, LOW_RES_H, LEVELS, CAM, DASH_COOLDOWN, PIT_DEATH_Y, HITSTOP, SHAKE, ENEMY_KNOCKBACK, GA_MEASUREMENT_ID } from './core/config.js';
 import { loadAssets } from './core/assets.js';
 import { Input } from './core/input.js';
 import { audio } from './core/audio.js';
@@ -45,7 +45,7 @@ const DEAL = [
 const DEAL_RANGE = 28;      // px between Kael's centre and the elder
 const DEAL_EASE = 0.5;      // camera ease, seconds
 const DEAL_TYPE_CPS = 44;
-const ROTATE_HINT_TILES = 6;   // how close to a hole before the hint repeats
+const SHIFT_HINT_TILES = 6;   // how close to a hole before the hint repeats
 const HP_PER_LEVEL = 5;
 // Distance before the arena door that the boss fight starts.
 const BOSS_TRIGGER = 150;
@@ -422,6 +422,7 @@ class Game {
     if (this.player) {
       this.player.reset();
       for (const g of this.player.ghosts) g.object.visible = false;
+      this.level.player = this.player;
     }
 
     this.cam.x = 0; this.cam.y = 0; this._bounds = null;
@@ -562,36 +563,24 @@ class Game {
     const data = this.level.data;
     // Time on the level, boss fight included: the player is playing the boss too.
     this.levelClock += dt;
+    this.level.update(dt);
+    this._updateShiftTint(dt);
 
-    // ---- L2 rotate, handled outside the player so physics can be suspended
-    if (this.level.canRotate && this.level.isRotating) {
-      const done = this.level.updateRotation(dt);
-      // The player is pinned in world space for the whole turn: the room swings
-      // around them rather than them swinging around the room. The pin is their
-      // OWN spot, not `level.pinnedLocal` -- that is the spot whoever asked for
-      // the turn, and when the boss is the one asking it is his, which used to
-      // park the player on top of him for the turn and leave them there after it.
-      p.body.enabled = false;
-      const w = this.level.localToWorld(new THREE.Vector3(p.cx, p.body.bottom, 0));
-      p.mesh.position.set(w.x, w.y, 0);
-      if (done) {
-        // The body never moved, so there is nothing to write back: drop the
-        // momentum the frozen frames built up and hand the controls over.
-        p.body.vx = 0; p.body.vy = 0;
-        p.body.enabled = true;
-        this.boss?.onRotationDone?.();
-      }
-    } else {
-      p.body.enabled = true;
-      if (this.input.consume('rotate') && this.level.canRotate && this.level.beginRotate(
-          new THREE.Vector3(p.cx, p.cy, 0))) {
-        p.body.enabled = false;
-        p.body.vx = 0; p.body.vy = 0;
+    // ---- L2 world shift: pressing E toggles between two versions of the same
+    // map. Nothing moves; tiles appear and disappear and the palette changes.
+    if (this.input.consume('rotate') && this.level.canShift) {
+      const ok = this.level.shiftWorld();
+      if (ok) {
         audio.sfxRotate();
-        this.cam.shake = Math.max(this.cam.shake, 3);
-        this.ui.showToast(t('rotateHint'), 1.2);
+        this.cam.shake = Math.max(this.cam.shake, 2);
+        this._shiftFlash = 0.2;
+        this._shiftTintT = 0;
+      } else if (this.level.shiftRefused) {
+        audio.sfxHurt();
+        this.ui.showToast(t('shiftDenied'), 1.2);
       }
     }
+    if (this._shiftFlash > 0) this._shiftFlash = Math.max(0, this._shiftFlash - dt);
 
     // ---- player
     p.update(dt, this.input, data);
@@ -647,14 +636,14 @@ class Game {
       }
     }
 
-    // ---- rotation hint. On entering L2, and again the first time the player
+    // ---- shift hint. On entering L2, and again the first time the player
     // gets near one of its holes: the holes are the one mechanic in the game
     // with nothing on screen saying they exist.
-    if (this.level.canRotate) {
+    if (this.level.canShift) {
       if (!this._hintOnEntry) { this._hintOnEntry = true; this.ui.showToast(t('rotateWorld'), 4.0); }
       else if (!this._hintNearHole) {
         for (const [hx] of (this.level.data.holes || [])) {
-          if (Math.abs(p.cx - hx * TILE) > ROTATE_HINT_TILES * TILE) continue;
+          if (Math.abs(p.cx - hx * TILE) > SHIFT_HINT_TILES * TILE) continue;
           this._hintNearHole = true;
           this.ui.showToast(t('rotateWorld'), 4.0);
           break;
@@ -992,10 +981,10 @@ class Game {
       this.cutscene.play(buildScript('return'), () => this._showEnding());
       return;
     }
-    const arenaTurns = this.level.rotCount;
+    const arenaTurns = this.level.shiftCount;
     this.levelIndex++;
     this._loadLevel(this.levelIndex, { silent: true });
-    this.level.rotCount = arenaTurns;
+    this.level.shiftCount = arenaTurns;
     audio.ambient(this.levelIndex);
     this.machine.to(S.CUTSCENE);
     this.ui.show('cutscene');
@@ -1077,9 +1066,18 @@ class Game {
 
   _syncPlayerToWorld() {
     if (!this.player) return;
-    if (this.level.isRotating) return;   // rotation path owns the transform
     const w = this.level.localToWorld(new THREE.Vector3(this.player.cx, this.player.body.bottom, 0));
     this.player.mesh.position.set(w.x, w.y, 0);
+  }
+
+  // The far backdrop lerps to a green tint in world B and back in world A,
+  // over ~0.25 s. Driven from here so the render layers stay dumb.
+  _updateShiftTint(dt) {
+    const far = this.parallax?.layers?.[0]?.mesh?.material;
+    if (!far) return;
+    const base = this.levelDef?.id === 3 ? 0x909090 : 0x707070;
+    const target = new THREE.Color(this.level.world === 1 ? 0xa8d8a0 : base);
+    far.color.lerp(target, Math.min(1, dt / 0.25));
   }
 
   _updateCamera(dt, snap = false) {
@@ -1129,12 +1127,11 @@ class Game {
     this.pipeline.setView(this.cam.x + this.cam.shakeX, this.cam.y + this.cam.shakeY);
   }
 
-  // World-space AABB of the level, recomputed only when the rotation angle
-  // actually changes.
+  // World-space AABB of the level. Nothing moves, so this is just the
+  // axis-aligned extent of the map.
   _levelWorldBounds() {
     const w = this.level.worldWidth, h = this.level.worldHeight;
-    const rot = this.level.rot;
-    if (this._bounds && this._boundsRot === rot && this._boundsW === w && this._boundsH === h) {
+    if (this._bounds && this._boundsW === w && this._boundsH === h) {
       return this._bounds;
     }
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -1144,7 +1141,7 @@ class Game {
       minY = Math.min(minY, v.y); maxY = Math.max(maxY, v.y);
     }
     this._bounds = { minX, maxX, minY, maxY };
-    this._boundsRot = rot; this._boundsW = w; this._boundsH = h;
+    this._boundsW = w; this._boundsH = h;
     return this._bounds;
   }
 
@@ -1183,11 +1180,5 @@ class Game {
 
 const game = new Game();
 window.__lumenfall = game;   // handy for the headless smoke check
-
-// The headless boss gate (tools/gateboss.mjs) runs its phase-2 wait *inside* the
-// page, where its own node-side config is not in scope, so the fight has to
-// publish the attack it is waiting for. These are the attacks in
-// js/game/boss/patientone.js, restated as the gate reads them.
-window.CFG = { level: 3, p1: ['lantern', 'ring', 'cutoff'], p2: 'surge', p2min: 0.9, rotate: false };
 
 game.boot();

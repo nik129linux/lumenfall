@@ -1,18 +1,29 @@
 import * as THREE from '../vendor/three.module.js';
 import { TILE, SOLID, PLATFORM, SPIKE, tileAt } from './physics.js';
-import { ROTATE_TIME, LEVELS } from '../core/config.js';
-import { clamp } from '../core/rng.js';
+import { LEVELS } from '../core/config.js';
 
-// The level lives inside a THREE.Group that starts axis-aligned. Physics always
-// runs in that group's local space, which means "down" is the group's local -Y
-// and the tile grid is always axis-aligned -- at any rotation.
+// The level lives inside a THREE.Group that shares the world's axes. Nothing
+// ever rotates it any more.
 //
-// That is the whole trick behind the L2 mechanic. Rotating the group by 90
-// degrees needs no rotated-box maths, because the simulation never leaves the
-// group's frame. Gravity follows the room, a wall becomes a floor, and a gap
-// that could not be jumped becomes a ledge that can be walked.
+// A level is TWO maps of the same room, and `levelData.layer` says which one a
+// tile belongs to: 0 in both, 1 only in world A, 2 only in world B. `grid` is
+// the base map -- world A's -- and a cell it leaves empty but marks with a layer
+// is a solid block of the world that layer names (the bridges over the holes).
+// `levelData.world` picks the map the physics is reading; tileAt is the only
+// place that decision is made, so every reader gets the same answer.
 
 const BOSS_ARENA_W = 40;   // tiles
+
+// The two palettes the shifting worlds use, kept apart from the level palettes
+// so a layer tile never inherits a level colour by accident.
+const LAYER_LOOKS = [
+  null,                       // layer 0 keeps the level's own palette
+  { body: 0x1a0f22, lip: 0xa86cf0 },   // world A only: purple
+  { body: 0x0f2210, lip: 0x9be34a },   // world B only: toxic green
+];
+const RUNE_COLOR = 0x9be34a;  // the rune on the ground says toxic, like world B
+const SHIFT_CD = 0.5;         // seconds between two player shifts
+const SHIFT_LIFT_STEPS = 64;  // safety bound on the forced shift's lift-out
 
 function blankLevel(id, width, height) {
   return {
@@ -20,6 +31,8 @@ function blankLevel(id, width, height) {
     width,
     height,
     grid: new Uint8Array(width * height),
+    layer: new Uint8Array(width * height),
+    world: 0,                  // 0 = world A, 1 = world B
     entities: [],
     decor: [],
     groundY: (height - 4) * TILE,
@@ -33,15 +46,30 @@ const set = (lv, tx, ty, v = SOLID) => {
 const fill = (lv, tx, ty, tw, th, v = SOLID) => {
   for (let y = ty; y < ty + th; y++) for (let x = tx; x < tx + tw; x++) set(lv, x, y, v);
 };
+// Marks a rectangle as belonging to one world only, without touching the base
+// map: `v` is the type the cell has in that world, and leaving it out means a
+// solid block.
+const markLayer = (lv, tx, ty, tw, th, layer, v) => {
+  for (let y = ty; y < ty + th; y++) {
+    for (let x = tx; x < tx + tw; x++) {
+      if (x < 0 || x >= lv.width || y < 0 || y >= lv.height) continue;
+      lv.layer[y * lv.width + x] = layer;
+      if (v !== undefined) lv.grid[y * lv.width + x] = v;
+    }
+  }
+};
+// Layer-only tag: sets the world membership without touching the grid type.
+// Bridges (grid 0 + layer 2) and one-world platforms (grid PLATFORM + layer)
+// both need this, so the grid keeps the type `fill` already wrote.
 
 
 // +y is up, so the ground occupies the *lowest* rows (ty 0..3) and the level's
 // height is mostly headroom. GROUND is the surface the player stands on.
 const GROUND = 3;
 
-// Ground with a hole punched in it. The holes are the rotation puzzle: they are
-// deliberately wider than a jump (~9 tiles), and only become crossable once the
-// room turns.
+// Ground with a hole punched in it. The holes are the shift puzzle: they are
+// deliberately wider than a jump (~9 tiles) and empty in world A, and world B
+// lays a bridge across each of them.
 function ground(lv, holes = []) {
   fill(lv, 0, 0, lv.width, GROUND + 1);
   // Kept on the level so the bottomless void can be drawn under each hole.
@@ -59,6 +87,19 @@ function ground(lv, holes = []) {
 
 const plat = (lv, tx, ty, tw) => fill(lv, tx, ty, tw, 1, PLATFORM);
 const block = (lv, tx, ty, tw, th) => fill(lv, tx, ty, tw, th);
+// A standing wall that only exists in world A: solid in A, gone in B, so the
+// way through is clear in the world the player is not standing in.
+const wallA = (lv, tx, ty, tw, th) => { fill(lv, tx, ty, tw, th); markLayer(lv, tx, ty, tw, th, 1); };
+// A ledge that only exists in world B. It is a PLATFORM tile in the base map
+// marked with layer 2, so the map never has a hole where a world-A player would
+// otherwise be standing on thin air.
+const platB = (lv, tx, ty, tw) => { fill(lv, tx, ty, tw, 1, PLATFORM); markLayer(lv, tx, ty, tw, 1, 2); };
+const platA = (lv, tx, ty, tw) => { fill(lv, tx, ty, tw, 1, PLATFORM); markLayer(lv, tx, ty, tw, 1, 1); };
+// A world-B ledge with the world-A cap one tile above it. The pair reads as one
+// slab that drops a tile when the world shifts, and it keeps the B ledge exactly
+// one tile under the A one, so each world has a surface of its own at the same
+// spot.
+const ledgePair = (lv, tx, tyB, tw) => { platB(lv, tx, tyB, tw); platA(lv, tx, tyB + 1, tw); };
 
 const FLOOR_Y = (GROUND + 1) * TILE;   // standing surface, in pixels
 const VOID_H = 240;                   // depth of the black under a pit
@@ -168,35 +209,61 @@ export const LEVEL_DEFS = [
   () => {
     const W = 170, H = 36;
     const lv = blankLevel(2, W, H);
-    // Gaps far wider than a jump, and standing walls that are only floors once
-    // the room turns. This is the level the mechanic is for.
-    ground(lv, [[40, 14], [68, 16], [102, 15]]);
+    // Three bottomless gaps, far wider than a jump, and standing walls. This is
+    // the level the mechanic is for: in world A the gaps are pits and the walls
+    // are in the way, in world B every gap has a bridge and every wall is gone.
+    const HOLES = [[40, 14], [68, 16], [102, 15]];
+    ground(lv, HOLES);
+
+    // The bridges. A whole tile row of world B across each hole, marked in the
+    // layer array and left out of the base map, so world A still sees straight
+    // down the hole and world B walks over it. Standing on a bridge and shifting
+    // back drops you in: the shift is only refused when the body would end up
+    // inside solid, and a hole is not solid in either world.
+    for (const [hx, hw] of HOLES) markLayer(lv, hx, GROUND, hw, 1, 2);
 
     plat(lv, 10, 8, 5);
     plat(lv, 20, 10, 5);
-    // A standing wall: harmless seen from above, a bridge seen from the side.
-    // A step in front of the column at 30: ground 32 -> 72 -> the top at 112.
+    // World-A ledges near the shards, and the world-B ledge under each of them.
+    // The pair at 16 is the same slab in both worlds, one tile apart.
+    ledgePair(lv, 16, 7, 3);
+    platA(lv, 25, 7, 2);
+    // A standing wall, world A only: harmless seen from above in A, and simply
+    // not there in B. The step in front of the column at 30 stays in both worlds,
+    // which is what keeps the column climbable: ground 32 -> 72 -> top at 112.
     plat(lv, 26, 8, 3);
-    block(lv, 30, 4, 3, 10);
+    wallA(lv, 30, 4, 3, 10);
     plat(lv, 36, 8, 4);
 
     plat(lv, 58, 7, 5);
-    block(lv, 62, 4, 3, 9);
+    wallA(lv, 62, 4, 3, 9);
     // Two steps for the column at 82: 72, then 88, then its top at 128. Each
     // rise is 40, 16 and 40 -- the direct 80 -> 128 was 48, over the rule.
     plat(lv, 72, 8, 6);
     plat(lv, 78, 10, 4);
-    block(lv, 82, 5, 4, 11);
+    wallA(lv, 82, 5, 4, 11);
+    ledgePair(lv, 65, 7, 3);
+    ledgePair(lv, 87, 7, 3);
+    platA(lv, 92, 7, 3);
 
     plat(lv, 96, 8, 6);
     plat(lv, 118, 8, 3);
-    block(lv, 122, 4, 3, 10);
+    wallA(lv, 122, 4, 3, 10);
     plat(lv, 126, 9, 5);
     plat(lv, 136, 11, 6);
     // 72 then 88 then the top at 120; 72 -> 120 alone is 48.
     plat(lv, 142, 8, 2);
     plat(lv, 144, 10, 2);
-    block(lv, 146, 5, 3, 10);
+    wallA(lv, 146, 5, 3, 10);
+
+    // ---- the boss arena (the last 40 tiles). Its floor row is left as layer 0,
+    // so a forced shift never drops Ul Burjo's victim off the edge: only the
+    // ledges above change, which is enough to move the fight around.
+    ledgePair(lv, 132, 7, 3);
+    ledgePair(lv, 155, 7, 3);
+    ledgePair(lv, 163, 7, 3);
+    platA(lv, 150, 8, 3);
+    platA(lv, 160, 9, 3);
 
     lv.entities.push(
       { type: 'shard', x: 12 * TILE, y: at(8) },
@@ -276,46 +343,105 @@ export class Level {
     this.tilesGroup = new THREE.Group();
     this.group.add(this.tilesGroup);
     this.data = null;
-    this.rot = 0;             // current rotation, always a multiple of PI/2
-    this.rotFrom = 0;
-    this.rotTo = 0;
-    this.rotT = 0;
-    this.rotating = false;
-    this.rotCount = 0;
-  }
-
-  // Recomputed whenever the room turns. Physics runs in this local frame, so
-  // "which way is down" is a function of the rotation: the room turns in quarter
-  // steps and down walks -Y, +X, +Y, -X through them.
-  _syncDown() {
-    const q = ((Math.round(this.rot / (Math.PI / 2)) % 4) + 4) % 4;
-    this.data.rotQ = q;
-    this.data.openEdges = q === 1 ? { right: true }
-      : q === 2 ? { top: true }
-        : q === 3 ? { left: true }
-          : {};
-    return q;
+    this.world = 0;            // 0 = world A, 1 = world B
+    this.shiftCount = 0;       // shifts so far, this level
+    this.shiftCd = 0;          // seconds of cooldown left
+    this.shiftRefused = false; // the last player shift was refused by the map
+    this.layerMeshes = [];     // meshes per layer group, toggled on a shift
+    // The player, set by main.js. shiftWorld reads its body to decide whether a
+    // shift is legal, so the level owns no copy of the player state.
+    this.player = null;
   }
 
   load(index) {
     this.dispose();
     this.data = LEVEL_DEFS[index]();
-    this.rot = 0; this.rotFrom = 0; this.rotTo = 0; this.rotT = 0;
-    this.rotating = false; this.rotCount = 0;
+    this.world = 0;
+    this.data.world = 0;
+    this.shiftCount = 0;
+    this.shiftCd = 0;
+    this.shiftRefused = false;
     this.group.rotation.z = 0;
     this.group.position.set(0, 0, 0);
     this.group.updateMatrixWorld(true);
-    this._syncDown();
     this._buildTiles();
     return this.data;
   }
 
-  get canRotate() { return this.data && this.data.id === 2; }
+  // Only the Reliquary has two maps. L1 and L3 have an all-zero layer array, so
+  // they would shift to a map identical to the one they are in: there is nothing
+  // to toggle and nothing to learn.
+  get canShift() { return !!this.data && this.data.id === 2; }
 
-  // Read by _buildRunes while the tiles are being built, before canRotate can be
-  // trusted on a fresh load.
-  get levelCanRotate() { return !!this.data && this.data.id === 2; }
-  get isRotating() { return this.rotating; }
+  // Ticked from the game loop; `shiftCd` is the only timed state the level has.
+  update(dt) { this.shiftCd = Math.max(0, this.shiftCd - dt); }
+
+  // ---- the shift
+  //
+  // Returns true when the world actually changed. The player's own press is
+  // refused when the cooldown is still running or when the body would end up
+  // inside a solid tile of the destination world; the boss's shift is forced,
+  // because an attack cannot be cancelled by the map, and resolves the overlap
+  // by lifting the body instead.
+  shiftWorld(opts = {}) {
+    const d = this.data;
+    if (!d || !this.canShift) return false;
+    const force = opts.force === true;
+    this.shiftRefused = false;
+    if (!force && this.shiftCd > 0) return false;
+
+    const next = this.world ^ 1;
+    const blocked = force ? false : this._bodyInSolid(next);
+    if (blocked) {
+      this.shiftRefused = true;
+      return false;
+    }
+
+    this.world = next;
+    d.world = next;
+    this.shiftCount++;
+    this.shiftCd = SHIFT_CD;
+    this._applyWorld();
+    if (force) this._liftBodyOut();
+    return true;
+  }
+
+  // Would this body be inside a solid tile of `world`? Only solid counts: a
+  // one-way platform the body is passing through is not something to refuse a
+  // shift over.
+  _bodyInSolid(world) {
+    const body = this.player?.body;
+    if (!body) return false;
+    const d = this.data;
+    const x0 = Math.floor(body.left / TILE);
+    const x1 = Math.floor((body.right - 0.001) / TILE);
+    const y0 = Math.floor(body.bottom / TILE);
+    const y1 = Math.floor((body.top - 0.001) / TILE);
+    if (y0 < 0 || y1 >= d.height) return false;
+    const was = d.world;
+    d.world = world;
+    let hit = false;
+    for (let ty = y0; ty <= y1 && !hit; ty++) {
+      for (let tx = Math.max(0, x0); tx <= Math.min(d.width - 1, x1); tx++) {
+        if (tileAt(d, tx, ty) === SOLID) { hit = true; break; }
+      }
+    }
+    d.world = was;
+    return hit;
+  }
+
+  // A forced shift that lands inside the new map lifts the player a tile at a
+  // time until they fit. The arena floor is common to both worlds, so this
+  // always terminates; the bound is there so a bad layout cannot hang the game.
+  _liftBodyOut() {
+    const body = this.player?.body;
+    if (!body) return;
+    for (let i = 0; i < SHIFT_LIFT_STEPS && this._bodyInSolid(this.world); i++) {
+      body.y += TILE;
+      if (body.vy < 0) body.vy = 0;
+    }
+    body.vx = 0;
+  }
 
   // ---- coordinate conversion
   localToWorld(v, out) {
@@ -330,72 +456,44 @@ export class Level {
     return this.group.worldToLocal(target);
   }
 
-  // Called when the player is pinned in world space for the duration of a turn.
-  pinWorld() {
-    const world = this.localToWorld(this.pinnedLocal.clone());
-    return world;
-  }
-
-  // `localPos` may be a live object owned by the caller (the player's body) or
-  // a throwaway Vector3, so copy rather than retain: keeping the reference meant
-  // the "pinned" position tracked the body while the body kept integrating.
-  beginRotate(localPos) {
-    if (this.rotating || !this.canRotate) return false;
-    this.pinnedLocal = new THREE.Vector3(localPos.x, localPos.y, 0);
-    this.pinnedWorld = this.localToWorld(this.pinnedLocal.clone());
-    this.rotFrom = this.rot;
-    this.rotTo = this.rot + Math.PI / 2;
-    this.rotT = 0;
-    this.rotating = true;
-    return true;
-  }
-
-  // Eased so the turn has weight: it starts slow, whips, and settles.
-  static ease(t) {
-    return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-  }
-
-  updateRotation(dt) {
-    if (!this.rotating) return null;
-    this.rotT += dt;
-    const k = clamp(this.rotT / ROTATE_TIME, 0, 1);
-    this.rot = this.rotFrom + (this.rotTo - this.rotFrom) * Level.ease(k);
-    this.group.rotation.z = this.rot;
-    this.group.updateMatrixWorld(true);
-    if (k >= 1) {
-      this.rotating = false;
-      this.rotCount++;
-      this.rot = this.rotTo;
-      this._syncDown();
-      this.group.rotation.z = this.rot;
-      this.group.updateMatrixWorld(true);
-      return this.pinnedWorld.clone();   // caller re-derives the local position
-    }
-    return null;
-  }
-
   // ---- geometry
   _buildTiles() {
     const d = this.data;
     const geo = new THREE.BoxGeometry(TILE, TILE, TILE);
-    // One InstancedMesh for the whole grid: a 190x34 tile map is 6460 boxes,
-    // which is fine as instances and painful as individual meshes.
-    const positions = [];
+    const pal = (LEVELS[d.id - 1] || LEVELS[0]);
+    // One InstancedMesh per layer group and per tile kind. A 190x34 tile map is
+    // 6460 boxes, which is fine as instances and painful as individual meshes.
+    // The two shifting groups are built once here and toggled on a shift, so a
+    // world change costs no geometry at all.
+    const common = { solid: [], plat: [], spike: [] };
+    const groups = [common, { solid: [], plat: [], spike: [] }, { solid: [], plat: [], spike: [] }];
     for (let ty = 0; ty < d.height; ty++) {
       for (let tx = 0; tx < d.width; tx++) {
-        const v = d.grid[ty * d.width + tx];
-        if (v === 0) continue;
-        positions.push([tx, ty, v]);
+        const i = ty * d.width + tx;
+        const layer = d.layer[i];
+        const v = d.grid[i] || (layer ? SOLID : 0);   // a world-only cell the base map leaves empty is solid there
+        if (!v) continue;
+        const bucket = groups[layer] || common;
+        if (v === SOLID) bucket.solid.push([tx, ty]);
+        else if (v === PLATFORM) bucket.plat.push([tx, ty]);
+        else if (v === SPIKE) bucket.spike.push([tx, ty]);
       }
     }
-    const solids = positions.filter((p) => p[2] === SOLID);
-    const plats = positions.filter((p) => p[2] === PLATFORM);
-    const spikes = positions.filter((p) => p[2] === SPIKE);
 
-    const pal = (LEVELS[d.id - 1] || LEVELS[0]);
-    this._inst(geo, solids, pal.tile, 1.0);
-    this._inst(geo, plats, pal.platform, 1.0);
-    this._inst(geo, spikes, 0x8a4a3a, 1.0);
+    this.layerMeshes = [];
+    for (let g = 0; g < 3; g++) {
+      const list = groups[g];
+      const look = LAYER_LOOKS[g] || { body: pal.tile, plat: pal.platform, lip: pal.lip };
+      const platColor = look.plat ?? look.body;
+      const made = [];
+      const m1 = this._inst(geo, list.solid, look.body, 1.0, false);
+      if (m1) made.push(m1);
+      const m2 = this._inst(geo, list.plat, platColor, 1.0, false);
+      if (m2) made.push(m2);
+      const m3 = this._inst(geo, list.spike, 0x8a4a3a, 1.0, false);
+      if (m3) made.push(m3);
+      this.layerMeshes.push(made);
+    }
 
     // A lip along the top of every floor tile reads as a highlight edge and
     // makes the platform tops findable in a dark level without any lighting.
@@ -404,21 +502,33 @@ export class Level {
     // edge and read as a plain black bar.
     // .concat, not +. `+` on two arrays coerces both to strings, so
     // `solids + plats` yielded "0,0,1,1,..." and every platform lost its lip.
-    this._buildLips(solids.concat(plats), pal.lip);
+    for (let g = 0; g < 3; g++) {
+      const look = LAYER_LOOKS[g] || { lip: pal.lip };
+      const lipMesh = this._buildLips(groups[g].solid.concat(groups[g].plat), look.lip);
+      if (lipMesh) this.layerMeshes[g].push(lipMesh);
+    }
     this._buildVoid();
-    this._buildRunes(pal);
+    this._buildRunes();
+    this._applyWorld();
   }
 
-  // A rune on the ground three tiles before each rotation hole, in the level's
-  // accent colour. The holes are the one thing in the game with no visual tell
-  // that they are meant to be crossed by turning the room, so something has to
-  // say so at the player's feet. Pulses in updateRunes.
-  _buildRunes(pal) {
+  // Only the two world-only groups change visibility; the common tiles and the
+  // geometry behind them never move.
+  _applyWorld() {
+    for (const m of this.layerMeshes[1] || []) m.visible = this.world === 0;
+    for (const m of this.layerMeshes[2] || []) m.visible = this.world === 1;
+  }
+
+  // A rune on the ground three tiles before each shift hole, toxic green.
+  // The holes are the one thing in the game with no visual tell that they are
+  // meant to be crossed by shifting worlds, so something has to say so at the
+  // player's feet. Pulses in updateRunes.
+  _buildRunes() {
     this.runes = [];
     const holes = this.data.holes || [];
-    if (!this.levelCanRotate || !holes.length) return;
+    if (!this.canShift || !holes.length) return;
     const mat = new THREE.MeshBasicMaterial({
-      color: pal.accent, transparent: true, opacity: 0.85,
+      color: RUNE_COLOR, transparent: true, opacity: 0.85,
       depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending,
     });
     this.runeMat = mat;
@@ -492,7 +602,7 @@ export class Level {
   _buildLips(solids, color) {
     const set = new Set(solids.map(([x, y]) => `${x},${y}`));
     const tops = solids.filter(([x, y]) => !set.has(`${x},${y + 1}`));
-    if (!tops.length) return;
+    if (!tops.length) return null;
     const geo = new THREE.PlaneGeometry(TILE, 2);
     const mat = new THREE.MeshBasicMaterial({ color, transparent: true });
     const mesh = new THREE.InstancedMesh(geo, mat, tops.length);
@@ -505,6 +615,7 @@ export class Level {
     mesh.instanceMatrix.needsUpdate = true;
     mesh.frustumCulled = false;
     this.tilesGroup.add(mesh);
+    return mesh;
   }
 
   dispose() {

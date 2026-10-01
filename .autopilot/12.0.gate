@@ -1,0 +1,17 @@
+FAIL  W1 no rotation left in the code (beginRotate, updateRotation) and no test hack window.CFG
+FAIL  W2 texts say shift worlds in both languages and nothing says rotate/girar  [es girar=true en rotate=true]
+PASS  W3 data model: layer array, world, shiftWorld, shiftCount, canShift in L2 (world starts at A)  [{"api":true,"holes":0,"pitsInA":true,"bridgesInB":true,"arenaFloor":true,"platA":0,"platB":0,"wallsInA":190}]
+FAIL  W4 L2 has at least 3 big holes: pits in world A  [holes=0 pitsInA=true]
+PASS  W5 every big hole has a solid bridge in world B
+FAIL  W6 boss arena: common floor, >= 8 platform tiles in each world  [floor=true platA=0 platB=0]
+PASS  W7 some tall walls exist only in world A  [A-only solid tiles=190]
+FAIL  W8 a shift into solid is refused (world unchanged)
+FAIL  W9 the shift has a cooldown (second immediate call refused)
+FAIL  W10 force:true never refuses and leaves the body out of solid ground
+PASS  W11 the level group never rotates  [rotation.z=0]
+PASS  W12 in world B you can walk across the first hole  [{"info":{"a":-1,"z":-1,"shifted":true},"end":{"x":0,"dead":false}}]
+FAIL  W13 in world A the same walk falls into the pit  [{"info":{"a":-1,"z":-1,"shifted":false},"end":{"x":0,"dead":false}}]
+FAIL  W14 pressing E shifts the world in L2  [world=0]
+PASS  W15 pressing E does nothing in L1  [{"w":0,"c":0}]
+PASS  W16 no console or page errors
+GATE FAIL (9 of 16)

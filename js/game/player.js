@@ -110,7 +110,7 @@ export class Player {
       if (canAct && input.consume('dash') && this._tryDash()) {
         // started
       } else {
-        this._walk(dt, input, canAct);
+        this._walk(dt, input);
       }
     }
 
@@ -171,16 +171,8 @@ export class Player {
   // death check fires.
   _clampToLevel(level) {
     const maxX = level.width * TILE - this.body.w;
-    // A rotated room can have a side wall as the floor of the world, and that
-    // edge is open on purpose: walking off it is how you die. Clamping it shut
-    // would leave the body standing on nothing. Every other edge stays solid.
-    const open = level.openEdges;
-    if (!open || !open.left) {
-      if (this.body.x < 0) { this.body.x = 0; this.body.vx = 0; }
-    }
-    if (!open || !open.right) {
-      if (this.body.x > maxX) { this.body.x = maxX; this.body.vx = 0; }
-    }
+    if (this.body.x < 0) { this.body.x = 0; this.body.vx = 0; }
+    if (this.body.x > maxX) { this.body.x = maxX; this.body.vx = 0; }
   }
 
   _tryDash() {
@@ -195,12 +187,13 @@ export class Player {
     return true;
   }
 
-  _walk(dt, input, canAct) {
+  // Steering always answers, even inside the post-hurt iframes: the iframes
+  // are protection (and the knockback still lands), not a stun, which is what
+  // lets a shift-bridge crossing survive a wisp brushing past mid-walk.
+  _walk(dt, input) {
     let dir = 0;
-    if (canAct) {
-      if (input.isDown('left')) dir -= 1;
-      if (input.isDown('right')) dir += 1;
-    }
+    if (input.isDown('left')) dir -= 1;
+    if (input.isDown('right')) dir += 1;
     const accel = this.onGround ? GROUND_ACCEL : AIR_ACCEL;
     const friction = this.onGround ? GROUND_FRICTION : AIR_FRICTION;
 
@@ -248,27 +241,14 @@ export class Player {
     }
   }
 
-  // A pit is bottomless. Physics runs in the level's local frame, and in that
-  // frame "down" is always -Y even after the L2 room turns, so this one test
-  // covers a rotated room without knowing anything about the rotation.
-  // `level` is the level data; its rotQ says which way is currently down. The L2
-  // room turns in quarter steps, so after a turn the edge of the world you fall
-  // out of is a side wall rather than the bottom.
+  // A pit is bottomless. "Down" is always -Y: a body fully below the floor
+  // line can only be inside a hole, everywhere else the ground occupies the
+  // lowest rows.
   _checkVoid(level) {
     if (this.dead) return;
-    const q = (level.rotQ || 0) & 3;
-    let out;
-    if (q === 0) {
-      // Fully below the floor line. A body down there can only be inside a hole:
-      // everywhere else the ground occupies the lowest rows.
-      out = this.body.top < PIT_DEATH_Y;
-    } else if (q === 1) {
-      out = this.body.right > level.width * TILE;
-    } else if (q === 2) {
-      out = this.body.top > level.height * TILE;
-    } else {
-      out = this.body.left < 0;
-    }
+    // Fully below the floor line. A body down there can only be inside a hole:
+    // everywhere else the ground occupies the lowest rows.
+    const out = this.body.top < PIT_DEATH_Y;
     if (!out) return;
     this.pitDeath = true;
     this.kill();

@@ -7,7 +7,7 @@ import { audio } from '../../core/audio.js';
 // L2 boss: Ul Burjo, who was the kind elder in L1.
 //
 // Phase 1 is a ranged duel: he throws toxic bolts and repositions, teaching the
-// arena. Phase 2 turns the arena itself into the weapon -- he rotates the room,
+// arena. Phase 2 turns the arena itself into the weapon -- he shifts the world,
 // which is the same mechanic the player has been using all level, now aimed at
 // them. Using the player's own tool against them is the point.
 //
@@ -15,7 +15,7 @@ import { audio } from '../../core/audio.js';
 // on the floor) -> active (the damage, decided on ONE frame) -> recover (still,
 // safe to hit). Nothing outside `active` can hurt the player, which is what
 // makes standing beside a winding-up Ul Burjo a legitimate thing to do. The
-// turn is the one attack with no damage of its own: the arena is the weapon.
+// shift is the one attack with no damage of its own: the arena is the weapon.
 
 const WEIGHTS_P1 = {
   reposition: 1.0,
@@ -30,7 +30,7 @@ const WEIGHTS_P1 = {
 };
 
 const WEIGHTS_P2 = {
-  rotate: 1.2,
+  shift: 1.2,
   volley: 1.0,
   sweep: 1.1,
   blink: 0.7,
@@ -47,15 +47,15 @@ const T = {
   volley: [0.70, 0.15, 0.90],
   sweep: [0.60, 0.14, 0.80],
   blink: [0.50, 0.10, 0.70],
-  rotate: [1.00, 0.10, 1.20],
+  shift: [1.00, 0.10, 1.20],
 };
 const P2_WINDUP = 0.8;      // phase 2 multiplies every windup by this
 const AFTER_ATTACK = 0.35;  // pause after recover before the next decision
-const ROTATE_CD = 6.0;      // a turn at most this often, phase 2 only
+const SHIFT_CD = 6.0;       // a shift at most this often, phase 2 only
 const BLINK_OFFSET = 60;    // he lands this far past the player, never on them
 const SWEEP_RANGE = 50;     // a sweep is a point-blank answer, not a poke
 const BOLT_SPEED = 400;     // px/s: crosses the strip inside the active window
-const ROTATE_MARK = 0x9b5cf0;
+const SHIFT_MARK = 0x9b5cf0;
 
 export class UlBurjo extends Boss {
   constructor(opts) {
@@ -71,7 +71,7 @@ export class UlBurjo extends Boss {
     this.body.y = opts.y;
     this.homeX = opts.x;
     this.homeY = opts.y;
-    this.level = opts.level;             // the Level, for the arena rotation
+    this.level = opts.level;             // the Level, for the arena shift
     // The attack in flight, or null. `stage`/`t`/`dur` are the clock; `tx` is
     // where the player was when the windup began -- the only fair thing to aim
     // at, since re-aiming on the frame it lands would be undodgeable -- and
@@ -79,12 +79,9 @@ export class UlBurjo extends Boss {
     this.atk = null;
     this.atkLog = [];
     this.pause = 0;
-    this.rotateCooldown = 0;
-    this.rotateRequested = false;
+    this.shiftCooldown = 0;
     this.announcedReveal = false;
   }
-
-  get turning() { return !!this.level?.isRotating; }
 
   wake() {
     if (this.state !== 'sleep') return;
@@ -104,17 +101,7 @@ export class UlBurjo extends Boss {
       this.swapTo('badwitch');
     }
 
-    // A turn of the room is the loudest tell in the game, and it moves every
-    // floor marker at once -- so an attack in flight when one starts would be
-    // leaving a decal pointing at the wrong patch of floor. The turn is the
-    // exception: by the time the room is moving it has already said everything
-    // it has to say.
-    if (this.atk && this.turning) {
-      this.fx.clearTelegraphs();
-      if (this.atk.name !== 'rotate') { this.atk = null; this.pause = AFTER_ATTACK; }
-    }
-
-    this.rotateCooldown = Math.max(0, this.rotateCooldown - dt);
+    this.shiftCooldown = Math.max(0, this.shiftCooldown - dt);
     this.pause = Math.max(0, this.pause - dt);
     const weights = this.phase === 1 ? WEIGHTS_P1 : WEIGHTS_P2;
     const action = this.think(dt, player, level, weights);
@@ -124,11 +111,9 @@ export class UlBurjo extends Boss {
     // not work.
     if (!this.atk || this.atk.stage === 'windup') this.facing = dx >= 0 ? 1 : -1;
 
-    // Standing still through a phase change: the room is in charge and it is not
-    // a moment to start something. A turn only stops him from *starting* -- the
-    // attack that asked for it is still in flight and has to be allowed to land
-    // its recover on schedule, or he would sit in `active` for the whole turn.
-    if (this.state === 'phase' || (this.turning && !this.atk)) this.body.vx = 0;
+    // Standing still through a phase change: the arena is in charge and it is
+    // not a moment to start something.
+    if (this.state === 'phase') this.body.vx = 0;
     else if (this.atk) this._runAttack(dt, player);
     else if (this.pause <= 0) this._decide(action, player, dx);
     else this.body.vx *= 0.8;
@@ -138,9 +123,9 @@ export class UlBurjo extends Boss {
   }
 
   _decide(action, player, dx) {
-    // The turn comes first in phase 2, and only off its cooldown: it is the
-    // loudest thing in the fight and the room has to be free for it.
-    if (this.phase >= 2 && this.rotateCooldown <= 0 && action === 'rotate') { this._begin('rotate', player); return; }
+    // The shift comes first in phase 2, and only off its cooldown: it is the
+    // loudest thing in the fight.
+    if (this.phase >= 2 && this.shiftCooldown <= 0 && action === 'shift') { this._begin('shift', player); return; }
     if (action === 'volley' || action === 'blink') { this._begin(action, player); return; }
     // A sweep is a point-blank answer. At range it would be a second volley with
     // a different shape and no more reach, so it waits for the player to close.
@@ -150,14 +135,14 @@ export class UlBurjo extends Boss {
   }
 
   _begin(name, player) {
-    // The turn keeps its full second. The 0.8 phase-2 scaling on a 1.00s windup
+    // The shift keeps its full second. The 0.8 phase-2 scaling on a 1.00s windup
     // would put it under a 0.9s floor, and this is the one attack the player has
     // to walk out of rather than dodge.
     this.atk = {
       name,
       stage: 'windup',
       t: 0,
-      dur: T[name][0] * (this.phase >= 2 && name !== 'rotate' ? P2_WINDUP : 1),
+      dur: T[name][0] * (this.phase >= 2 && name !== 'shift' ? P2_WINDUP : 1),
       tx: player.cx,
       bx: 0,
     };
@@ -185,10 +170,10 @@ export class UlBurjo extends Boss {
     } else if (a.name === 'blink') {
       this.fx.telegraph(a.bx, y, 20, 30, a.dur);
     } else {
-      // The whole patch of floor the player is standing on: a turn pins them to
-      // their own spot and swings the room underneath it, so the ground they are
-      // on is exactly what the marker has to cover.
-      this.fx.telegraph(a.tx, y, 220, 6, a.dur, ROTATE_MARK);
+      // The whole patch of floor the player is standing on: a shift changes
+      // the footing under them, so the ground they are on is exactly what the
+      // marker has to cover.
+      this.fx.telegraph(a.tx, y, 220, 6, a.dur, SHIFT_MARK);
     }
   }
 
@@ -223,7 +208,7 @@ export class UlBurjo extends Boss {
   // attack. That is what makes the marker a promise instead of a decoration.
   _strike(a, player) {
     if (a.name === 'blink') { this._blink(a); return; }
-    if (a.name === 'rotate') { this._requestRotate(); return; }
+    if (a.name === 'shift') { this._doShift(); return; }
     if (a.name === 'sweep') { this._sweep(player); return; }
     this._volley();
     if (this._hits(player, this._volleyRect())) player.hurt();
@@ -299,31 +284,16 @@ export class UlBurjo extends Boss {
     this.sprite.mesh.scale.set(next.char.cell[0], next.char.cell[1], 1);
   }
 
-  // Asks the level to turn. The level owns the tween, so the rotation is exactly
-  // the player's own mechanic with the same 0.6s timing and the same fairness.
-  _requestRotate() {
-    if (this.rotateRequested || !this.level) return;
-    if (this.level.isRotating) return;
-    // The arena is a punctuation mark, not the fight. A long cooldown keeps it
-    // readable and stops the room from spinning faster than the player can
-    // reorient, which is the failure mode that makes the mechanic feel unfair.
-    if (this.rotateCooldown > 0) return;
-    const p = new THREE.Vector3(this.cx, this.cy, 0);
-    if (this.level.beginRotate(p)) {
-      this.rotateRequested = true;
-      this.rotateCooldown = ROTATE_CD;
-      this.state = 'rotate';
+  // Forces the world shift. The arena floor is common to both worlds, so the
+  // forced shift never drops anyone into a pit: it only changes the ledges,
+  // and lifts the player out if they end up inside one. A forced shift never
+  // refuses, so this attack always lands its recover on schedule.
+  _doShift() {
+    if (!this.level) return;
+    if (this.level.shiftWorld({ force: true })) {
+      this.shiftCooldown = SHIFT_CD;
       audio.sfxRotate();
     }
-  }
-
-  // Called by the game once the level rotation finishes, so the boss does not
-  // spam another turn while the tween is still running.
-  onRotationDone() {
-    this.rotateRequested = false;
-    if (this.state === 'rotate') this.state = 'idle';
-    // The turn moves the boss along with the room; re-seat him on the floor.
-    this.body.x = Math.floor(this.body.x / 8) * 8;
   }
 
   // A phase change and a death are both hard interrupts: half an attack would

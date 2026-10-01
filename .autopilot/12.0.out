@@ -1,0 +1,1509 @@
+[0m
+> build · space-bunny-free
+[0m
+I'll start by reading the stage 12 documentation.
+[0m→ [0mRead docs/stage12.md
+[0m
+[0m$ [0mls -la && echo "---" && ls js js/game js/render js/ui tools docs 2>/dev/null
+total 6516
+drwxrwxr-x 13 nico nico    4096 Sep 30 21:55 .
+drwxrwxr-x  6 nico nico    4096 Sep 28 10:14 ..
+drwxrwxr-x  2 nico nico    4096 Sep 30 22:09 .autopilot
+-rw-rw-r--  1 nico nico    2676 Sep 30 22:09 .bunny-autopilot.log
+-rwxrwxr-x  1 nico nico    3894 Sep 30 21:55 .bunny-autopilot.sh
+-rwxrwxr-x  1 nico nico     348 Sep 30 00:17 .bunny-chain.sh
+-rwxrwxr-x  1 nico nico     491 Sep 30 18:53 .bunny-chain2.sh
+-rwxrwxr-x  1 nico nico     313 Sep 30 21:55 .bunny-chain3.sh
+-rw-rw-r--  1 nico nico 1251971 Sep 29 23:32 .bunny-loop.log
+-rwxrwxr-x  1 nico nico     861 Sep 28 14:45 .bunny-loop.sh
+-rw-rw-r--  1 nico nico    1482 Sep 28 14:27 .bunny-prompt.txt
+-rw-rw-r--  1 nico nico     718 Sep 28 14:34 .bunny-reply.txt
+-rw-rw-r--  1 nico nico      61 Sep 30 22:09 .bunny-status.txt
+drwxrwxr-x  7 nico nico    4096 Sep 30 22:09 .git
+-rw-rw-r--  1 nico nico      76 Sep 29 12:44 .gitignore
+drwxrwxr-x 17 nico nico    4096 Sep 30 21:51 .scratch
+-rw-rw-r--  1 nico nico 5054241 Sep 28 10:24 1.png
+-rw-rw-r--  1 nico nico  121701 Sep 28 10:24 2.jpg
+-rw-rw-r--  1 nico nico  113915 Sep 28 10:24 3.jpg
+-rw-rw-r--  1 nico nico   14829 Sep 30 22:04 README.md
+drwxrwxr-x  5 nico nico    4096 Sep 29 12:42 assets
+drwxrwxr-x  4 nico nico    4096 Sep 30 20:07 assets-src
+drwxrwxr-x  2 nico nico    4096 Sep 28 15:01 css
+drwxrwxr-x  3 nico nico    4096 Sep 30 21:54 docs
+-rw-rw-r--  1 nico nico    5946 Sep 30 18:57 index.html
+drwxrwxr-x  7 nico nico    4096 Sep 29 23:56 js
+drwxrwxr-x  2 nico nico    4096 Sep 28 15:06 node_modules
+-rw-rw-r--  1 nico nico    1292 Sep 30 08:48 output.log
+drwxrwxr-x  2 nico nico    4096 Sep 29 22:06 sprites
+drwxrwxr-x  3 nico nico    4096 Sep 30 21:54 tools
+---
+docs:
+DECISIONS.md
+inspo.md
+stage1-notes.md
+stage1.md
+stage10.md
+stage11.md
+stage12.md
+stage1b.md
+stage1c.md
+stage1d.md
+stage2.md
+stage2b.md
+stage2c.md
+stage2d.md
+stage2e.md
+stage2f.md
+stage3b.md
+stage4.md
+stage5.md
+stage6.md
+stage7.md
+stage8.md
+stage9.md
+superpowers
+
+js:
+core
+game
+main.js
+render
+ui
+vendor
+
+js/game:
+ai.js
+boss
+enemy.js
+fx.js
+level.js
+physics.js
+player.js
+state.js
+
+js/render:
+materials.js
+minions.js
+parallax.js
+pipeline.js
+sprite.js
+
+js/ui:
+cutscene.js
+hud.js
+i18n.js
+strings.js
+
+tools:
+__pycache__
+build-atlas.py
+compress-panels.py
+cut_minions.py
+gate10.mjs
+gate11.mjs
+gate12.mjs
+gate2f.py
+gate3a.mjs
+gate3b.mjs
+gate4.mjs
+gate5.mjs
+gate6.mjs
+gate7.mjs
+gate8.py
+gate9.mjs
+gateai.mjs
+gateboss.mjs
+gatei18n.mjs
+reach.mjs
+serve.py
+smoke.mjs
+stage1.mjs
+stage1b.mjs
+stage2e.mjs
+story.mjs
+[0m
+[0m→ [0mRead tools/gate12.mjs
+[0m→ [0mRead tools/gate4.mjs
+[0m✗ [0mRead tools/gacharboss.mjs failed
+[91m[1mError: [0mFile not found: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/tools/gacharboss.mjs
+[0m→ [0mRead tools/gateboss.mjs
+[0m→ [0mRead tools/reach.mjs
+[0m→ [0mRead js/game/level.js
+[0m→ [0mRead js/game/physics.js
+[0m→ [0mRead js/main.js
+[0m→ [0mRead js/game/boss/ulburjo.js
+[0m→ [0mRead js/game/player.js
+[0m→ [0mRead js/ui/strings.js
+[0m
+[0m$ [0mrg -n -i "rotat|girar|turn the world|rotQ|rotCount|isRotating|canRotate|levelCanRotate|beginRotate|updateRotation|ROTATE" --glob '!assets/**' --glob '!assets-src/**' --glob '!docs/**' --glob '!node_modules/**' --glob '!.git/**' --glob '!.bunny-*' --glob '!output.log' . | head -100
+zsh:1: command not found: rg
+[0m
+[0m✱ [0mGrep "rotat|rotQ|rotCount|isRotating|canRotate|levelCanRotate|beginRotate|updateRotation|ROTATE|girar|Girar"[90m in . · 100 matches[0m
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && grep -rn -E "rotat|rotQ|rotCount|isRotating|canRotate|levelCanRotate|beginRotate|updateRotation|ROTATE|girar|Girar|Rotate" js css index.html README.md | grep -v "^js/vendor"
+js/ui/hud.js:111:      ['ctlRotate', 'ctlKeysRotate'],
+js/ui/strings.js:29:    ctlRotate: 'Girar el nivel',
+js/ui/strings.js:36:    ctlKeysRotate: 'E',
+js/ui/strings.js:47:    rotateHint: 'Gira: E',
+js/ui/strings.js:48:    rotateWorld: 'Pulsa E para girar el mundo',
+js/ui/strings.js:163:    ctlRotate: 'Rotate level',
+js/ui/strings.js:170:    ctlKeysRotate: 'E',
+js/ui/strings.js:180:    rotateHint: 'Rotate: E',
+js/ui/strings.js:181:    rotateWorld: 'Press E to turn the world',
+js/game/boss/ulburjo.js:10:// arena. Phase 2 turns the arena itself into the weapon -- he rotates the room,
+js/game/boss/ulburjo.js:33:  rotate: 1.2,
+js/game/boss/ulburjo.js:50:  rotate: [1.00, 0.10, 1.20],
+js/game/boss/ulburjo.js:54:const ROTATE_CD = 6.0;      // a turn at most this often, phase 2 only
+js/game/boss/ulburjo.js:58:const ROTATE_MARK = 0x9b5cf0;
+js/game/boss/ulburjo.js:74:    this.level = opts.level;             // the Level, for the arena rotation
+js/game/boss/ulburjo.js:82:    this.rotateCooldown = 0;
+js/game/boss/ulburjo.js:83:    this.rotateRequested = false;
+js/game/boss/ulburjo.js:87:  get turning() { return !!this.level?.isRotating; }
+js/game/boss/ulburjo.js:114:      if (this.atk.name !== 'rotate') { this.atk = null; this.pause = AFTER_ATTACK; }
+js/game/boss/ulburjo.js:117:    this.rotateCooldown = Math.max(0, this.rotateCooldown - dt);
+js/game/boss/ulburjo.js:143:    if (this.phase >= 2 && this.rotateCooldown <= 0 && action === 'rotate') { this._begin('rotate', player); return; }
+js/game/boss/ulburjo.js:160:      dur: T[name][0] * (this.phase >= 2 && name !== 'rotate' ? P2_WINDUP : 1),
+js/game/boss/ulburjo.js:191:      this.fx.telegraph(a.tx, y, 220, 6, a.dur, ROTATE_MARK);
+js/game/boss/ulburjo.js:226:    if (a.name === 'rotate') { this._requestRotate(); return; }
+js/game/boss/ulburjo.js:302:  // Asks the level to turn. The level owns the tween, so the rotation is exactly
+js/game/boss/ulburjo.js:304:  _requestRotate() {
+js/game/boss/ulburjo.js:305:    if (this.rotateRequested || !this.level) return;
+js/game/boss/ulburjo.js:306:    if (this.level.isRotating) return;
+js/game/boss/ulburjo.js:310:    if (this.rotateCooldown > 0) return;
+js/game/boss/ulburjo.js:312:    if (this.level.beginRotate(p)) {
+js/game/boss/ulburjo.js:313:      this.rotateRequested = true;
+js/game/boss/ulburjo.js:314:      this.rotateCooldown = ROTATE_CD;
+js/game/boss/ulburjo.js:315:      this.state = 'rotate';
+js/game/boss/ulburjo.js:316:      audio.sfxRotate();
+js/game/boss/ulburjo.js:320:  // Called by the game once the level rotation finishes, so the boss does not
+js/game/boss/ulburjo.js:323:    this.rotateRequested = false;
+js/game/boss/ulburjo.js:324:    if (this.state === 'rotate') this.state = 'idle';
+js/game/level.js:3:import { ROTATE_TIME, LEVELS } from '../core/config.js';
+js/game/level.js:8:// and the tile grid is always axis-aligned -- at any rotation.
+js/game/level.js:11:// degrees needs no rotated-box maths, because the simulation never leaves the
+js/game/level.js:42:// Ground with a hole punched in it. The holes are the rotation puzzle: they are
+js/game/level.js:279:    this.rot = 0;             // current rotation, always a multiple of PI/2
+js/game/level.js:283:    this.rotating = false;
+js/game/level.js:284:    this.rotCount = 0;
+js/game/level.js:288:  // "which way is down" is a function of the rotation: the room turns in quarter
+js/game/level.js:292:    this.data.rotQ = q;
+js/game/level.js:304:    this.rotating = false; this.rotCount = 0;
+js/game/level.js:305:    this.group.rotation.z = 0;
+js/game/level.js:313:  get canRotate() { return this.data && this.data.id === 2; }
+js/game/level.js:315:  // Read by _buildRunes while the tiles are being built, before canRotate can be
+js/game/level.js:317:  get levelCanRotate() { return !!this.data && this.data.id === 2; }
+js/game/level.js:318:  get isRotating() { return this.rotating; }
+js/game/level.js:342:  beginRotate(localPos) {
+js/game/level.js:343:    if (this.rotating || !this.canRotate) return false;
+js/game/level.js:349:    this.rotating = true;
+js/game/level.js:358:  updateRotation(dt) {
+js/game/level.js:359:    if (!this.rotating) return null;
+js/game/level.js:361:    const k = clamp(this.rotT / ROTATE_TIME, 0, 1);
+js/game/level.js:363:    this.group.rotation.z = this.rot;
+js/game/level.js:366:      this.rotating = false;
+js/game/level.js:367:      this.rotCount++;
+js/game/level.js:370:      this.group.rotation.z = this.rot;
+js/game/level.js:412:  // A rune on the ground three tiles before each rotation hole, in the level's
+js/game/level.js:419:    if (!this.levelCanRotate || !holes.length) return;
+js/game/physics.js:4:// the group is at rest. During the L2 rotation the physics is switched off
+js/game/physics.js:5:// entirely (see level.js), which is what lets a 90-degree rotation happen
+js/game/physics.js:6:// without any rotated-box maths anywhere in the codebase.
+js/game/physics.js:37:  // Which edge of the world is open, if any. A rotated room can have a side
+js/game/physics.js:39:  // underneath. The Level sets this from the current rotation.
+js/game/state.js:7:// jump from `menu` straight into `boss`, and a death during a rotation has to
+js/game/player.js:174:    // A rotated room can have a side wall as the floor of the world, and that
+js/game/player.js:253:  // covers a rotated room without knowing anything about the rotation.
+js/game/player.js:254:  // `level` is the level data; its rotQ says which way is currently down. The L2
+js/game/player.js:259:    const q = (level.rotQ || 0) & 3;
+js/main.js:3:import { LOW_RES_W, LOW_RES_H, LEVELS, CAM, DASH_COOLDOWN, ROTATE_TIME, PIT_DEATH_Y, HITSTOP, SHAKE, ENEMY_KNOCKBACK, GA_MEASUREMENT_ID } from './core/config.js';
+js/main.js:48:const ROTATE_HINT_TILES = 6;   // how close to a hole before the hint repeats
+js/main.js:566:    // ---- L2 rotate, handled outside the player so physics can be suspended
+js/main.js:567:    if (this.level.canRotate && this.level.isRotating) {
+js/main.js:568:      const done = this.level.updateRotation(dt);
+js/main.js:586:      if (this.input.consume('rotate') && this.level.canRotate && this.level.beginRotate(
+js/main.js:590:        audio.sfxRotate();
+js/main.js:592:        this.ui.showToast(t('rotateHint'), 1.2);
+js/main.js:650:    // ---- rotation hint. On entering L2, and again the first time the player
+js/main.js:653:    if (this.level.canRotate) {
+js/main.js:654:      if (!this._hintOnEntry) { this._hintOnEntry = true; this.ui.showToast(t('rotateWorld'), 4.0); }
+js/main.js:657:          if (Math.abs(p.cx - hx * TILE) > ROTATE_HINT_TILES * TILE) continue;
+js/main.js:659:          this.ui.showToast(t('rotateWorld'), 4.0);
+js/main.js:995:    const arenaTurns = this.level.rotCount;
+js/main.js:998:    this.level.rotCount = arenaTurns;
+js/main.js:1080:    if (this.level.isRotating) return;   // rotation path owns the transform
+js/main.js:1093:    // breaks after the L2 rotation: the group is turned, so local no longer maps
+js/main.js:1097:    // their bounds keeps the clamp correct at any rotation angle.
+js/main.js:1132:  // World-space AABB of the level, recomputed only when the rotation angle
+js/main.js:1191:window.CFG = { level: 3, p1: ['lantern', 'ring', 'cutoff'], p2: 'surge', p2min: 0.9, rotate: false };
+js/core/config.js:65:export const ROTATE_TIME = 0.6;     // seconds for the L2 level rotation
+js/core/audio.js:90:  sfxRotate() { this.tone({ freq: 120, to: 420, type: 'sawtooth', dur: 0.55, gain: 0.09 });
+js/core/input.js:4:// rotate has a 0.6s tween, so a player who presses jump slightly early during a
+js/core/input.js:18:  rotate: ['KeyE'],
+README.md:43:| **Rotate** the level (L2 only) | `E` |
+README.md:80:| 2 | Rotting Reliquary (170 tiles) | **The world rotates 90°.** `E` turns the whole room over 0.6 s while you stay pinned in place. Gaps too wide to jump become ledges you can walk, and standing walls become bridges. Physics runs in the level group's local space, so the rotation needs no rotated-box maths anywhere. | **Ul Burjo** in `js/game/boss/ulburjo.js`. Phase 1 is a ranged duel; phase 2 turns the arena into the weapon and rotates it at you — your own tool, aimed at you. |
+README.md:209:| `node tools/gate4.mjs` | The same contract for Ul Burjo, plus that his phase-2 `rotate` attack really turns the room. |
+README.md:218:(title, cutscene, movement, rotation, both boss phases, ending, language toggle) and
+[0m
+[0m→ [0mRead js/render/parallax.js
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && sed -n '90,140p' js/ui/hud.js && echo "=== i18n" && cat js/ui/i18n.js && echo "=== config LEVELS" && sed -n '1,120p' js/core/config.js
+el('ending-title').textContent = t('endingTitle');
+    el('ending-sub').textContent = t('endingSub');
+    el('ending-restart').textContent = t('endingRestart');
+    el('ending-menu').textContent = t('endingTitle2');
+    if (this.metricsTitle) this.metricsTitle.textContent = t('metricsTitle');
+    const close = el('metrics-close');
+    if (close) close.textContent = t('metricsClose');
+    el('cut-hint').textContent = `${t('pressAny')} · ${t('skip')}`;
+    el('story-hint').textContent = t('pressAny');
+    this._buildControls();
+    this._buildMetrics();
+    this._renderMenu();
+  }
+
+  _buildControls() {
+    if (!this.controlsBody) return;
+    const rows = [
+      ['ctlMove', 'ctlKeysMove'],
+      ['ctlJump', 'ctlKeysJump'],
+      ['ctlAttack', 'ctlKeysAttack'],
+      ['ctlDash', 'ctlKeysDash'],
+      ['ctlRotate', 'ctlKeysRotate'],
+      ['ctlPause', 'ctlKeysPause'],
+      ['ctlLang', 'ctlKeysLang'],
+    ];
+    this.controlsBody.innerHTML = rows
+      .map(([k, keys]) => `<div class="ctl-row"><span>${t(k)}</span><kbd>${t(keys)}</kbd></div>`)
+      .join('') + `<p class="ctl-note">${t('ctlRotNote')}</p>`;
+  }
+
+  _renderMenu() {
+    this._buildDifficulty();
+    this._buildLang();
+  }
+
+  // ---- metrics panel
+  //
+  // Rebuilt from the event log every time it is opened, not kept in sync: the log
+  // is the only copy of the truth, and a panel that drifts from it would be worse
+  // than no panel at all.
+  showMetrics() {
+    this.controlsPanel?.classList.remove('on');
+    this._buildMetrics();
+    this.metricsPanel?.classList.add('on');
+    this.metricsOpen = true;
+  }
+
+  hideMetrics() {
+    this.metricsPanel?.classList.remove('on');
+    this.metricsOpen = false;
+  }
+=== i18n
+import { STRINGS, DEFAULT_LANG } from './strings.js';
+
+let lang = DEFAULT_LANG;
+
+export function getLang() { return lang; }
+
+export function setLang(next) {
+  lang = STRINGS[next] ? next : DEFAULT_LANG;
+  try { localStorage.setItem('lumenfall.lang', lang); } catch (e) { /* private mode */ }
+  return lang;
+}
+
+export function toggleLang() { return setLang(lang === 'es' ? 'en' : 'es'); }
+
+// Restores the stored preference before the first paint, so nobody sees a flash
+// of the wrong language on the title screen.
+export function loadStoredLang() {
+  try {
+    const saved = localStorage.getItem('lumenfall.lang');
+    if (saved && STRINGS[saved]) lang = saved;
+  } catch (e) { /* private mode */ }
+  return lang;
+}
+
+export function t(key) {
+  const table = STRINGS[lang];
+  return (table && table[key]) !== undefined ? table[key] : (STRINGS[DEFAULT_LANG][key] ?? key);
+}
+=== config LEVELS
+// Every tunable that is really a global lives here, so the look of the game can
+// be retuned from one file instead of hunted across the codebase.
+
+// The low-res render buffer. Everything is authored against this pixel grid and
+// then upscaled in the post pass, so this constant is the single knob that
+// decides how chunky the game looks. Changing it rescales the whole world
+// because the orthographic camera derives its frustum from it.
+export const LOW_RES_W = 480;
+export const LOW_RES_H = 270;
+
+// World units are low-res pixels: 1 unit == 1 buffer pixel. Keeps sprite cells,
+// tilemaps, physics and the camera all on the same grid with no conversion.
+export const PX = 1;
+
+// Kael's collision box, in pixels. Narrower than the sprite so he slips through
+// gaps he visually clears.
+export const PLAYER_W = 14;
+export const PLAYER_H = 30;
+
+export const DASH_TIME = 0.20;      // seconds of dash
+export const DASH_SPEED = 260;      // px/s
+export const DASH_COOLDOWN = 1.0;   // seconds, per the design
+// Coordinate convention: +y is UP, matching the orthographic camera, so
+// gravity is negative. Getting this backwards once is how the whole level ends
+// up rendered upside down with the player standing on the ceiling.
+export const JUMP_VEL = 305;        // px/s, positive is up
+export const JUMP_CUT = 0.45;       // fraction of jump kept when the key is released
+export const GRAVITY = 720;         // px/s^2
+export const MAX_FALL = 300;        // px/s, applied as a negative floor on vy
+// Derived from the two numbers above, and load-bearing for level design:
+// apex is JUMP_VEL^2 / 2*GRAVITY ~= 64.6px ~= 8 tiles, and a full jump covers
+// ~9 tiles horizontally. Level layouts are held to a stricter rule than the
+// apex: no surface more than 48px (6 tiles) above the one it is jumped from, and
+// no horizontal gap over 7 tiles. tools/reach.mjs proves both on every level.
+// At JUMP_VEL 250 the apex was 43px, which was under the 48px rule, so the rule
+// was unsatisfiable and platforms were decoration.
+export const RUN_SPEED = 105;       // px/s
+export const GROUND_ACCEL = 900;
+export const AIR_ACCEL = 520;
+export const GROUND_FRICTION = 1100;
+export const AIR_FRICTION = 220;
+
+export const ATTACK_TIME = 0.26;   // seconds
+export const ATTACK_ACTIVE = 0.10; // seconds where the blade is live
+export const ATTACK_REACH = 26;
+export const ATTACK_DMG = 1;
+export const IFRAMES_ON_HIT = 0.9;  // seconds
+
+// Impact feel. Hitstop freezes the simulation for a few frames on a hit, and the
+// screen shakes: together they are what makes a blade read as heavy.
+export const HITSTOP = { enemy: 0.05, boss: 0.07, bossKill: 0.16, playerHurt: 0.10 };  // seconds
+export const SHAKE = { enemy: 2, boss: 3.5, bossKill: 6, playerHurt: 6 };            // px amplitude
+export const ENEMY_STAGGER = 0.18;   // seconds an enemy loses control after a hit
+export const ENEMY_KNOCKBACK = 90;   // px/s pushed away from the blade
+
+// The standing surface, in world pixels. The ground occupies the lowest tile
+// rows, so its top face is (GROUND + 1) * TILE = 4 * 8. Lives here because the
+// pit-death test needs it in the player's update, not just in the level builder.
+export const FLOOR_Y = 32;
+
+// Below this, a body is entirely under the floor line and has fallen out of the
+// world. Eight pixels of grace so a body brushing the lip does not count.
+export const PIT_DEATH_Y = FLOOR_Y - 8;
+
+export const ROTATE_TIME = 0.6;     // seconds for the L2 level rotation
+
+// Per-level look. Palettes sampled from the reference art:
+//   1.png emerald shrine, 2.jpg purple/toxic, 3.jpg burnt-orange/black
+export const LEVELS = [
+  {
+    id: 1,
+    nameKey: 'level1',
+    // Level width in tiles. Read by the parallax layer to turn cameraX into a
+    // 0..1 scroll progress without main.js having to pass it through.
+    width: 190,
+    // L1 Shrine of Ember
+    sky: [0x030806, 0x061209, 0x08190f],
+    accent: 0x54f0a8,
+    light: 0x9fffc8,
+    // Platforms are near-black with a 1-2px accent top edge. The previous
+    // mid-green body read as a grey slab and fought the background for attention.
+    tile: 0x0b0f0e,
+    platform: 0x0b0f0e,
+    lip: 0x4fd18b,
+    // parallax layer tint + scroll multiplier
+    layers: [
+      { mult: 0.10, tint: 0x0c2018, y: 0.10 },
+      { mult: 0.28, tint: 0x123024, y: 0.02 },
+      { mult: 0.55, tint: 0x1a4430, y: 0.00 },
+    ],
+  },
+  {
+    id: 2,
+    nameKey: 'level2',
+    width: 170,
+    // L2 Rotting Reliquary
+    sky: [0x070512, 0x0d0718, 0x140c22],
+    accent: 0xa86cf0,
+    light: 0xd8a8ff,
+    // Same rule as L1/L3: near-black body, accent only on the 1-2px top lip.
+    // The solid #7a3fa0 this replaced was a bright slab that outshone Kael and
+    // read as a foreground object rather than something to stand on.
+    tile: 0x1a0f22,
+    platform: 0x1a0f22,
+    lip: 0x9be34a,
+    layers: [
+      { mult: 0.10, tint: 0x1a0f2b, y: 0.10 },
+      { mult: 0.28, tint: 0x26163c, y: 0.02 },
+      { mult: 0.55, tint: 0x331f52, y: 0.00 },
+    ],
+  },
+  {
+    id: 3,
+    nameKey: 'level3',
+    width: 180,
+    // L3 Lantern Wood
+    sky: [0x0a0502, 0x140a04, 0x1e1006],
+    accent: 0xff9a3c,
+    light: 0xffb060,
+    // Almost no ambient: the sword halo is the only light in L3.
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && ls -la .autopilot/ && wc -l .autopilot/*.out 2>/dev/null | tail -5
+total 688
+drwxrwxr-x  2 nico nico   4096 Sep 30 22:09 .
+drwxrwxr-x 13 nico nico   4096 Sep 30 21:55 ..
+-rw-rw-r--  1 nico nico    569 Sep 30 20:26 10.0.gate
+-rw-rw-r--  1 nico nico   9111 Sep 30 20:26 10.0.out
+-rw-rw-r--  1 nico nico   3368 Sep 30 20:29 10.0.reg
+-rw-rw-r--  1 nico nico    776 Sep 30 22:00 11.0.gate
+-rw-rw-r--  1 nico nico   8412 Sep 30 21:58 11.0.out
+-rw-rw-r--  1 nico nico    480 Sep 30 22:00 11.0.reg
+-rw-rw-r--  1 nico nico    695 Sep 30 22:05 11.1.gate
+-rw-rw-r--  1 nico nico   8073 Sep 30 22:05 11.1.out
+-rw-rw-r--  1 nico nico   3305 Sep 30 22:09 11.1.reg
+-rw-rw-r--  1 nico nico  20490 Sep 30 22:12 12.0.out
+-rw-rw-r--  1 nico nico    532 Sep 30 00:42 2f.0.gate
+-rw-rw-r--  1 nico nico  43272 Sep 30 00:40 2f.0.out
+-rw-rw-r--  1 nico nico     28 Sep 30 01:07 2f.1.gate
+-rw-rw-r--  1 nico nico  39068 Sep 30 01:07 2f.1.out
+-rw-rw-r--  1 nico nico   3368 Sep 30 01:10 2f.1.reg
+-rw-rw-r--  1 nico nico    768 Sep 30 00:11 3b.0.gate
+-rw-rw-r--  1 nico nico  20996 Sep 30 00:10 3b.0.out
+-rw-rw-r--  1 nico nico    853 Sep 30 09:14 4.0.gate
+-rw-rw-r--  1 nico nico  29066 Sep 30 09:14 4.0.out
+-rw-rw-r--  1 nico nico   3368 Sep 30 09:17 4.0.reg
+-rw-rw-r--  1 nico nico    772 Sep 30 01:49 5.0.gate
+-rw-rw-r--  1 nico nico  60309 Sep 30 01:49 5.0.out
+-rw-rw-r--  1 nico nico   3368 Sep 30 01:52 5.0.reg
+-rw-rw-r--  1 nico nico    363 Sep 30 17:42 6.0.gate
+-rw-rw-r--  1 nico nico   6099 Sep 30 17:41 6.0.out
+-rw-rw-r--  1 nico nico   3368 Sep 30 17:44 6.0.reg
+-rw-rw-r--  1 nico nico   1694 Sep 30 19:02 7.0.gate
+-rw-rw-r--  1 nico nico  39579 Sep 30 19:02 7.0.out
+-rw-rw-r--  1 nico nico   3368 Sep 30 19:05 7.0.reg
+-rw-rw-r--  1 nico nico    454 Sep 30 20:09 8.0.gate
+-rw-rw-r--  1 nico nico  23796 Sep 30 20:09 8.0.out
+-rw-rw-r--  1 nico nico   3368 Sep 30 20:12 8.0.reg
+-rw-rw-r--  1 nico nico    885 Sep 30 19:24 8.1.gate
+-rw-rw-r--  1 nico nico  12675 Sep 30 19:24 8.1.out
+-rw-rw-r--  1 nico nico    885 Sep 30 19:26 8.2.gate
+-rw-rw-r--  1 nico nico  22235 Sep 30 19:26 8.2.out
+-rw-rw-r--  1 nico nico    885 Sep 30 19:26 8.3.gate
+-rw-rw-r--  1 nico nico  12458 Sep 30 19:26 8.3.out
+-rw-rw-r--  1 nico nico    885 Sep 30 19:34 8.4.gate
+-rw-rw-r--  1 nico nico  14755 Sep 30 19:34 8.4.out
+-rw-rw-r--  1 nico nico    943 Sep 30 19:34 8.failed.patch
+-rw-rw-r--  1 nico nico    471 Sep 30 19:15 9.0.gate
+-rw-rw-r--  1 nico nico 118907 Sep 30 19:15 9.0.out
+-rw-rw-r--  1 nico nico   3368 Sep 30 19:18 9.0.reg
+-rw-rw-r--  1 nico nico    282 Sep 30 19:34 chain2.log
+-rw-rw-r--  1 nico nico    325 Sep 30 22:09 chain3.log
+-rw-rw-r--  1 nico nico    143 Sep 30 20:29 run10.log
+-rw-rw-r--  1 nico nico     61 Sep 30 21:50 run11.log
+-rw-rw-r--  1 nico nico    141 Sep 30 17:45 run6.log
+-rw-rw-r--  1 nico nico    141 Sep 30 20:12 run8.log
+   668 .autopilot/8.2.out
+   283 .autopilot/8.3.out
+   242 .autopilot/8.4.out
+  2398 .autopilot/9.0.out
+ 10788 total
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8765/index.html && node -e "console.log(process.version)" && ls node_modules
+200
+v22.23.2
+playwright
+playwright-core
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && (time node tools/reach.mjs) > .scratch/reach-baseline.log 2>&1; tail -40 .scratch/reach-baseline.log
+L3 plat@x=0 ty=3 OK
+  L3 plat@x=47 ty=3 OK
+  L3 plat@x=65 ty=3 OK
+  L3 plat@x=95 ty=3 OK
+  L3 plat@x=112 ty=3 OK
+  L3 plat@x=143 ty=3 OK
+  L3 plat@x=10 ty=8 OK
+  L3 plat@x=54 ty=8 OK
+  L3 plat@x=66 ty=8 OK
+  L3 plat@x=100 ty=8 OK
+  L3 plat@x=114 ty=8 OK
+  L3 plat@x=160 ty=8 OK
+  L3 plat@x=18 ty=11 OK
+  L3 plat@x=74 ty=11 OK
+  L3 plat@x=124 ty=11 OK
+  L3 plat@x=150 ty=11 OK
+  L3 plat@x=26 ty=14 OK
+  L3 plat@x=82 ty=14 OK
+  L3 plat@x=132 ty=14 OK
+  L3 plat@x=34 ty=17 OK
+  L3 plat@x=136 ty=17 OK
+  L3 plat@x=92 ty=19 OK
+  L3 plat@x=44 ty=21 OK
+  L3 plat@x=140 ty=21 OK
+  support: 24/24 runs hold the player
+  required path (spawn -> arena), 17 surfaces, rises <= 40px:
+    x0-43@32 -> x10-14@72 -> x18-22@96 -> x26-29@120 -> x34-38@144 -> x44-46@176 -> x54-59@72 -> x66-70@72 -> x74-77@96 -> x82-86@120 -> x92-94@160 -> x100-105@72 -> x112-139@32 -> x114-119@72 -> x124-128@96 -> x132-135@120 -> x143-179@32
+  reach: all 24 surfaces reachable from spawn
+  reach: all 9 shards/boss arenas on a reachable surface
+  jump: max body.y 128.4 > floor+55 (87) OK
+
+=== pit death (L1) ===
+  pit: hole at tile 68 -> dead in the death state after 1312ms OK (red flash peak 0.35, fade bottomed at 0.05)
+  pit: respawn returned to play OK
+
+=== pit death, L2 (world A) ===
+  pit: fell into the L2 hole at tile 47 and died OK
+
+PASS reach.mjs
+node tools/reach.mjs  7.82s user 2.50s system 6% cpu 2:40.88 total
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && sed -n '/=== L2 ===/,/=== L3 ===/p' .scratch/reach-baseline.log
+=== L2 ===
+  25 standable runs, level width 170 tiles
+  L2 plat@x=0 ty=3 OK
+  L2 plat@x=33 ty=3 OK
+  L2 plat@x=54 ty=3 OK
+  L2 plat@x=65 ty=3 OK
+  L2 plat@x=84 ty=3 OK
+  L2 plat@x=117 ty=3 OK
+  L2 plat@x=125 ty=3 OK
+  L2 plat@x=58 ty=7 OK
+  L2 plat@x=10 ty=8 OK
+  L2 plat@x=26 ty=8 OK
+  L2 plat@x=36 ty=8 OK
+  L2 plat@x=72 ty=8 OK
+  L2 plat@x=96 ty=8 OK
+  L2 plat@x=118 ty=8 OK
+  L2 plat@x=142 ty=8 OK
+  L2 plat@x=126 ty=9 OK
+  L2 plat@x=20 ty=10 OK
+  L2 plat@x=78 ty=10 OK
+  L2 plat@x=144 ty=10 OK
+  L2 plat@x=136 ty=11 OK
+  L2 plat@x=62 ty=12 OK
+  L2 plat@x=30 ty=13 OK
+  L2 plat@x=122 ty=13 OK
+  L2 plat@x=146 ty=14 OK
+  L2 plat@x=82 ty=15 OK
+  support: 25/25 runs hold the player
+  required path (spawn -> arena), 10 surfaces, rises <= 40px:
+    x0-29@32 -> x36-39@72 -> x54-61@32 -> x58-61@64 -> x65-67@32 -> x72-77@72 -> x84-101@32 -> x117-121@32 -> x118-120@72 -> x125-169@32
+  reach: all 25 surfaces reachable from spawn
+  reach: all 8 shards/boss arenas on a reachable surface
+  jump: max body.y 144.4 > floor+55 (87) OK
+
+=== L3 ===
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && git log --oneline -20 && echo "=== status" && git status --short | head -20
+174fdcc Autopilot baseline before stage 12
+5a992dc Stage 11: implemented via opencode (opencode/longcat-2.5-preview-free), gate passes
+bac9780 Autopilot baseline before stage 11
+26404be Stage 12 brief and gate (world shift); update boss gate, reach and README gate
+d508fda Autopilot baseline before stage 11
+1a0dc05 Stage 11 brief and gate: ?cutscene=KEY preview
+828dfea Stage 10: implemented via opencode (opencode/space-bunny-free), gate passes
+e8d58b2 Autopilot baseline before stage 10
+a309407 Stage 10 brief and gate: between-level cutscenes off by one
+0cab0d4 Add a no-cache dev server
+7beb4eb Stage 8: implemented via opencode (opencode/space-bunny-free), gate passes
+6492927 Autopilot baseline before stage 8
+e0ca06b Autopilot baseline before stage 8
+1e97cff Stage 9: implemented via opencode (opencode/space-bunny-free), gate passes
+18ec349 Autopilot baseline before stage 9
+a7cd97d Stage 7: implemented via opencode (opencode/space-bunny-free), gate passes
+cb03d04 Stage 8 brief and gate (compress assets); loosen README key check
+52071e4 Stage 9 brief and gate (README)
+96dfa47 Autopilot baseline before stage 7
+9f149a7 Stage 7 brief and gates (metrics, AI proof, i18n parity)
+=== status
+ M .autopilot/chain3.log
+?? .autopilot/12.0.out
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && git show 26404be --stat && git show 26404be -- tools/reach.mjs | head -80
+commit 26404be7b7118a18eb694fa6b40684823682e6e9
+Author: Nico <niko@local>
+Date:   Wed Sep 30 21:55:27 2026 -0500
+
+    Stage 12 brief and gate (world shift); update boss gate, reach and README gate
+    
+    Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+
+ docs/stage12.md    |  48 ++++++++++++++++++++
+ tools/gate12.mjs   | 130 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ tools/gate4.mjs    |   2 +-
+ tools/gate9.mjs    |   2 +-
+ tools/gateboss.mjs |   4 +-
+ tools/reach.mjs    |  49 ++++----------------
+ 6 files changed, 191 insertions(+), 44 deletions(-)
+commit 26404be7b7118a18eb694fa6b40684823682e6e9
+Author: Nico <niko@local>
+Date:   Wed Sep 30 21:55:27 2026 -0500
+
+    Stage 12 brief and gate (world shift); update boss gate, reach and README gate
+    
+    Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+
+diff --git a/tools/reach.mjs b/tools/reach.mjs
+index 4c62056..564472c 100644
+--- a/tools/reach.mjs
++++ b/tools/reach.mjs
+@@ -411,10 +411,8 @@ console.log('\n=== pit death (L1) ===');
+   await page2.close();
+ }
+ 
+-// The same fall, but in a rotated L2 room. After a quarter turn "down" is a
+-// local +X edge rather than the bottom, so this exercises the rotation-aware
+-// branch of the void check rather than the hole case above.
+-console.log('\n=== pit death, L2 after a rotation ===');
++// The same fall in L2 (world A): its three big holes are real pits until the world is shifted.
++console.log('\n=== pit death, L2 (world A) ===');
+ {
+   const page3 = await browser.newPage({ viewport: { width: 480, height: 270 } });
+   page3.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+@@ -423,42 +421,13 @@ console.log('\n=== pit death, L2 after a rotation ===');
+   await page3.waitForFunction(
+     () => ['play', 'boss'].includes(window.__lumenfall?.machine?.state), { timeout: 20000 });
+   await new Promise((r) => setTimeout(r, 600));
+-
+-  // Turn the room, the same way a player does, and wait for the tween to land.
+-  await page3.evaluate(async () => {
+-    const g = window.__lumenfall;
+-    g.player.hurtTimer = 999;
+-    // beginRotate only reads .x and .y, so a plain object is enough here.
+-    g.level.beginRotate({ x: g.player.cx, y: g.player.cy });
+-    for (let i = 0; i < 200 && g.level.isRotating; i++) {
+-      await new Promise((r) => requestAnimationFrame(r));
+-    }
+-    g.player.hurtTimer = 0;
+-  });
+-  const rotQ = await page3.evaluate(() => window.__lumenfall.level.data.rotQ);
+-  if (rotQ !== 1) {
+-    fail(`L2 did not register a quarter turn (rotQ=${rotQ})`);
+-  } else {
+-    console.log(`  L2 rotated: rotQ=${rotQ}, open edge = ${await page3.evaluate(() => JSON.stringify(window.__lumenfall.level.data.openEdges))}`);
+-    // Shoved out through the now-open edge, in the direction that is down.
+-    await page3.evaluate(() => {
+-      const g = window.__lumenfall;
+-      const b = g.player.body;
+-      b.vx = 0; b.vy = 0;
+-      b.x = g.level.data.width * 8 + 24;    // past the open right edge
+-      b.onGround = false;
+-    });
+-    const wentOut = await page3.waitForFunction(
+-      () => {
+-        const g = window.__lumenfall;
+-        return g.player.dead && g.machine.state === 'dead';
+-      }, { timeout: 4000 }).then(() => true, () => false);
+-    const st3 = await page3.evaluate(() => ({
+-      dead: window.__lumenfall.player.dead,
+-      state: window.__lumenfall.machine.state,
+-    }));
+-    if (wentOut) console.log(`  pit: fell out of the rotated room and died (state=${st3.state}) OK`);
+-    else fail(`falling out of a rotated L2 room did not kill: dead=${st3.dead} state=${st3.state}`);
++  const hole = await page3.evaluate(() => { const h = window.__lumenfall.level.data.holes || []; return h.length ? (Array.isArray(h[0]) ? h[0][0] + Math.floor(h[0][1] / 2) : h[0]) : -1; });
++  if (hole < 0) fail('L2 has no hole to test pit death with');
++  else {
++    await page3.evaluate((tx) => { const g = window.__lumenfall; const b = g.player.body; b.vx = 0; b.vy = 0; b.x = tx * 8; b.y = 40; b.onGround = false; }, hole);
++    const died = await page3.waitForFunction(() => { const g = window.__lumenfall; return g.player.dead; }, { timeout: 5000 }).then(() => true, () => false);
++    if (died) console.log(`  pit: fell into the L2 hole at tile ${hole} and died OK`);
++    else fail('falling into an L2 hole did not kill');
+   }
+   await page3.close();
+ }
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && cat tools/gatei18n.mjs | head -60 && echo "=== gate9" && cat tools/gate9.mjs
+// i18n gate: Spanish and English have exactly the same keys, none empty, and every t('key')
+// used in the code exists. Run: node tools/gatei18n.mjs
+import { STRINGS } from '../js/ui/strings.js';
+import fs from 'node:fs'; import path from 'node:path';
+const results = [], check = (name, ok, detail) => results.push({ name, ok: !!ok, detail });
+const es = Object.keys(STRINGS.es), en = Object.keys(STRINGS.en);
+const missingEn = es.filter((k) => !(k in STRINGS.en)), missingEs = en.filter((k) => !(k in STRINGS.es));
+check('I1 every Spanish key exists in English', missingEn.length === 0, missingEn.join(','));
+check('I2 every English key exists in Spanish', missingEs.length === 0, missingEs.join(','));
+const empty = [...es.filter((k) => !String(STRINGS.es[k]).trim()), ...en.filter((k) => !String(STRINGS.en[k]).trim())];
+check('I3 no empty string', empty.length === 0, empty.join(','));
+const same = es.filter((k) => k in STRINGS.en && STRINGS.es[k] === STRINGS.en[k] && String(STRINGS.es[k]).length > 14 && !k.startsWith('ctlKeys'));
+check('I4 long strings are really translated (not copied)', same.length === 0, same.slice(0, 6).join(','));
+const used = new Set();
+const walk = (d) => { for (const f of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, f.name); if (f.isDirectory()) { if (f.name !== 'vendor') walk(p); } else if (f.name.endsWith('.js')) { for (const m of fs.readFileSync(p, 'utf8').matchAll(/\bt\(\s*['"]([A-Za-z0-9_]+)['"]/g)) used.add(m[1]); for (const m of fs.readFileSync(p, 'utf8').matchAll(/(?:titleKey|textKey|nameKey|labelKey)\s*:\s*['"]([A-Za-z0-9_]+)['"]/g)) used.add(m[1]); } } };
+walk('js');
+const unknown = [...used].filter((k) => k !== 'key' && !(k in STRINGS.es));
+check('I5 every key used in the code exists', unknown.length === 0, unknown.join(','));
+let failed = 0;
+for (const r of results) { console.log(`${r.ok ? 'PASS' : 'FAIL'}  ${r.name}${r.detail ? '  [' + r.detail + ']' : ''}`); if (!r.ok) failed++; }
+console.log(failed ? `GATE FAIL (${failed} of ${results.length})` : 'GATE PASS');
+process.exit(failed ? 1 : 0);
+=== gate9
+// Stage 9 gate: README completeness and honesty. Run: node tools/gate9.mjs
+import fs from 'node:fs';
+const results = [], check = (name, ok, detail) => results.push({ name, ok: !!ok, detail });
+const md = fs.existsSync('README.md') ? fs.readFileSync('README.md', 'utf8') : '';
+check('R0 README.md exists', md.length > 0, '');
+const heads = ['# LUMENFALL', '## Run it', '## Controls', '## Story', '## Levels and bosses', '## Adaptive AI', '## Metrics', '## Project structure', '## Tests', '## Known limitations', '## Credits'];
+let last = -1, order = true; const missing = [];
+for (const h of heads) { const i = md.search(new RegExp('^' + h.replace(/[#]/g, '\\#') + '\\s*$', 'm')); if (i < 0) missing.push(h); else { if (i < last) order = false; last = i; } }
+check('R1 all required headings exist', missing.length === 0, missing.join(' | '));
+check('R2 headings are in the required order', order, '');
+const lines = md.split('\n').length;
+check('R3 at most 250 lines', lines <= 250 && lines > 60, `lines=${lines}`);
+const paths = [...md.matchAll(/`((?:js|tools|assets|docs|css|sprites)\/[A-Za-z0-9_./-]+)`/g)].map((m) => m[1]).filter((p) => !p.includes('*'));
+const bad = [...new Set(paths)].filter((p) => !fs.existsSync(p));
+check('R4 every path in backticks exists', paths.length >= 10 && bad.length === 0, bad.length ? `missing: ${bad.join(', ')}` : `${new Set(paths).size} paths checked`);
+const must = ['Easy', 'Normal', 'Hard', 'last 20', 'Google Analytics', 'GA_MEASUREMENT_ID', 'python3 -m http.server', 'localhost', 'lumenfall.metrics.v1', 'node tools/gateai.mjs', 'node tools/gate7.mjs', 'node tools/reach.mjs', 'Move', 'Jump', 'Attack', 'Dash', 'Shift', 'Pause', 'windup', 'Ul Burjo', 'Patient One'];
+const lack = must.filter((w) => !md.includes(w));
+check('R5 mentions every required term', lack.length === 0, lack.join(', '));
+const tokens = ['A', 'D', 'W', 'J', 'K', 'E', 'Space', 'Esc', 'Shift', 'Enter'];
+const absent = tokens.filter((w) => !new RegExp('(^|[^A-Za-z])' + w + '([^A-Za-z]|$)').test(md));
+check('R6 the README shows the real key bindings (A D W J K E Space Esc Shift Enter)', absent.length === 0, absent.length ? `not shown: ${absent.join(',')}` : 'all shown');
+check('R7 it has a limitations section with real content', /## Known limitations\s+[\s\S]{80,}?(?=\n## )/.test(md), '');
+check('R8 written in English (no common Spanish words in prose)', !/\b(nueva partida|controles|historia|niveles)\b/i.test(md.replace(/`[^`]*`/g, '')), '');
+let failed = 0;
+for (const r of results) { console.log(`${r.ok ? 'PASS' : 'FAIL'}  ${r.name}${r.detail ? '  [' + r.detail + ']' : ''}`); if (!r.ok) failed++; }
+console.log(failed ? `GATE FAIL (${failed} of ${results.length})` : 'GATE PASS');
+process.exit(failed ? 1 : 0);
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && grep -ln "window.CFG\|rotCount\|isRotating\|beginRotate" tools/*.mjs tools/*.py 2>/dev/null; echo "---"; grep -rn "CFG" tools/*.mjs | head -20
+tools/gate12.mjs
+tools/gateboss.mjs
+tools/smoke.mjs
+---
+tools/gate12.mjs:19:  check('W1 no rotation left in the code (beginRotate, updateRotation) and no test hack window.CFG', !/beginRotate|updateRotation/.test(main + lvl) && !/window\.CFG/.test(main), '');
+tools/gateboss.mjs:6:const CFG = JSON.parse(process.argv[2] || '{}');
+tools/gateboss.mjs:16:  await page.goto(`${URL}?level=${CFG.level}&boss=1`);
+tools/gateboss.mjs:19:  const r = await page.evaluate(async (CFG) => {
+tools/gateboss.mjs:49:    await watch(70000, () => b.atkLog.some((e) => e.name === CFG.p2 && e.phase >= 2 && e.stage === 'active'));
+tools/gateboss.mjs:54:    return { st, phase1, all, rot: g.level[CFG.counter || 'rotCount'] || 0, atkAfterDeath: b.atk, teleAfterDeath: g.fx.telegraphs.length, dead: b.dead };
+tools/gateboss.mjs:55:  }, CFG);
+tools/gateboss.mjs:74:    const p2 = r.all.filter((e) => e.name === CFG.p2 && e.stage === 'windup');
+tools/gateboss.mjs:75:    check(`E6 phase 2 uses '${CFG.p2}' (phase>=2) with windup >= ${CFG.p2min} s`, p2.some((e) => e.phase >= 2 && e.dur >= CFG.p2min), `windups=${p2.map((e) => e.phase + ':' + e.dur.toFixed(2)).join(',') || 'none'}`);
+tools/gateboss.mjs:76:    check('E7 phase-1 attacks only use the names ' + CFG.p1.join('/'), attacks.filter((a) => a.phase === 1).every((a) => CFG.p1.includes(a.name)), `seen=${[...new Set(attacks.map((a) => a.name))].join(',')}`);
+tools/gateboss.mjs:77:    if (CFG.rotate) check(`E7b the boss attack really acts on the level (level.${CFG.counter || 'rotCount'} >= 1)`, r.rot >= 1, `counter=${r.rot}`);
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && grep -n "rotCount\|isRotating\|beginRotate\|CFG" tools/smoke.mjs
+238:    rotating: window.__lumenfall.level.isRotating,
+250:      rotCount: g.level.rotCount,
+251:      rotating: g.level.isRotating,
+259:  if (after.rotCount < 1) throw new Error('rotCount did not increment');
+450:      if (g.level.isRotating) {
+460:      rotCount: g.level.rotCount,
+469:  if (r.rotCount < 1) throw new Error('phase 2 never rotated the arena');
+471:  if (r.rotCount > 3) throw new Error(`arena rotating too often: ${r.rotCount}`);
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && sed -n '225,275p' tools/smoke.mjs && echo "=== 440-475" && sed -n '440,475p' tools/smoke.mjs
+if (id !== 2) throw new Error(`expected level 2, got ${id}`);
+}));
+
+record(await step('L2 rotate: 90deg over ~0.6s, physics suspended', async () => {
+  const before = await page.evaluate(() => {
+    const g = window.__lumenfall;
+    return { rot: g.level.rot, can: g.level.canRotate, enabled: g.player.body.enabled };
+  });
+  if (!before.can) throw new Error('level 2 cannot rotate');
+
+  await page.keyboard.press('KeyE');
+  await page.waitForTimeout(80);
+  const during = await page.evaluate(() => ({
+    rotating: window.__lumenfall.level.isRotating,
+    enabled: window.__lumenfall.player.body.enabled,
+  }));
+  if (!during.rotating) throw new Error('rotation did not start');
+  if (during.enabled) throw new Error('physics not suspended during rotation');
+
+  await page.waitForTimeout(1200);
+  const after = await page.evaluate(() => {
+    const g = window.__lumenfall;
+    const local = g.level.worldToLocal(g.player.mesh.position.clone());
+    return {
+      rot: g.level.rot,
+      rotCount: g.level.rotCount,
+      rotating: g.level.isRotating,
+      enabled: g.player.body.enabled,
+      drift: Math.hypot(local.x - g.player.cx, local.y - g.player.body.bottom),
+    };
+  });
+  const turned = Math.abs(after.rot - before.rot);
+  if (after.rotating) throw new Error('rotation never finished');
+  if (Math.abs(turned - Math.PI / 2) > 0.02) throw new Error(`rotated ${turned}, expected PI/2`);
+  if (after.rotCount < 1) throw new Error('rotCount did not increment');
+  if (!after.enabled) throw new Error('physics not restored after rotation');
+  // The player must be back in local space where the body thinks they are,
+  // otherwise the next physics step teleports them.
+  if (after.drift > 2) throw new Error(`local/world drift after rotation: ${after.drift}`);
+}));
+await page.screenshot({ path: `${SHOT_DIR}/04-rotate.png` });
+
+record(await step('L2 -> L3, halo is the only light', async () => {
+  await page.evaluate(() => window.__lumenfall._onBossDefeated());
+  await page.waitForTimeout(400);
+  for (let i = 0; i < 10; i++) {
+    const s = await page.evaluate(() => window.__lumenfall.machine.state);
+    if (s !== 'cutscene') break;
+    await page.keyboard.press('Enter'); await page.waitForTimeout(140);
+    await page.keyboard.press('Enter'); await page.waitForTimeout(140);
+  }
+=== 440-475
+    g.player.body.x = g.bossDef.x - 120; g.player.body.y = 32;
+    g._startBoss();
+    await new Promise((res) => setTimeout(res, 500));
+    const b = g.boss;
+    if (!b) return { ok: false, why: 'no boss' };
+
+    const beforeSprite = b.sprite.char.name;
+    b.hurt(Math.ceil(b.maxHp * 0.6));   // cross the 55% phase threshold
+    for (let i = 0; i < 600; i++) {
+      b.update(1 / 60, g.player, g.level.data, g.fx);
+      if (g.level.isRotating) {
+        for (let k = 0; k < 80; k++) g.level.updateRotation(1 / 60);
+        b.onRotationDone();
+      }
+    }
+    return {
+      ok: true,
+      beforeSprite,
+      afterSprite: b.sprite.char.name,
+      phase: b.phase,
+      rotCount: g.level.rotCount,
+      rot: +g.level.rot.toFixed(3),
+    };
+  });
+  console.log('      ul burjo:', JSON.stringify(r));
+  if (!r.ok) throw new Error(r.why);
+  if (r.beforeSprite !== 'goodwitch') throw new Error(`expected the elder disguise, got ${r.beforeSprite}`);
+  if (r.afterSprite !== 'badwitch') throw new Error(`disguise never dropped, still ${r.afterSprite}`);
+  if (r.phase !== 2) throw new Error(`expected phase 2, got ${r.phase}`);
+  if (r.rotCount < 1) throw new Error('phase 2 never rotated the arena');
+  // One turn per 4.5s cooldown: 10s of sim should not spin the room 144 times.
+  if (r.rotCount > 3) throw new Error(`arena rotating too often: ${r.rotCount}`);
+}));
+
+record(await step('defeating the final boss reaches the ending', async () => {
+  // Self-contained: the preceding checks leave the game in whatever level they
+[0m
+[0m$ [0mcd "/home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego" && sed -n '35,50p;75,85p;200,225p' README.md
+landing still fires on the first legal frame.
+
+| Action | Keys |
+|---|---|
+| **Move** | `A` / `D` or `←` / `→` |
+| **Jump** | `Space`, `W` or `↑` |
+| **Attack** | `J` or `Z` |
+| **Dash** | `K`, `X` or `Shift` |
+| **Rotate** the level (L2 only) | `E` |
+| **Pause** | `Esc` or `P` |
+| Switch language | `L` |
+
+Watch a cutscene directly: `index.html?cutscene=prologue|theft|reveal|waking|return`
+
+Menus, cutscenes and story dialogue use `W`/`S` or `↑`/`↓` to move the selection,
+`Enter` / `Space` / `J` / `Z` to confirm or advance, and `Esc` to go back or skip a cutscene.
+## Levels and bosses
+
+| Level | Name | Mechanic | Boss |
+|---|---|---|---|
+| 1 | Shrine of Ember (190 tiles) | **A fixed map.** A hand-built platforming route: two bottomless gaps, stepped terraces, a long flat opening so the controls can be learned before the level asks for anything. | The **Marble statue** boss (in-game name: *Marble Mummy*) in `js/game/boss/statue.js`. The tutorial boss: it teaches only that an attack is a thing you can see coming. |
+| 2 | Rotting Reliquary (170 tiles) | **The world rotates 90°.** `E` turns the whole room over 0.6 s while you stay pinned in place. Gaps too wide to jump become ledges you can walk, and standing walls become bridges. Physics runs in the level group's local space, so the rotation needs no rotated-box maths anywhere. | **Ul Burjo** in `js/game/boss/ulburjo.js`. Phase 1 is a ranged duel; phase 2 turns the arena into the weapon and rotates it at you — your own tool, aimed at you. |
+| 3 | Lantern Wood (180 tiles) | **Near-total darkness.** The sword halo is the only light in the level. Standing still makes you nearly invisible; attacking makes you a moving lamp. | **The Patient One** in `js/game/boss/patientone.js`. It does not track you, it tracks your *light*: it extrapolates the halo's path and drops a column of dark on it. Phase 2 closes the light radius in for 3 s. |
+
+All three bosses have two phases, a phase change at 55 % health, and the same attack contract.
+Layouts are in `js/game/level.js`; tuning constants in `js/core/config.js`.
+
+## Tests
+
+The browser gates drive a real Chromium through Playwright, so serve the game first on port 8765:
+`python3 -m http.server 8765`. `gateai` and `gatei18n` are pure Node and need no server.
+
+| Command | What it proves |
+|---|---|
+| `node tools/gate3a.mjs` | Damage is real and hits have weight: one hit costs 1 hp, hitstop, camera shake, stagger and knockback on enemies, and no console errors. |
+| `node tools/gate3b.mjs` | The L1 statue honours the attack contract: stages in order, no damage outside `active`, a marker up during ≥ 90 % of windup frames, and clean teardown on death. |
+| `node tools/gate4.mjs` | The same contract for Ul Burjo, plus that his phase-2 `rotate` attack really turns the room. |
+| `node tools/gate5.mjs` | The same contract for The Patient One, plus that phase 2 uses the light surge. |
+| `node tools/gate6.mjs` | The reveal, waking and return cutscenes use the painted panels 11-19, that all nine files load, and that they are preloaded. |
+| `node tools/gate7.mjs` | Metrics: summary maths, `gtag` forwarding, survival across a reload, the in-game panel, and that nothing is sent to Google while the id is empty. |
+| `node tools/gateai.mjs` | The adaptive AI: the 20-action window, the three counters, the governor ceiling, and the four fairness gates. No browser needed. |
+| `node tools/gatei18n.mjs` | Spanish and English have the same keys, none empty, nothing long left untranslated, and every key used in the code exists. No browser needed. |
+| `node tools/reach.mjs` | Every level is actually playable: support, the required spawn-to-arena path, a real jump apex, and pit death with a working respawn. |
+
+All nine pass. `tools/smoke.mjs` is the older end-to-end pass
+(title, cutscene, movement, rotation, both boss phases, ending, language toggle) and
+fails on any console error.
+
+## Known limitations
+
+- **The art is AI-generated.** The character sheets in `assets/` were produced with AI
+  image tools from the team's own reference sheets, then cut into atlases by
+  `tools/build-atlas.py` and `tools/cut_minions.py`. The consistency is the tooling's
+[0m
+[0m# [0mTodos
+[•] physics.js: layer-aware tileAt, drop openEdges
+[ ] level.js: layer data, world/shiftWorld, remove rotation, L2 layout, per-layer meshes, rune colour
+[ ] player.js: drop rotQ/openEdges
+[ ] main.js: E shift, hints, effects, remove rotation/pin/window.CFG
+[ ] ulburjo.js: rotate -> shift attack
+[ ] strings.js: shift wording both languages
+[ ] parallax.js: far backdrop tint for world B
+[ ] README.md: rotation wording -> world shift
+[ ] Run gate12, gate4, reach, gatei18n, gate9 until green
+[0m
+Now I have the full picture. Let me set up a task list and start implementing.
+[0m← [0mEdit js/game/physics.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/physics.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/physics.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/physics.js
+@@ -1,10 +1,15 @@
+ // Axis-aligned tile collision.
+ //
+-// All of it runs in the level group's local space, which is axis-aligned when
+-// the group is at rest. During the L2 rotation the physics is switched off
+-// entirely (see level.js), which is what lets a 90-degree rotation happen
+-// without any rotated-box maths anywhere in the codebase.
++// All of it runs in the level group's local space, which the group shares with
++// the world: nothing rotates any more, so "down" is -Y and the grid is always
++// axis-aligned.
++//
++// The level data carries two parallel grids. `grid` is the base map -- world A's
++// map -- and `layer` says which world each tile belongs to: 0 exists in both,
++// 1 only in world A, 2 only in world B. A tile is only in the map the level is
++// currently in, which is the whole of the L2 mechanic: nothing moves, tiles
++// appear and disappear.
+ 
+ export const TILE = 8;
+ 
+ export class Body {
+
+[0m
+[0m← [0mEdit js/game/physics.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/physics.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/physics.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/physics.js
+@@ -38,23 +38,26 @@
+ export const SPIKE = 3;
+ export const DECOR = 4;
+ 
+ export function tileAt(level, tx, ty) {
+-  // Which edge of the world is open, if any. A rotated room can have a side
+-  // wall as its floor, and the edge you fall out of is the one that is now
+-  // underneath. The Level sets this from the current rotation.
+-  const open = level.openEdges;
+-  if (tx < 0) return (open && open.left) ? 0 : SOLID;
+-  if (tx >= level.width) return (open && open.right) ? 0 : SOLID;
+-  if (ty >= level.height) return (open && open.top) ? 0 : SOLID;   // ceiling
++  // Edges of the world are walls on every side now that nothing turns: a body
++  // can never leave sideways or upwards.
++  if (tx < 0 || tx >= level.width) return SOLID;
++  if (ty >= level.height) return SOLID;   // ceiling
+   if (ty < 0) {
+-    // Below the grid is normally a solid floor, so nothing can leave the level
+-    // sideways or upwards. Directly under a hole it is open instead: the pit is
+-    // bottomless and the fall-out is what kills. The player crosses the death
+-    // line long before reaching anything down there.
++    // Below the grid is normally a solid floor. Directly under a hole it is open
++    // instead: the pit is bottomless and the fall-out is what kills. The player
++    // crosses the death line long before reaching anything down there.
+     return (level.holeCol && level.holeCol[tx]) ? 0 : SOLID;
+   }
+-  return level.grid[ty * level.width + tx];
++  const i = ty * level.width + tx;
++  const v = level.grid[i];
++  const layer = level.layer ? level.layer[i] : 0;
++  if (layer === 0) return v;                          // common tile: it is in both maps
++  // A tile of the other world is not here at all. A tile of THIS world is here,
++  // with the type the grid gives it -- or solid, when the grid has nothing there
++  // and the level marks the cell as belonging to this world (the L2 bridges).
++  return layer === (level.world || 0) + 1 ? (v || SOLID) : 0;
+ }
+ 
+ export function isSolid(level, tx, ty) {
+   return tileAt(level, tx, ty) === SOLID;
+
+[0m
+[0m← [0mEdit js/game/level.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/level.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/level.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/level.js
+@@ -1,26 +1,39 @@
+ import * as THREE from '../vendor/three.module.js';
+ import { TILE, SOLID, PLATFORM, SPIKE, tileAt } from './physics.js';
+-import { ROTATE_TIME, LEVELS } from '../core/config.js';
+-import { clamp } from '../core/rng.js';
++import { LEVELS } from '../core/config.js';
+ 
+-// The level lives inside a THREE.Group that starts axis-aligned. Physics always
+-// runs in that group's local space, which means "down" is the group's local -Y
+-// and the tile grid is always axis-aligned -- at any rotation.
++// The level lives inside a THREE.Group that shares the world's axes. Nothing
++// ever rotates it any more.
+ //
+-// That is the whole trick behind the L2 mechanic. Rotating the group by 90
+-// degrees needs no rotated-box maths, because the simulation never leaves the
+-// group's frame. Gravity follows the room, a wall becomes a floor, and a gap
+-// that could not be jumped becomes a ledge that can be walked.
++// A level is TWO maps of the same room, and `levelData.layer` says which one a
++// tile belongs to: 0 in both, 1 only in world A, 2 only in world B. `grid` is
++// the base map -- world A's -- and a cell it leaves empty but marks with a layer
++// is a solid block of the world that layer names (the bridges over the holes).
++// `levelData.world` picks the map the physics is reading; tileAt is the only
++// place that decision is made, so every reader gets the same answer.
+ 
+ const BOSS_ARENA_W = 40;   // tiles
+ 
++// The two palettes the shifting worlds use, kept apart from the level palettes
++// so a layer tile never inherits a level colour by accident.
++const LAYER_LOOKS = [
++  null,                       // layer 0 keeps the level's own palette
++  { body: 0x1a0f22, lip: 0xa86cf0 },   // world A only: purple
++  { body: 0x0f2210, lip: 0x9be34a },   // world B only: toxic green
++];
++const RUNE_COLOR = 0x9be34a;  // the rune on the ground says toxic, like world B
++const SHIFT_CD = 0.5;         // seconds between two player shifts
++const SHIFT_LIFT_STEPS = 64;  // safety bound on the forced shift's lift-out
++
+ function blankLevel(id, width, height) {
+   return {
+     id,
+     width,
+     height,
+     grid: new Uint8Array(width * height),
++    layer: new Uint8Array(width * height),
++    world: 0,                  // 0 = world A, 1 = world B
+     entities: [],
+     decor: [],
+     groundY: (height - 4) * TILE,
+   };
+@@ -32,8 +45,20 @@
+ };
+ const fill = (lv, tx, ty, tw, th, v = SOLID) => {
+   for (let y = ty; y < ty + th; y++) for (let x = tx; x < tx + tw; x++) set(lv, x, y, v);
+ };
++// Marks a rectangle as belonging to one world only, without touching the base
++// map: `v` is the type the cell has in that world, and leaving it out means a
++// solid block.
++const markLayer = (lv, tx, ty, tw, th, layer, v = SOLID) => {
++  for (let y = ty; y < ty + th; y++) {
++    for (let x = tx; x < tx + tw; x++) {
++      if (x < 0 || x >= lv.width || y < 0 || y >= lv.height) continue;
++      lv.layer[y * lv.width + x] = layer;
++      if (v !== undefined) lv.grid[y * lv.width + x] = v;
++    }
++  }
++};
+ 
+ 
+ // +y is up, so the ground occupies the *lowest* rows (ty 0..3) and the level's
+ // height is mostly headroom. GROUND is the surface the player stands on.
+
+[0m
+Now level.js — the biggest change:
+[0m← [0mEdit js/game/level.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/level.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/level.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/level.js
+@@ -63,11 +63,11 @@
+ // +y is up, so the ground occupies the *lowest* rows (ty 0..3) and the level's
+ // height is mostly headroom. GROUND is the surface the player stands on.
+ const GROUND = 3;
+ 
+-// Ground with a hole punched in it. The holes are the rotation puzzle: they are
+-// deliberately wider than a jump (~9 tiles), and only become crossable once the
+-// room turns.
++// Ground with a hole punched in it. The holes are the shift puzzle: they are
++// deliberately wider than a jump (~9 tiles) and empty in world A, and world B
++// lays a bridge across each of them.
+ function ground(lv, holes = []) {
+   fill(lv, 0, 0, lv.width, GROUND + 1);
+   // Kept on the level so the bottomless void can be drawn under each hole.
+   lv.holes = holes;
+
+[0m
+[0m← [0mEdit js/game/level.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/level.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/level.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/level.js
+@@ -83,8 +83,21 @@
+ }
+ 
+ const plat = (lv, tx, ty, tw) => fill(lv, tx, ty, tw, 1, PLATFORM);
+ const block = (lv, tx, ty, tw, th) => fill(lv, tx, ty, tw, th);
++// A standing wall that only exists in world A: solid in A, gone in B, so the
++// way through is clear in the world the player is not standing in.
++const wallA = (lv, tx, ty, tw, th) => { fill(lv, tx, ty, tw, th); markLayer(lv, tx, ty, tw, th, 1); };
++// A ledge that only exists in world B. It is a PLATFORM tile in the base map
++// marked with layer 2, so the map never has a hole where a world-A player would
++// otherwise be standing on thin air.
++const platB = (lv, tx, ty, tw) => { fill(lv, tx, ty, tw, 1, PLATFORM); markLayer(lv, tx, ty, tw, 1, 2); };
++const platA = (lv, tx, ty, tw) => { fill(lv, tx, ty, tw, 1, PLATFORM); markLayer(lv, tx, ty, tw, 1, 1); };
++// A world-B ledge with the world-A cap one tile above it. The pair reads as one
++// slab that drops a tile when the world shifts, and it keeps the B ledge exactly
++// one tile under the A one, so each world has a surface of its own at the same
++// spot.
++const ledgePair = (lv, tx, tyB, tw) => { platB(lv, tx, tyB, tw); platA(lv, tx, tyB + 1, tw); };
+ 
+ const FLOOR_Y = (GROUND + 1) * TILE;   // standing surface, in pixels
+ const VOID_H = 240;                   // depth of the black under a pit
+ const RUNE_LEAD = 3;                   // tiles before a hole the rune is drawn
+
+[0m
+Now the L2 builder:
+[0m→ [0mRead js/game/level.js[90m [offset=185, limit=70][0m
+[0m
+[0m← [0mEdit js/game/level.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/level.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/level.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/level.js
+@@ -205,38 +205,64 @@
+ // ------------------------------------------------------------------ L2
+ () => {
+   const W = 170, H = 36;
+   const lv = blankLevel(2, W, H);
+-  // Gaps far wider than a jump, and standing walls that are only floors once
+-  // the room turns. This is the level the mechanic is for.
+-  ground(lv, [[40, 14], [68, 16], [102, 15]]);
++  // Three bottomless gaps, far wider than a jump, and standing walls. This is
++  // the level the mechanic is for: in world A the gaps are pits and the walls
++  // are in the way, in world B every gap has a bridge and every wall is gone.
++  const HOLES = [[40, 14], [68, 16], [102, 15]];
++  ground(lv, HOLES);
+ 
++  // The bridges. A whole tile row of world B across each hole, marked in the
++  // layer array and left out of the base map, so world A still sees straight
++  // down the hole and world B walks over it. Standing on a bridge and shifting
++  // back drops you in: the shift is only refused when the body would end up
++  // inside solid, and a hole is not solid in either world.
++  for (const [hx, hw] of HOLES) markLayer(lv, hx, GROUND, hw, 1, 2);
++
+   plat(lv, 10, 8, 5);
+   plat(lv, 20, 10, 5);
+-  // A standing wall: harmless seen from above, a bridge seen from the side.
+-  // A step in front of the column at 30: ground 32 -> 72 -> the top at 112.
++  // World-A ledges near the shards, and the world-B ledge under each of them.
++  // The pair at 16 is the same slab in both worlds, one tile apart.
++  ledgePair(lv, 16, 7, 3);
++  platA(lv, 25, 7, 2);
++  // A standing wall, world A only: harmless seen from above in A, and simply
++  // not there in B. The step in front of the column at 30 stays in both worlds,
++  // which is what keeps the column climbable: ground 32 -> 72 -> top at 112.
+   plat(lv, 26, 8, 3);
+-  block(lv, 30, 4, 3, 10);
++  wallA(lv, 30, 4, 3, 10);
+   plat(lv, 36, 8, 4);
+ 
+   plat(lv, 58, 7, 5);
+-  block(lv, 62, 4, 3, 9);
++  wallA(lv, 62, 4, 3, 9);
+   // Two steps for the column at 82: 72, then 88, then its top at 128. Each
+   // rise is 40, 16 and 40 -- the direct 80 -> 128 was 48, over the rule.
+   plat(lv, 72, 8, 6);
+   plat(lv, 78, 10, 4);
+-  block(lv, 82, 5, 4, 11);
++  wallA(lv, 82, 5, 4, 11);
++  ledgePair(lv, 65, 7, 3);
++  ledgePair(lv, 87, 7, 3);
++  platA(lv, 92, 7, 3);
+ 
+   plat(lv, 96, 8, 6);
+   plat(lv, 118, 8, 3);
+-  block(lv, 122, 4, 3, 10);
++  wallA(lv, 122, 4, 3, 10);
+   plat(lv, 126, 9, 5);
+   plat(lv, 136, 11, 6);
+   // 72 then 88 then the top at 120; 72 -> 120 alone is 48.
+   plat(lv, 142, 8, 2);
+   plat(lv, 144, 10, 2);
+-  block(lv, 146, 5, 3, 10);
++  wallA(lv, 146, 5, 3, 10);
+ 
++  // ---- the boss arena (the last 40 tiles). Its floor row is left as layer 0,
++  // so a forced shift never drops Ul Burjo's victim off the edge: only the
++  // ledges above change, which is enough to move the fight around.
++  ledgePair(lv, 132, 7, 3);
++  ledgePair(lv, 155, 7, 3);
++  ledgePair(lv, 163, 7, 3);
++  platA(lv, 150, 8, 3);
++  platA(lv, 160, 9, 3);
++
+   lv.entities.push(
+     { type: 'shard', x: 12 * TILE, y: at(8) },
+     { type: 'shard', x: 22 * TILE, y: at(10) },
+     { type: 'shard', x: 60 * TILE, y: at(7) },
+
+[0m
+Now the `Level` class itself:
+[0m→ [0mRead js/game/level.js[90m [offset=330, limit=120][0m
+[0m
+[0m← [0mEdit js/game/level.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/level.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/level.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/game/level.js
+@@ -339,49 +339,108 @@
+   scene.add(this.group);
+   this.tilesGroup = new THREE.Group();
+   this.group.add(this.tilesGroup);
+   this.data = null;
+-  this.rot = 0;             // current rotation, always a multiple of PI/2
+-  this.rotFrom = 0;
+-  this.rotTo = 0;
+-  this.rotT = 0;
+-  this.rotating = false;
+-  this.rotCount = 0;
++  this.world = 0;            // 0 = world A, 1 = world B
++  this.shiftCount = 0;       // shifts so far, this level
++  this.shiftCd = 0;          // seconds of cooldown left
++  this.shiftRefused = false; // the last player shift was refused by the map
++  this.layerMeshes = [];     // meshes per layer group, toggled on a shift
++  // The player, set by main.js. shiftWorld reads its body to decide whether a
++  // shift is legal, so the level owns no copy of the player state.
++  this.player = null;
+ }
+ 
+-// Recomputed whenever the room turns. Physics runs in this local frame, so
+-// "which way is down" is a function of the rotation: the room turns in quarter
+-// steps and down walks -Y, +X, +Y, -X through them.
+-_syncDown() {
+-  const q = ((Math.round(this.rot / (Math.PI / 2)) % 4) + 4) % 4;
+-  this.data.rotQ = q;
+-  this.data.openEdges = q === 1 ? { right: true }
+-    : q === 2 ? { top: true }
+-      : q === 3 ? { left: true }
+-        : {};
+-  return q;
+-}
+-
+ load(index) {
+   this.dispose();
+   this.data = LEVEL_DEFS[index]();
+-  this.rot = 0; this.rotFrom = 0; this.rotTo = 0; this.rotT = 0;
+-  this.rotating = false; this.rotCount = 0;
++  this.world = 0;
++  this.data.world = 0;
++  this.shiftCount = 0;
++  this.shiftCd = 0;
++  this.shiftRefused = false;
+   this.group.rotation.z = 0;
+   this.group.position.set(0, 0, 0);
+   this.group.updateMatrixWorld(true);
+-  this._syncDown();
+   this._buildTiles();
+   return this.data;
+ }
+ 
+-get canRotate() { return this.data && this.data.id === 2; }
++// Only the Reliquary has two maps. L1 and L3 have an all-zero layer array, so
++// they would shift to a map identical to the one they are in: there is nothing
++// to toggle and nothing to learn.
++get canShift() { return !!this.data && this.data.id === 2; }
+ 
+-// Read by _buildRunes while the tiles are being built, before canRotate can be
+-// trusted on a fresh load.
+-get levelCanRotate() { return !!this.data && this.data.id === 2; }
+-get isRotating() { return this.rotating; }
++// Ticked from the game loop; `shiftCd` is the only timed state the level has.
++update(dt) { this.shiftCd = Math.max(0, this.shiftCd - dt); }
+ 
++// ---- the shift
++//
++// Returns true when the world actually changed. The player's own press is
++// refused when the cooldown is still running or when the body would end up
++// inside a solid tile of the destination world; the boss's shift is forced,
++// because an attack cannot be cancelled by the map, and resolves the overlap
++// by lifting the body instead.
++shiftWorld(opts = {}) {
++  const d = this.data;
++  if (!d || !this.canShift) return false;
++  const force = opts.force === true;
++  this.shiftRefused = false;
++  if (!force && this.shiftCd > 0) return false;
++
++  const next = this.world ^ 1;
++  const blocked = force ? false : this._bodyInSolid(next);
++  if (blocked) {
++    this.shiftRefused = true;
++    return false;
++  }
++
++  this.world = next;
++  d.world = next;
++  this.shiftCount++;
++  this.shiftCd = SHIFT_CD;
++  this._applyWorld();
++  if (force) this._liftBodyOut();
++  return true;
++}
++
++// Would this body be inside a solid tile of `world`? Only solid counts: a
++// one-way platform the body is passing through is not something to refuse a
++// shift over.
++_bodyInSolid(world) {
++  const body = this.player?.body;
++  if (!body) return false;
++  const d = this.data;
++  const x0 = Math.floor(body.left / TILE);
++  const x1 = Math.floor((body.right - 0.001) / TILE);
++  const y0 = Math.floor(body.bottom / TILE);
++  const y1 = Math.floor((body.top - 0.001) / TILE);
++  if (y0 < 0 || y1 >= d.height) return false;
++  const was = d.world;
++  d.world = world;
++  let hit = false;
++  for (let ty = y0; ty <= y1 && !hit; ty++) {
++    for (let tx = Math.max(0, x0); tx <= Math.min(d.width - 1, x1); tx++) {
++      if (tileAt(d, tx, ty) === SOLID) { hit = true; break; }
++    }
++  }
++  d.world = was;
++  return hit;
++}
++
++// A forced shift that lands inside the new map lifts the player a tile at a
++// time until they fit. The arena floor is common to both worlds, so this
++// always terminates; the bound is there so a bad layout cannot hang the game.
++_liftBodyOut() {
++  const body = this.player?.body;
++  if (!body) return;
++  for (let i = 0; i < SHIFT_LIFT_STEPS && this._bodyInSolid(this.world); i++) {
++    body.y += TILE;
++    if (body.vy < 0) body.vy = 0;
++  }
++  body.vx = 0;
++}
++
+ // ---- coordinate conversion
+ localToWorld(v, out) {
+   const target = out || new THREE.Vector3();
+   target.set(v.x, v.y, 0);
+@@ -393,87 +452,66 @@
+   target.copy(v);
+   return this.group.worldToLocal(target);
+ }
+ 
+-// Called when the player is pinned in world space for the duration of a turn.
+-pinWorld() {
+-  const world = this.localToWorld(this.pinnedLocal.clone());
+-  return world;
+-}
+-
+-// `localPos` may be a live object owned by the caller (the player's body) or
+-// a throwaway Vector3, so copy rather than retain: keeping the reference meant
+-// the "pinned" position tracked the body while the body kept integrating.
+-beginRotate(localPos) {
+-  if (this.rotating || !this.canRotate) return false;
+-  this.pinnedLocal = new THREE.Vector3(localPos.x, localPos.y, 0);
+-  this.pinnedWorld = this.localToWorld(this.pinnedLocal.clone());
+-  this.rotFrom = this.rot;
+-  this.rotTo = this.rot + Math.PI / 2;
+-  this.rotT = 0;
+-  this.rotating = true;
+-  return true;
+-}
+-
+-// Eased so the turn has weight: it starts slow, whips, and settles.
+-static ease(t) {
+-  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+-}
+-
+-updateRotation(dt) {
+-  if (!this.rotating) return null;
+-  this.rotT += dt;
+-  const k = clamp(this.rotT / ROTATE_TIME, 0, 1);
+-  this.rot = this.rotFrom + (this.rotTo - this.rotFrom) * Level.ease(k);
+-  this.group.rotation.z = this.rot;
+-  this.group.updateMatrixWorld(true);
+-  if (k >= 1) {
+-    this.rotating = false;
+-    this.rotCount++;
+-    this.rot = this.rotTo;
+-    this._syncDown();
+-    this.group.rotation.z = this.rot;
+-    this.group.updateMatrixWorld(true);
+-    return this.pinnedWorld.clone();   // caller re-derives the local position
+-  }
+-  return null;
+-}
+-
+ // ---- geometry
+ _buildTiles() {
+   const d = this.data;
+   const geo = new THREE.BoxGeometry(TILE, TILE, TILE);
+-  // One InstancedMesh for the whole grid: a 190x34 tile map is 6460 boxes,
+-  // which is fine as instances and painful as individual meshes.
+-  const positions = [];
++  const pal = (LEVELS[d.id - 1] || LEVELS[0]);
++  // One InstancedMesh per layer group and per tile kind. A 190x34 tile map is
++  // 6460 boxes, which is fine as instances and painful as individual meshes.
++  // The two shifting groups are built once here and toggled on a shift, so a
++  // world change costs no geometry at all.
++  const common = { solid: [], plat: [], spike: [] };
++  const groups = [common, { solid: [], plat: [], spike: [] }, { solid: [], plat: [], spike: [] }];
+   for (let ty = 0; ty < d.height; ty++) {
+     for (let tx = 0; tx < d.width; tx++) {
+-      const v = d.grid[ty * d.width + tx];
+-      if (v === 0) continue;
+-      positions.push([tx, ty, v]);
++      const i = ty * d.width + tx;
++      const layer = d.layer[i];
++      const v = d.grid[i] || (layer ? SOLID : 0);   // a world-only cell the base map leaves empty is solid there
++      if (!v) continue;
++      const bucket = groups[layer] || common;
++      if (v === SOLID) bucket.solid.push([tx, ty]);
++      else if (v === PLATFORM) bucket.plat.push([tx, ty]);
++      else if (v === SPIKE) bucket.spike.push([tx, ty]);
+     }
+   }
+-  const solids = positions.filter((p) => p[2] === SOLID);
+-  const plats = positions.filter((p) => p[2] === PLATFORM);
+-  const spikes = positions.filter((p) => p[2] === SPIKE);
+ 
+-  const pal = (LEVELS[d.id - 1] || LEVELS[0]);
+-  this._inst(geo, solids, pal.tile, 1.0);
+-  this._inst(geo, plats, pal.platform, 1.0);
+-  this._inst(geo, spikes, 0x8a4a3a, 1.0);
++  this.layerMeshes = [];
++  for (let g = 0; g < 3; g++) {
++    const list = groups[g];
++    const look = LAYER_LOOKS[g] || { body: pal.tile, plat: pal.platform, lip: pal.lip };
++    const made = [];
++    this._inst(geo, list.solid, look.body, 1.0, false, made);
++    this._inst(geo, list.plat, look.plat, 1.0, false, made);
++    this._inst(geo, list.spike, 0x8a4a3a, 1.0, false, made);
++    this.layerMeshes.push(made);
++  }
+ 
+   // A lip along the top of every floor tile reads as a highlight edge and
+   // makes the platform tops findable in a dark level without any lighting.
+   // Platforms too, not just solids -- they were built as PLATFORM tiles and
+   // never appeared in `solids`, so every floating platform had no accent
+   // edge and read as a plain black bar.
+   // .concat, not +. `+` on two arrays coerces both to strings, so
+   // `solids + plats` yielded "0,0,1,1,..." and every platform lost its lip.
+-  this._buildLips(solids.concat(plats), pal.lip);
++  for (let g = 0; g < 3; g++) {
++    const look = LAYER_LOOKS[g] || { lip: pal.lip };
++    this._buildLips(groups[g].solid.concat(groups[g].plat), look.lip, this.layerMeshes[g]);
++  }
+   this._buildVoid();
+-  this._buildRunes(pal);
++  this._buildRunes();
++  this._applyWorld();
+ }
+ 
++// Only the two world-only groups change visibility; the common tiles and the
++// geometry behind them never move.
++_applyWorld() {
++  for (const m of this.layerMeshes[1] || []) m.visible = this.world === 0;
++  for (const m of this.layerMeshes[2] || []) m.visible = this.world === 1;
++}
++
+ // A rune on the ground three tiles before each rotation hole, in the level's
+ // accent colour. The holes are the one thing in the game with no visual tell
+ // that they are meant to be crossed by turning the room, so something has to
+ // say so at the player's feet. Pulses in updateRunes.
+
+[0m
+[0m→ [0mRead js/game/level.js[90m [limit=120, offset=468][0m
