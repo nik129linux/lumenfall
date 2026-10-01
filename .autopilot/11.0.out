@@ -1,0 +1,169 @@
+[0m
+> build · space-bunny-free
+[0m
+I'll start by reading the stage document.
+[0m→ [0mRead docs/stage11.md
+[0m
+[0m$ [0mls -la
+total 6512
+drwxrwxr-x 13 nico nico    4096 Sep 30 20:07 .
+drwxrwxr-x  6 nico nico    4096 Sep 28 10:14 ..
+drwxrwxr-x  2 nico nico    4096 Sep 30 21:50 .autopilot
+-rw-rw-r--  1 nico nico    2351 Sep 30 21:50 .bunny-autopilot.log
+-rwxrwxr-x  1 nico nico    3878 Sep 30 21:50 .bunny-autopilot.sh
+-rwxrwxr-x  1 nico nico     348 Sep 30 00:17 .bunny-chain.sh
+-rwxrwxr-x  1 nico nico     491 Sep 30 18:53 .bunny-chain2.sh
+-rw-rw-r--  1 nico nico 1251971 Sep 29 23:32 .bunny-loop.log
+-rwxrwxr-x  1 nico nico     861 Sep 28 14:45 .bunny-loop.sh
+-rw-rw-r--  1 nico nico    1482 Sep 28 14:27 .bunny-prompt.txt
+-rw-rw-r--  1 nico nico     718 Sep 28 14:34 .bunny-reply.txt
+-rw-rw-r--  1 nico nico      61 Sep 30 21:50 .bunny-status.txt
+drwxrwxr-x  7 nico nico    4096 Sep 30 21:50 .git
+-rw-rw-r--  1 nico nico      76 Sep 29 12:44 .gitignore
+drwxrwxr-x 17 nico nico    4096 Sep 30 21:49 .scratch
+-rw-rw-r--  1 nico nico 5054241 Sep 28 10:24 1.png
+-rw-rw-r--  1 nico nico  121701 Sep 28 10:24 2.jpg
+-rw-rw-r--  1 nico nico  113915 Sep 28 10:24 3.jpg
+-rw-rw-r--  1 nico nico   14842 Sep 30 19:15 README.md
+drwxrwxr-x  5 nico nico    4096 Sep 29 12:42 assets
+drwxrwxr-x  4 nico nico    4096 Sep 30 20:07 assets-src
+drwxrwxr-x  2 nico nico    4096 Sep 28 15:01 css
+drwxrwxr-x  3 nico nico    4096 Sep 30 21:50 docs
+-rw-rw-r--  1 nico nico    5946 Sep 30 18:57 index.html
+drwxrwxr-x  7 nico nico    4096 Sep 29 23:56 js
+drwxrwxr-x  2 nico nico    4096 Sep 28 15:06 node_modules
+-rw-rw-r--  1 nico nico    1292 Sep 30 08:48 output.log
+drwxrwxr-x  2 nico nico    4096 Sep 29 22:06 sprites
+drwxrwxr-x  3 nico nico    4096 Sep 30 21:50 tools
+[0m
+[0m$ [0mwc -l js/main.js js/ui/hud.js README.md; ls js js/ui
+1180 js/main.js
+  292 js/ui/hud.js
+  249 README.md
+ 1721 total
+js:
+core
+game
+main.js
+render
+ui
+vendor
+
+js/ui:
+cutscene.js
+hud.js
+i18n.js
+strings.js
+[0m
+[0m→ [0mRead tools/gate11.mjs
+[0m✱ [0mGrep "_applyUrlParams|playCutscene|buildScript|cutscene"[90m in js · 38 matches[0m
+[0m→ [0mRead js/main.js[90m [offset=120, limit=220][0m
+[0m→ [0mRead js/ui/cutscene.js[90m [offset=60, limit=130][0m
+[0m→ [0mRead js/main.js[90m [offset=490, limit=60][0m
+[0m→ [0mRead js/ui/cutscene.js[90m [offset=189][0m
+[0m✱ [0mGrep "toTitle"[90m in js/main.js · 5 matches[0m
+[0m→ [0mRead js/game/state.js
+[0m→ [0mRead js/main.js[90m [limit=60, offset=55][0m
+[0m→ [0mRead js/main.js[90m [limit=30, offset=340][0m
+[0m→ [0mRead js/ui/hud.js[90m [offset=205, limit=87][0m
+[0m
+[0m$ [0mgrep -n "menu-new" index.html | head -5; grep -n "^## \|^### " README.md | head -30
+50:          <button id="menu-new" class="btn primary">Nueva partida</button>
+12:## Run it
+31:## Controls
+58:## Story
+75:## Levels and bosses
+86:## Adaptive AI
+150:## Metrics
+174:## Project structure
+200:## Tests
+221:## Known limitations
+242:## Credits
+[0m
+[0m→ [0mRead README.md[90m [offset=31, limit=30][0m
+Now the edits:
+[0m
+[0m← [0mEdit js/main.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+@@ -184,10 +184,23 @@
+ 
+ // ?level=1|2|3 and ?boss=1 drop straight into a level or its boss fight.
+ // Stage 1's acceptance checks use these to reach the later levels and the
+ // bosses without playing through them.
++//
++// ?cutscene=KEY plays one cutscene on its own, for the team, the demo and the
++// professor: panels 11-19 sit behind three bosses, and nobody should have to
++// grind them just to watch a scene.
+ _applyUrlParams() {
+   const q = new URLSearchParams(location.search);
++
++  // The deal is not in CUTSCENES because it plays over the level next to the
++  // elder, not as a scene of its own. An unknown key falls through to the menu.
++  const cut = q.get('cutscene') || '';
++  if (CUTSCENES[cut]?.length) {
++    this.playCutscene(cut, () => { this.machine.to(S.MENU); this.ui.show('menu'); });
++    return;
++  }
++
+   const lv = parseInt(q.get('level') || '', 10);
+   const boss = q.get('boss') === '1';
+   if (!lv && !boss) return;
+   const index = lv >= 1 && lv <= 3 ? lv - 1 : 0;
+
+[0m
+[0m← [0mEdit js/main.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+@@ -24,9 +24,9 @@
+ import { UlBurjo } from './game/boss/ulburjo.js';
+ import { PatientOne } from './game/boss/patientone.js';
+ 
+ import { UI } from './ui/hud.js';
+-import { Cutscene, buildScript, PanelStage, preloadPanels } from './ui/cutscene.js';
++import { Cutscene, CUTSCENES, buildScript, PanelStage, preloadPanels } from './ui/cutscene.js';
+ import { t, loadStoredLang, toggleLang, getLang } from './ui/i18n.js';
+ 
+ const BOSSES = { statue: Statue, ulburjo: UlBurjo, patientone: PatientOne };
+ const BOSS_INTRO = { 1: 'reveal', 2: 'waking' };
+
+[0m
+[0m→ [0mRead js/main.js[90m [offset=184, limit=45][0m
+Now the README line:
+[0m
+[0m← [0mEdit README.md
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/README.md
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/README.md
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/README.md
+@@ -43,8 +43,10 @@
+ | **Rotate** the level (L2 only) | `E` |
+ | **Pause** | `Esc` or `P` |
+ | Switch language | `L` |
+ 
++Watch a cutscene directly: `index.html?cutscene=prologue|theft|reveal|waking|return`
++
+ Menus, cutscenes and the story dialogue use `W`/`S` or `↑`/`↓` to move the selection,
+ `Enter` / `Space` / `J` / `Z` to confirm or advance a line, and `Esc` to go back, close
+ a sheet or skip a cutscene.
+ 
+
+[0m
+[0m$ [0mnode tools/gate11.mjs
+PASS  K-prologue plays immediately with panels 01,01,02,02  [active=true arts=["01","01","02","02"]]
+PASS  K-theft plays immediately with panels 05,05,10,06  [active=true arts=["05","05","10","06"]]
+PASS  K-reveal plays immediately with panels 11,12,13  [active=true arts=["11","12","13"]]
+PASS  K-esc Esc ends the cutscene and shows the menu (no level starts)  [{"active":false,"menuVisible":true}]
+PASS  K-waking plays immediately with panels 14,14,15  [active=true arts=["14","14","15"]]
+PASS  K-return plays immediately with panels 16,17,18,19,19  [active=true arts=["16","17","18","19","19"]]
+PASS  K-bogus an unknown key just opens the menu
+PASS  K-err no console or page errors
+GATE PASS
+[0m
+Files changed: `js/main.js` (`?cutscene=KEY` in `_applyUrlParams`, import `CUTSCENES`), `README.md` (one Controls line); `js/ui/hud.js` untouched.
+Gate: `node tools/gate11.mjs` → GATE PASS (8/8, no console or page errors).
+Not done: nothing from the stage — no commit, no server, no other files touched.

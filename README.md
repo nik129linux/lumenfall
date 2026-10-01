@@ -44,6 +44,8 @@ landing still fires on the first legal frame.
 | **Pause** | `Esc` or `P` |
 | Switch language | `L` |
 
+Watch a cutscene directly: `index.html?cutscene=prologue|theft|reveal|waking|return`
+
 Menus, cutscenes and the story dialogue use `W`/`S` or `↑`/`↓` to move the selection,
 `Enter` / `Space` / `J` / `Z` to confirm or advance a line, and `Esc` to go back, close
 a sheet or skip a cutscene.

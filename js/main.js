@@ -25,7 +25,7 @@ import { UlBurjo } from './game/boss/ulburjo.js';
 import { PatientOne } from './game/boss/patientone.js';
 
 import { UI } from './ui/hud.js';
-import { Cutscene, buildScript, PanelStage, preloadPanels } from './ui/cutscene.js';
+import { Cutscene, CUTSCENES, buildScript, PanelStage, preloadPanels } from './ui/cutscene.js';
 import { t, loadStoredLang, toggleLang, getLang } from './ui/i18n.js';
 
 const BOSSES = { statue: Statue, ulburjo: UlBurjo, patientone: PatientOne };
@@ -185,8 +185,21 @@ class Game {
   // ?level=1|2|3 and ?boss=1 drop straight into a level or its boss fight.
   // Stage 1's acceptance checks use these to reach the later levels and the
   // bosses without playing through them.
+  //
+  // ?cutscene=KEY plays one cutscene on its own, for the team, the demo and the
+  // professor: panels 11-19 sit behind three bosses, and nobody should have to
+  // grind them just to watch a scene.
   _applyUrlParams() {
     const q = new URLSearchParams(location.search);
+
+    // The deal is not in CUTSCENES because it plays over the level next to the
+    // elder, not as a scene of its own. An unknown key falls through to the menu.
+    const cut = q.get('cutscene') || '';
+    if (CUTSCENES[cut]?.length) {
+      this.playCutscene(cut, () => { this.machine.to(S.MENU); this.ui.show('menu'); });
+      return;
+    }
+
     const lv = parseInt(q.get('level') || '', 10);
     const boss = q.get('boss') === '1';
     if (!lv && !boss) return;
