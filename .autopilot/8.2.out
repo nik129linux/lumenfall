@@ -1,0 +1,668 @@
+[0m
+> build · muse-spark-1.3-contributor-free
+[0m
+Fixing oversized panels — reading the spec to compress them correctly.
+[0m→ [0mRead docs/stage8.md
+[0m✗ [0mRead tools/gate8.mjs failed
+[91m[1mError: [0mFile not found: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/tools/gate8.mjs
+[0m→ [0mRead assets/cutscenes
+[0m→ [0mRead assets/bg
+[0m
+[0m$ [0mls tools/ && ls assets-src/ 2>&1; ls .scratch/ 2>&1; cat tools/gate8.py 2>/dev/null | head -n 200
+__pycache__
+build-atlas.py
+compress-panels.py
+cut_minions.py
+gate2f.py
+gate3a.mjs
+gate3b.mjs
+gate4.mjs
+gate5.mjs
+gate6.mjs
+gate7.mjs
+gate8.py
+gate9.mjs
+gateai.mjs
+gateboss.mjs
+gatei18n.mjs
+reach.mjs
+smoke.mjs
+stage1.mjs
+stage1b.mjs
+stage2e.mjs
+story.mjs
+bg
+cutscenes
+05-old-kael-steals.png
+__pycache__
+ab-30.png
+ab-60.png
+ab.mjs
+allprobe.png
+analyze2f.py
+atlases.png
+bgcheck.mjs
+bossprobe.mjs
+bossreach.mjs
+bounds.mjs
+boxes.py
+bright.mjs
+burcheck.mjs
+cell-wisp-0.png
+cell-wisp-2.png
+cells.py
+cmp.mjs
+crop-both.png
+crop-preview-03.png
+crop-preview-04.png
+cut_minions.py.bak
+deathprobe.mjs
+diag.mjs
+diag10.mjs
+diag11.mjs
+diag12.mjs
+diag13.mjs
+diag14.mjs
+diag15.mjs
+diag16.mjs
+diag2.mjs
+diag3.mjs
+diag4.mjs
+diag5.mjs
+diag6.mjs
+diag7.mjs
+diag8.mjs
+diag9.mjs
+diagc.mjs
+diagd.mjs
+dom.mjs
+dom2.mjs
+eldercheck.mjs
+endcheck.mjs
+fadetrace.mjs
+gate4check.mjs
+glowprobe.mjs
+grid-03.png
+grid-04.png
+hollow-crown
+immortal.mjs
+jumpdbg.mjs
+layerdump.mjs
+levels-grid.png
+lipcheck.mjs
+load.mjs
+load.png
+manifest.json.bak
+manifest.orig.json
+old-panels
+p2probe.mjs
+packdbg.py
+panel-off.png
+panel-on.png
+panelcheck.mjs
+panels-11-19.jpg
+plat-10.png
+plat-5.png
+plat.mjs
+plat2.mjs
+platdbg.mjs
+playthrough.mjs
+preload2d.mjs
+probe
+probe2.mjs
+probe3.mjs
+probe3b.mjs
+probe3b2.mjs
+probe5.json
+probe5.mjs
+reach-output.txt
+reach2.txt
+reach2c.txt
+rot-after.png
+rotprobe.mjs
+rotvisual.mjs
+rowscan.mjs
+s1-menu.png
+s2.png
+s3.png
+s4.png
+s4probe.mjs
+server.log
+shot.mjs
+shot1c.mjs
+shot2.mjs
+shots
+shots.mjs
+sim-both.png
+sim-elder.png
+sim-kael.png
+smoke2.mjs
+smoke3.mjs
+src-wisp-0.png
+src-wisp-2.png
+stage1
+stage1b
+stage1c
+stage1c-verify.mjs
+stage1c.mjs
+stage1d
+stage1d-onplat.mjs
+stage1d-shots.mjs
+stage2
+stage2b
+stage2b-shots.mjs
+stage2c
+stage2c-shots.mjs
+stage2d
+stage2d-shots.mjs
+stage2e
+stage2f
+stage7-panel.png
+tune.mjs
+urlcheck.mjs
+verify1d-end.mjs
+verify1d.mjs
+which.mjs
+zoom-failing.png
+zoom.py
+#!/usr/bin/env python3
+"""Stage 8 gate: panels and backgrounds are light, still pixel-faithful, originals preserved."""
+import os, sys, glob, hashlib
+import numpy as np
+from PIL import Image
+res = []
+def check(n, ok, d=''): res.append((n, bool(ok), d))
+pairs = [(f'assets/cutscenes/{i:02d}.png', f'assets-src/cutscenes/{i:02d}.png') for i in range(1, 20)] + \
+        [(f'assets/bg/l{i}.png', f'assets-src/bg/l{i}.png') for i in (1, 2, 3)]
+missing_src = [s for _, s in pairs if not os.path.exists(s)]
+check('S1 originals are preserved in assets-src/ (22 files)', not missing_src, ', '.join(missing_src[:5]))
+panels = [p for p, _ in pairs if 'cutscenes' in p]
+big = [f'{os.path.basename(p)}={os.path.getsize(p)//1024}KB' for p in panels if os.path.exists(p) and os.path.getsize(p) > 900 * 1024]
+check('S2 every panel <= 900 KB', not big, ', '.join(big))
+tot = sum(os.path.getsize(p) for p in panels if os.path.exists(p))
+check('S3 panels total <= 9 MB', tot <= 9 * 1024 * 1024, f'{tot/1e6:.1f} MB')
+bgs = [p for p, _ in pairs if '/bg/' in p]
+bigbg = [f'{os.path.basename(p)}={os.path.getsize(p)//1024}KB' for p in bgs if os.path.exists(p) and os.path.getsize(p) > 1400 * 1024]
+check('S4 every background <= 1.4 MB', not bigbg, ', '.join(bigbg))
+bad_dim, bad_q, bad_open = [], [], []
+for p, s in pairs:
+    if not (os.path.exists(p) and os.path.exists(s)): continue
+    try:
+        a = Image.open(p).convert('RGB'); o = Image.open(s).convert('RGB')
+    except Exception as e:
+        bad_open.append(f'{p}: {e}'); continue
+    w = min(o.width, 1280)
+    if abs(a.width - w) > 1 or abs(a.height / a.width - o.height / o.width) > 0.01: bad_dim.append(f'{os.path.basename(p)} {a.size} vs orig {o.size}')
+    def th(im): return np.asarray(im.resize((256, round(256 * im.height / im.width)), Image.LANCZOS), dtype=np.float32)
+    x, y = th(a), th(o)
+    if x.shape != y.shape: bad_dim.append(f'{os.path.basename(p)} thumb shape'); continue
+    mae = float(np.abs(x - y).mean())
+    if mae > 10: bad_q.append(f'{os.path.basename(p)} mae={mae:.1f}')
+check('S5 every file opens as a PNG', not bad_open, '; '.join(bad_open[:3]))
+check('S6 width = min(original, 1280) and aspect ratio kept', not bad_dim, '; '.join(bad_dim[:4]))
+check('S7 pixel-faithful (mean abs diff <= 10 per channel)', not bad_q, '; '.join(bad_q[:6]))
+check('S8 tools/compress-panels.py exists', os.path.exists('tools/compress-panels.py'), '')
+same = [p for p, s in pairs if os.path.exists(p) and os.path.exists(s) and hashlib.md5(open(p, 'rb').read()).hexdigest() == hashlib.md5(open(s, 'rb').read()).hexdigest() and os.path.getsize(p) > 300 * 1024]
+check('S9 the big images were really re-encoded (not left identical to the originals)', not same, ', '.join(os.path.basename(x) for x in same[:5]))
+failed = 0
+for n, ok, d in res:
+    print(('PASS  ' if ok else 'FAIL  ') + n + (f'  [{d}]' if d else '')); failed += (not ok)
+print(f'GATE FAIL ({failed} of {len(res)})' if failed else 'GATE PASS'); sys.exit(1 if failed else 0)
+[0m
+[0m$ [0mls -la assets-src/cutscenes/ assets-src/bg/ 2>&1; echo ---; python3 -c "from PIL import Image; im=Image.open('assets-src/cutscenes/01.png'); print(im.size, im.mode)"; echo ---; cat tools/compress-panels.py
+assets-src/bg/:
+total 4196
+drwxrwxr-x 2 nico nico    4096 Sep 30 19:19 .
+drwxrwxr-x 4 nico nico    4096 Sep 30 19:19 ..
+-rw-rw-r-- 1 nico nico 1360498 Sep 29 01:49 l1.png
+-rw-rw-r-- 1 nico nico 2105497 Sep 29 01:48 l2.png
+-rw-rw-r-- 1 nico nico  813930 Sep 29 01:49 l3.png
+
+assets-src/cutscenes/:
+total 34256
+drwxrwxr-x 2 nico nico    4096 Sep 30 19:19 .
+drwxrwxr-x 4 nico nico    4096 Sep 30 19:19 ..
+-rw-rw-r-- 1 nico nico 2707101 Sep 30 09:04 01.png
+-rw-rw-r-- 1 nico nico 2985512 Sep 30 09:02 02.png
+-rw-rw-r-- 1 nico nico  880892 Sep 29 00:00 03.png
+-rw-rw-r-- 1 nico nico 1001260 Sep 29 00:12 04.png
+-rw-rw-r-- 1 nico nico  763516 Sep 29 00:10 05.png
+-rw-rw-r-- 1 nico nico  763762 Sep 29 00:06 06.png
+-rw-rw-r-- 1 nico nico  151459 Sep 29 12:32 07.png
+-rw-rw-r-- 1 nico nico  181373 Sep 29 12:33 08.png
+-rw-rw-r-- 1 nico nico  125446 Sep 29 12:34 09.png
+-rw-rw-r-- 1 nico nico 2165367 Sep 29 12:35 10.png
+-rw-rw-r-- 1 nico nico 4861966 Sep 30 17:14 11.png
+-rw-rw-r-- 1 nico nico 3668203 Sep 30 17:20 12.png
+-rw-rw-r-- 1 nico nico 2125976 Sep 30 17:25 13.png
+-rw-rw-r-- 1 nico nico 1734917 Sep 30 17:28 14.png
+-rw-rw-r-- 1 nico nico 1470212 Sep 30 17:30 15.png
+-rw-rw-r-- 1 nico nico 1789328 Sep 30 17:39 16.png
+-rw-rw-r-- 1 nico nico 2217925 Sep 30 17:40 17.png
+-rw-rw-r-- 1 nico nico 2507120 Sep 30 17:40 18.png
+-rw-rw-r-- 1 nico nico 2932520 Sep 30 17:40 19.png
+---
+(1672, 941) RGB
+---
+#!/usr/bin/env python3
+"""Stage 8 asset pipeline: shrink the cutscene panels and the parallax backdrops.
+
+The 19 panels and 3 backgrounds shipped as ~45 MB of 24-bit PNG. Every host that
+is not a local disk chokes on that, and the pixel-art look does not need the
+weight: the panels are read at most 1280 px wide and the art survives a palette
+cut that a 256 px thumbnail cannot see.
+
+Reads the untouched masters from assets-src/ and writes the shrunk PNGs into
+assets/. For each image it resizes with LANCZOS so the width is at most 1280
+(never upscales, aspect ratio kept), then tries palette sizes from 256 colours
+down to 24 and keeps the smallest one whose mean absolute difference against the
+master, measured on 256 px-wide LANCZOS thumbnails, stays under the limit.
+
+Usage:
+    python3 tools/compress-panels.py            # rewrite assets/ from assets-src/
+    python3 tools/compress-panels.py --report   # only print what it would pick
+"""
+
+import io
+import os
+import sys
+
+import numpy as np
+from PIL import Image
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SRC = os.path.join(ROOT, "assets-src")
+DST = os.path.join(ROOT, "assets")
+SCRATCH = os.path.join(ROOT, ".scratch")
+
+MAX_WIDTH = 1280
+PALETTES = (192, 160, 128, 96, 64, 48, 32, 24)
+MAE_SAFE = 6.0
+THUMB_WIDTH = 256
+REPORT = "--report" in sys.argv
+
+TARGETS = [(f"cutscenes/{i:02d}.png", 900 * 1024) for i in range(1, 20)] + \
+          [(f"bg/l{i}.png", 1400 * 1024) for i in (1, 2, 3)]
+
+
+def thumb(im):
+    w = THUMB_WIDTH
+    h = max(1, round(w * im.height / im.width))
+    return np.asarray(im.resize((w, h), Image.LANCZOS), dtype=np.float32)
+
+
+def encode(base, colors):
+    out = base.quantize(colors=colors, method=Image.Quantize.FASTOCTREE,
+                        dither=Image.Dither.FLOYDSTEINBERG)
+    buf = io.BytesIO()
+    out.save(buf, format="PNG", optimize=True)
+    return out, buf.getvalue()
+
+
+def shrink(src_path, limit):
+    original = Image.open(src_path).convert("RGB")
+    ref = thumb(original)
+    if original.width > MAX_WIDTH:
+        w = MAX_WIDTH
+        h = max(1, round(original.height * w / original.width))
+        base = original.resize((w, h), Image.LANCZOS)
+    else:
+        base = original
+    fallback = None
+    for colors in PALETTES:
+        out, data = encode(base, colors)
+        mae = float(np.abs(thumb(out.convert("RGB")) - ref).mean())
+        if mae > MAE_SAFE:
+            continue
+        if len(data) <= limit:
+            return original.size, base.size, (colors, mae, data)
+        if fallback is None or len(data) < len(fallback[2]):
+            fallback = (colors, mae, data)
+    return original.size, base.size, fallback
+
+
+def main():
+    os.makedirs(SCRATCH, exist_ok=True)
+    failures = []
+    panel_total = 0
+    total = 0
+    for rel, limit in TARGETS:
+        src_path = os.path.join(SRC, rel)
+        dst_path = os.path.join(DST, rel)
+        if not os.path.exists(src_path):
+            failures.append(f"{rel}: missing master {src_path}")
+            continue
+        os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+        osize, rsize, best = shrink(src_path, limit)
+        if best is None:
+            failures.append(f"{rel}: no palette kept mae <= {MAE_SAFE}")
+            continue
+        colors, mae, data = best
+        total += len(data)
+        if rel.startswith("cutscenes/"):
+            panel_total += len(data)
+        if len(data) > limit:
+            failures.append(f"{rel}: {len(data)/1024:.0f} KB over the {limit/1024:.0f} KB limit")
+        print(f"{rel:22s} {osize[0]}x{osize[1]} -> {rsize[0]}x{rsize[1]} "
+              f"colors={colors:3d} mae={mae:4.1f} {len(data)/1024:7.1f} KB "
+              f"(limit {limit/1024:.0f} KB)")
+        if REPORT:
+            continue
+        tmp = os.path.join(SCRATCH, os.path.basename(rel) + ".tmp")
+        with open(tmp, "wb") as fh:
+            fh.write(data)
+        os.replace(tmp, dst_path)
+    print(f"panels {panel_total/1024/1024:.2f} MB (budget 9.00 MB), "
+          f"with backgrounds {total/1024/1024:.2f} MB")
+    if panel_total > 9 * 1024 * 1024:
+        failures.append(f"panels total {panel_total/1024/1024:.2f} MB over the 9 MB budget")
+    for f in failures:
+        print("FAIL  " + f)
+    sys.exit(1 if failures else 0)
+
+
+if __name__ == "__main__":
+    main()
+[0m
+The previous run left the big panels uncompressed. I'll measure what palette sizes actually meet the limits.
+[0m$ [0mpython3 -c "
+from PIL import Image
+import os
+for i in list(range(1,20)):
+    p=f'assets-src/cutscenes/{i:02d}.png'
+    im=Image.open(p); print(f'{i:02d} {im.size} {os.path.getsize(p)//1024}KB')
+for i in (1,2,3):
+    p=f'assets-src/bg/l{i}.png'
+    im=Image.open(p); print(f'l{i} {im.size} {os.path.getsize(p)//1024}KB')
+print('--- dst ---')
+for i in list(range(1,20)):
+    p=f'assets/cutscenes/{i:02d}.png'
+    im=Image.open(p); print(f'{i:02d} {im.size} {os.path.getsize(p)//1024}KB')
+"
+01 (1672, 941) 2643KB
+02 (1672, 940) 2915KB
+03 (1024, 1024) 860KB
+04 (1024, 1024) 977KB
+05 (1024, 572) 745KB
+06 (1024, 682) 745KB
+07 (1024, 1024) 147KB
+08 (1024, 1024) 177KB
+09 (1024, 1024) 122KB
+10 (2750, 1536) 2114KB
+11 (2720, 1536) 4748KB
+12 (2736, 1520) 3582KB
+13 (1679, 937) 2076KB
+14 (1679, 937) 1694KB
+15 (2528, 1684) 1435KB
+16 (1672, 933) 1747KB
+17 (1672, 1114) 2165KB
+18 (1672, 1114) 2448KB
+19 (1672, 1672) 2863KB
+l1 (1376, 768) 1328KB
+l2 (1672, 941) 2056KB
+l3 (1376, 768) 794KB
+--- dst ---
+01 (1672, 941) 2643KB
+02 (1672, 940) 2915KB
+03 (1024, 1024) 860KB
+04 (1024, 1024) 977KB
+05 (1024, 572) 745KB
+06 (1024, 682) 745KB
+07 (1024, 1024) 147KB
+08 (1024, 1024) 177KB
+09 (1024, 1024) 122KB
+10 (2750, 1536) 2114KB
+11 (2720, 1536) 4748KB
+12 (2736, 1520) 3582KB
+13 (1679, 937) 2076KB
+14 (1679, 937) 1694KB
+15 (2528, 1684) 1435KB
+16 (1672, 933) 1747KB
+17 (1672, 1114) 2165KB
+18 (1672, 1114) 2448KB
+19 (1672, 1672) 2863KB
+[0m
+[0m$ [0mpython3 -c "
+from PIL import Image
+import io
+import numpy as np
+def thumb(im):
+    w=256; h=max(1,round(w*im.height/im.width))
+    return np.asarray(im.resize((w,h), Image.LANCZOS), dtype=np.float32)
+for name in ['01','02','04','10','11','12','13','14','15','16','17','18','19','l2']:
+    d='cutscenes' if not name.startswith('l') else 'bg'
+    p=f'assets-src/{d}/{name}.png'
+    orig=Image.open(p).convert('RGB')
+    ref=thumb(orig)
+    base=orig
+    if orig.width>1280:
+        w=1280; h=max(1,round(orig.height*w/orig.width))
+        base=orig.resize((w,h), Image.LANCZOS)
+    for n in (192,96,64,48,32,24,16):
+        out=base.quantize(colors=n, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.FLOYDSTEINBERG)
+        buf=io.BytesIO(); out.save(buf, format='PNG', optimize=True)
+        mae=float(np.abs(thumb(out.convert('RGB'))-ref).mean())
+        print(f'{name} w={base.width} N={n:3d} {len(buf.getvalue())//1024:5d}KB mae={mae:.1f}')
+    print()
+"
+01 w=1280 N=192   389KB mae=1.9
+01 w=1280 N= 96   357KB mae=2.2
+01 w=1280 N= 64   323KB mae=2.6
+01 w=1280 N= 48   286KB mae=3.1
+01 w=1280 N= 32    98KB mae=7.6
+01 w=1280 N= 24    98KB mae=7.7
+01 w=1280 N= 16   103KB mae=8.2
+
+02 w=1280 N=192   476KB mae=1.9
+02 w=1280 N= 96   430KB mae=2.3
+02 w=1280 N= 64   389KB mae=2.9
+02 w=1280 N= 48   349KB mae=3.7
+02 w=1280 N= 32   139KB mae=7.8
+02 w=1280 N= 24   139KB mae=7.8
+02 w=1280 N= 16   142KB mae=8.4
+
+04 w=1024 N=192   237KB mae=2.8
+04 w=1024 N= 96   195KB mae=4.1
+04 w=1024 N= 64   159KB mae=5.3
+04 w=1024 N= 48   121KB mae=7.2
+04 w=1024 N= 32    75KB mae=9.4
+04 w=1024 N= 24    75KB mae=9.6
+04 w=1024 N= 16    74KB mae=12.3
+
+10 w=1280 N=192   235KB mae=1.3
+10 w=1280 N= 96   232KB mae=1.4
+10 w=1280 N= 64   228KB mae=1.4
+10 w=1280 N= 48   220KB mae=1.7
+10 w=1280 N= 32   165KB mae=4.5
+10 w=1280 N= 24    62KB mae=9.3
+10 w=1280 N= 16    67KB mae=9.4
+
+11 w=1280 N=192   299KB mae=1.4
+11 w=1280 N= 96   278KB mae=1.7
+11 w=1280 N= 64   258KB mae=1.9
+11 w=1280 N= 48   241KB mae=2.2
+11 w=1280 N= 32   187KB mae=2.9
+11 w=1280 N= 24    63KB mae=7.3
+11 w=1280 N= 16    62KB mae=7.4
+
+12 w=1280 N=192   219KB mae=1.4
+12 w=1280 N= 96   214KB mae=1.4
+12 w=1280 N= 64   208KB mae=1.5
+12 w=1280 N= 48   183KB mae=2.4
+12 w=1280 N= 32    61KB mae=9.8
+12 w=1280 N= 24    60KB mae=9.9
+12 w=1280 N= 16    63KB mae=10.1
+
+13 w=1280 N=192   252KB mae=1.7
+13 w=1280 N= 96   250KB mae=1.7
+13 w=1280 N= 64   244KB mae=1.8
+13 w=1280 N= 48   237KB mae=1.9
+13 w=1280 N= 32   209KB mae=2.3
+13 w=1280 N= 24   163KB mae=3.1
+13 w=1280 N= 16    54KB mae=6.6
+
+14 w=1280 N=192   166KB mae=1.5
+14 w=1280 N= 96   165KB mae=1.5
+14 w=1280 N= 64   163KB mae=1.5
+14 w=1280 N= 48   159KB mae=1.5
+14 w=1280 N= 32   141KB mae=1.8
+14 w=1280 N= 24   105KB mae=2.3
+14 w=1280 N= 16    52KB mae=5.8
+
+15 w=1280 N=192    60KB mae=2.2
+15 w=1280 N= 96    61KB mae=2.2
+15 w=1280 N= 64    60KB mae=2.2
+15 w=1280 N= 48    60KB mae=2.2
+15 w=1280 N= 32    60KB mae=2.2
+15 w=1280 N= 24    60KB mae=2.2
+15 w=1280 N= 16    61KB mae=2.2
+
+16 w=1280 N=192   265KB mae=2.3
+16 w=1280 N= 96   224KB mae=3.3
+16 w=1280 N= 64   196KB mae=4.3
+16 w=1280 N= 48   168KB mae=5.6
+16 w=1280 N= 32    70KB mae=8.7
+16 w=1280 N= 24    69KB mae=8.9
+16 w=1280 N= 16    73KB mae=9.9
+
+17 w=1280 N=192   290KB mae=1.4
+17 w=1280 N= 96   283KB mae=1.5
+17 w=1280 N= 64   273KB mae=1.6
+17 w=1280 N= 48   258KB mae=1.8
+17 w=1280 N= 32   191KB mae=4.8
+17 w=1280 N= 24    88KB mae=6.8
+17 w=1280 N= 16    94KB mae=7.0
+
+18 w=1280 N=192   395KB mae=1.7
+18 w=1280 N= 96   351KB mae=2.8
+18 w=1280 N= 64   298KB mae=3.9
+18 w=1280 N= 48   251KB mae=5.3
+18 w=1280 N= 32   121KB mae=7.9
+18 w=1280 N= 24   120KB mae=7.9
+18 w=1280 N= 16   124KB mae=8.1
+
+19 w=1280 N=192   402KB mae=2.1
+19 w=1280 N= 96   333KB mae=3.2
+19 w=1280 N= 64   282KB mae=4.3
+19 w=1280 N= 48   239KB mae=5.4
+19 w=1280 N= 32   181KB mae=7.4
+19 w=1280 N= 24   118KB mae=8.8
+19 w=1280 N= 16   130KB mae=10.1
+
+l2 w=1280 N=192   275KB mae=1.2
+l2 w=1280 N= 96   254KB mae=1.5
+l2 w=1280 N= 64   233KB mae=1.9
+l2 w=1280 N= 48   214KB mae=2.3
+l2 w=1280 N= 32   126KB mae=3.8
+l2 w=1280 N= 24    72KB mae=6.3
+l2 w=1280 N= 16    73KB mae=6.4
+[0m
+[0m$ [0mpython3 -c "
+from PIL import Image
+import io
+import numpy as np
+def thumb(im):
+    w=256; h=max(1,round(w*im.height/im.width))
+    return np.asarray(im.resize((w,h), Image.LANCZOS), dtype=np.float32)
+for name in ['03','05','06','07','08','09','l1','l3']:
+    d='cutscenes' if not name.startswith('l') else 'bg'
+    p=f'assets-src/{d}/{name}.png'
+    orig=Image.open(p).convert('RGB')
+    ref=thumb(orig)
+    base=orig if orig.width<=1280 else orig.resize((1280,max(1,round(orig.height*1280/orig.width))), Image.LANCZOS)
+    for n in (192,96,48,32,24):
+        out=base.quantize(colors=n, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.FLOYDSTEINBERG)
+        buf=io.BytesIO(); out.save(buf, format='PNG', optimize=True)
+        mae=float(np.abs(thumb(out.convert('RGB'))-ref).mean())
+        print(f'{name} w={base.width} N={n:3d} {len(buf.getvalue())//1024:5d}KB mae={mae:.1f}')
+    print()
+"
+03 w=1024 N=192   204KB mae=2.0
+03 w=1024 N= 96   170KB mae=2.9
+03 w=1024 N= 48    94KB mae=6.2
+03 w=1024 N= 32    61KB mae=8.8
+03 w=1024 N= 24    61KB mae=9.0
+
+05 w=1024 N=192   203KB mae=1.8
+05 w=1024 N= 96   184KB mae=2.2
+05 w=1024 N= 48   139KB mae=3.7
+05 w=1024 N= 32    53KB mae=9.3
+05 w=1024 N= 24    53KB mae=9.3
+
+06 w=1024 N=192   214KB mae=1.4
+06 w=1024 N= 96   213KB mae=1.4
+06 w=1024 N= 48   210KB mae=1.5
+06 w=1024 N= 32   193KB mae=2.1
+06 w=1024 N= 24   153KB mae=4.5
+
+07 w=1024 N=192   244KB mae=1.7
+07 w=1024 N= 96   214KB mae=2.3
+07 w=1024 N= 48   163KB mae=3.7
+07 w=1024 N= 32    94KB mae=5.4
+07 w=1024 N= 24    68KB mae=7.9
+
+08 w=1024 N=192   247KB mae=2.6
+08 w=1024 N= 96   203KB mae=3.8
+08 w=1024 N= 48    97KB mae=8.3
+08 w=1024 N= 32    87KB mae=9.5
+08 w=1024 N= 24    85KB mae=9.9
+
+09 w=1024 N=192   167KB mae=1.9
+09 w=1024 N= 96   151KB mae=2.2
+09 w=1024 N= 48   112KB mae=3.1
+09 w=1024 N= 32    42KB mae=8.6
+09 w=1024 N= 24    42KB mae=8.7
+
+l1 w=1280 N=192   340KB mae=1.3
+l1 w=1280 N= 96   321KB mae=1.6
+l1 w=1280 N= 48   274KB mae=2.0
+l1 w=1280 N= 32   230KB mae=3.0
+l1 w=1280 N= 24   135KB mae=4.0
+
+l3 w=1280 N=192   160KB mae=1.2
+l3 w=1280 N= 96   158KB mae=1.2
+l3 w=1280 N= 48   141KB mae=1.3
+l3 w=1280 N= 32   124KB mae=1.9
+l3 w=1280 N= 24   107KB mae=2.3
+[0m
+All panels fit at 192 colors with quality to spare — the script was fine, it just never ran. Running it now.
+[0m$ [0mpython3 tools/compress-panels.py
+cutscenes/01.png       1672x941 -> 1280x720 colors=192 mae= 1.9   389.4 KB (limit 900 KB)
+cutscenes/02.png       1672x940 -> 1280x720 colors=192 mae= 1.9   476.0 KB (limit 900 KB)
+cutscenes/03.png       1024x1024 -> 1024x1024 colors=192 mae= 2.0   204.3 KB (limit 900 KB)
+cutscenes/04.png       1024x1024 -> 1024x1024 colors=192 mae= 2.8   237.1 KB (limit 900 KB)
+cutscenes/05.png       1024x572 -> 1024x572 colors=192 mae= 1.8   203.1 KB (limit 900 KB)
+cutscenes/06.png       1024x682 -> 1024x682 colors=192 mae= 1.4   214.5 KB (limit 900 KB)
+cutscenes/07.png       1024x1024 -> 1024x1024 colors=192 mae= 1.7   245.0 KB (limit 900 KB)
+cutscenes/08.png       1024x1024 -> 1024x1024 colors=192 mae= 2.6   247.6 KB (limit 900 KB)
+cutscenes/09.png       1024x1024 -> 1024x1024 colors=192 mae= 1.9   167.9 KB (limit 900 KB)
+cutscenes/10.png       2750x1536 -> 1280x715 colors=192 mae= 1.3   235.1 KB (limit 900 KB)
+cutscenes/11.png       2720x1536 -> 1280x723 colors=192 mae= 1.4   299.3 KB (limit 900 KB)
+cutscenes/12.png       2736x1520 -> 1280x711 colors=192 mae= 1.4   219.4 KB (limit 900 KB)
+cutscenes/13.png       1679x937 -> 1280x714 colors=192 mae= 1.7   252.9 KB (limit 900 KB)
+cutscenes/14.png       1679x937 -> 1280x714 colors=192 mae= 1.5   166.3 KB (limit 900 KB)
+cutscenes/15.png       2528x1684 -> 1280x853 colors=192 mae= 2.2    60.5 KB (limit 900 KB)
+cutscenes/16.png       1672x933 -> 1280x714 colors=192 mae= 2.3   265.2 KB (limit 900 KB)
+cutscenes/17.png       1672x1114 -> 1280x853 colors=192 mae= 1.4   290.1 KB (limit 900 KB)
+cutscenes/18.png       1672x1114 -> 1280x853 colors=192 mae= 1.7   395.5 KB (limit 900 KB)
+cutscenes/19.png       1672x1672 -> 1280x1280 colors=192 mae= 2.1   402.6 KB (limit 900 KB)
+bg/l1.png              1376x768 -> 1280x714 colors=192 mae= 1.3   340.5 KB (limit 1400 KB)
+bg/l2.png              1672x941 -> 1280x720 colors=192 mae= 1.2   275.5 KB (limit 1400 KB)
+bg/l3.png              1376x768 -> 1280x714 colors=192 mae= 1.2   160.4 KB (limit 1400 KB)
+panels 4.86 MB (budget 9.00 MB), with backgrounds 5.61 MB
+[0m
+[0m$ [0mpython3 tools/gate8.py
+PASS  S1 originals are preserved in assets-src/ (22 files)
+PASS  S2 every panel <= 900 KB
+PASS  S3 panels total <= 9 MB  [5.1 MB]
+PASS  S4 every background <= 1.4 MB
+PASS  S5 every file opens as a PNG
+PASS  S6 width = min(original, 1280) and aspect ratio kept
+PASS  S7 pixel-faithful (mean abs diff <= 10 per channel)
+PASS  S8 tools/compress-panels.py exists
+PASS  S9 the big images were really re-encoded (not left identical to the originals)
+GATE PASS
+[0m
+Files changed: tools/compress-panels.py (already existed, kept as-is); re-encoded assets/cutscenes/01–19.png and assets/bg/l1–l3.png from assets-src/ (no other files touched).
+Gate result: GATE PASS — 9/9 via `python3 tools/gate8.py` (note: gate is gate8.py, not gate8.mjs).
+Anything not done: nothing; prior failure was just that the compressor had never been run on assets/.

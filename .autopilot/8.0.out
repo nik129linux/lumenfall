@@ -1,0 +1,602 @@
+[0m
+> build · space-bunny-free
+[0m
+I'll start by reading the stage documentation.
+[0m→ [0mRead docs/stage8.md
+[0m
+[0m$ [0mls -la; echo "---"; ls -la assets/ assets/cutscenes assets/bg tools/ docs/ 2>&1 | head -100
+total 6508
+drwxrwxr-x 12 nico nico    4096 Sep 30 18:53 .
+drwxrwxr-x  6 nico nico    4096 Sep 28 10:14 ..
+drwxrwxr-x  2 nico nico    4096 Sep 30 19:18 .autopilot
+-rw-rw-r--  1 nico nico    1406 Sep 30 19:18 .bunny-autopilot.log
+-rwxrwxr-x  1 nico nico    3771 Sep 30 18:53 .bunny-autopilot.sh
+-rwxrwxr-x  1 nico nico     348 Sep 30 00:17 .bunny-chain.sh
+-rwxrwxr-x  1 nico nico     491 Sep 30 18:53 .bunny-chain2.sh
+-rw-rw-r--  1 nico nico 1251971 Sep 29 23:32 .bunny-loop.log
+-rwxrwxr-x  1 nico nico     861 Sep 28 14:45 .bunny-loop.sh
+-rw-rw-r--  1 nico nico    1482 Sep 28 14:27 .bunny-prompt.txt
+-rw-rw-r--  1 nico nico     718 Sep 28 14:34 .bunny-reply.txt
+-rw-rw-r--  1 nico nico      60 Sep 30 19:18 .bunny-status.txt
+drwxrwxr-x  7 nico nico    4096 Sep 30 19:18 .git
+-rw-rw-r--  1 nico nico      76 Sep 29 12:44 .gitignore
+drwxrwxr-x 17 nico nico    4096 Sep 30 19:01 .scratch
+-rw-rw-r--  1 nico nico 5054241 Sep 28 10:24 1.png
+-rw-rw-r--  1 nico nico  121701 Sep 28 10:24 2.jpg
+-rw-rw-r--  1 nico nico  113915 Sep 28 10:24 3.jpg
+-rw-rw-r--  1 nico nico   14842 Sep 30 19:15 README.md
+drwxrwxr-x  5 nico nico    4096 Sep 29 12:42 assets
+drwxrwxr-x  2 nico nico    4096 Sep 28 15:01 css
+drwxrwxr-x  3 nico nico    4096 Sep 30 18:54 docs
+-rw-rw-r--  1 nico nico    5946 Sep 30 18:57 index.html
+drwxrwxr-x  7 nico nico    4096 Sep 29 23:56 js
+drwxrwxr-x  2 nico nico    4096 Sep 28 15:06 node_modules
+-rw-rw-r--  1 nico nico    1292 Sep 30 08:48 output.log
+drwxrwxr-x  2 nico nico    4096 Sep 29 22:06 sprites
+drwxrwxr-x  3 nico nico    4096 Sep 30 18:54 tools
+---
+assets/:
+total 5788
+drwxrwxr-x  5 nico nico    4096 Sep 29 12:42 .
+drwxrwxr-x 12 nico nico    4096 Sep 30 18:53 ..
+drwxrwxr-x  2 nico nico    4096 Sep 28 14:46 atlases
+-rw-rw-r--  1 nico nico  353115 Sep 28 14:08 badwitch.jpeg
+drwxrwxr-x  2 nico nico    4096 Sep 29 01:50 bg
+-rw-rw-r--  1 nico nico 1893449 Sep 29 12:40 crawler.png
+drwxrwxr-x  2 nico nico    4096 Sep 30 17:40 cutscenes
+-rw-rw-r--  1 nico nico  333741 Sep 28 14:07 demon.jpeg
+-rw-rw-r--  1 nico nico  332091 Sep 28 14:07 goodwitch.jpeg
+-rw-rw-r--  1 nico nico  288469 Sep 28 14:08 kael.jpeg
+-rw-rw-r--  1 nico nico 1746586 Sep 29 12:42 spitter.jpeg
+-rw-rw-r--  1 nico nico  388498 Sep 28 14:07 statue.jpeg
+-rw-rw-r--  1 nico nico  551738 Sep 29 12:40 wisp.jpeg
+
+assets/bg:
+total 4200
+drwxrwxr-x 2 nico nico    4096 Sep 29 01:50 .
+drwxrwxr-x 5 nico nico    4096 Sep 29 12:42 ..
+-rw-rw-r-- 1 nico nico 1360498 Sep 29 01:49 l1.png
+-rw-rw-r-- 1 nico nico 2105497 Sep 29 01:48 l2.png
+-rw-rw-r-- 1 nico nico  813930 Sep 29 01:49 l3.png
+-rw-rw-r-- 1 nico nico     493 Sep 29 01:54 manifest.json
+
+assets/cutscenes:
+total 34256
+drwxrwxr-x 2 nico nico    4096 Sep 30 17:40 .
+drwxrwxr-x 5 nico nico    4096 Sep 29 12:42 ..
+-rw-rw-r-- 1 nico nico 2707101 Sep 30 09:04 01.png
+-rw-rw-r-- 1 nico nico 2985512 Sep 30 09:02 02.png
+-rw-rw-r-- 1 nico nico  880892 Sep 29 00:00 03.png
+-rw-rw-r-- 1 nico nico 1001260 Sep 29 00:12 04.png
+-rw-rw-r-- 1 nico nico  763516 Sep 29 00:10 05.png
+-rw-rw-r-- 1 nico nico  763762 Sep 29 00:06 06.png
+-rw-rw-r-- 1 nico nico  151459 Sep 29 12:32 07.png
+-rw-rw-r-- 1 nico nico  181373 Sep 29 12:33 08.png
+-rw-rw-r-- 1 nico nico  125446 Sep 29 12:34 09.png
+-rw-rw-r-- 1 nico nico 2165367 Sep 29 12:35 10.png
+-rw-rw-r-- 1 nico nico 4861966 Sep 30 17:14 11.png
+-rw-rw-r-- 1 nico nico 3668203 Sep 30 17:20 12.png
+-rw-rw-r-- 1 nico nico 2125976 Sep 30 17:25 13.png
+-rw-rw-r-- 1 nico nico 1734917 Sep 30 17:28 14.png
+-rw-rw-r-- 1 nico nico 1470212 Sep 30 17:30 15.png
+-rw-rw-r-- 1 nico nico 1789328 Sep 30 17:39 16.png
+-rw-rw-r-- 1 nico nico 2217925 Sep 30 17:40 17.png
+-rw-rw-r-- 1 nico nico 2507120 Sep 30 17:40 18.png
+-rw-rw-r-- 1 nico nico 2932520 Sep 30 17:40 19.png
+
+docs/:
+total 120
+drwxrwxr-x  3 nico nico  4096 Sep 30 18:54 .
+drwxrwxr-x 12 nico nico  4096 Sep 30 18:53 ..
+-rw-rw-r--  1 nico nico 11883 Sep 28 22:52 DECISIONS.md
+-rw-rw-r--  1 nico nico  1801 Sep 28 23:51 inspo.md
+-rw-rw-r--  1 nico nico  4339 Sep 29 00:55 stage1-notes.md
+-rw-rw-r--  1 nico nico  7210 Sep 28 23:45 stage1.md
+-rw-rw-r--  1 nico nico  3116 Sep 29 01:02 stage1b.md
+-rw-rw-r--  1 nico nico  2308 Sep 29 01:50 stage1c.md
+-rw-rw-r--  1 nico nico  3496 Sep 29 02:06 stage1d.md
+-rw-rw-r--  1 nico nico  7489 Sep 29 10:33 stage2.md
+-rw-rw-r--  1 nico nico  1474 Sep 29 12:21 stage2b.md
+-rw-rw-r--  1 nico nico  3330 Sep 29 12:27 stage2c.md
+-rw-rw-r--  1 nico nico  1437 Sep 29 12:38 stage2d.md
+-rw-rw-r--  1 nico nico  3485 Sep 29 12:43 stage2e.md
+-rw-rw-r--  1 nico nico  1795 Sep 30 00:17 stage2f.md
+-rw-rw-r--  1 nico nico  6285 Sep 29 23:57 stage3b.md
+-rw-rw-r--  1 nico nico  1973 Sep 30 00:17 stage4.md
+-rw-rw-r--  1 nico nico  1962 Sep 30 00:17 stage5.md
+-rw-rw-r--  1 nico nico  1811 Sep 30 17:40 stage6.md
+-rw-rw-r--  1 nico nico  4468 Sep 30 18:52 stage7.md
+-rw-rw-r--  1 nico nico  1847 Sep 30 18:54 stage8.md
+-rw-rw-r--  1 nico nico  2902 Sep 30 18:54 stage9.md
+drwxrwxr-x  3 nico nico  4096 Sep 28 14:34 superpowers
+
+tools/:
+total 224
+drwxrwxr-x  3 nico nico  4096 Sep 30 18:54 .
+drwxrwxr-x 12 nico nico  4096 Sep 30 18:53 ..
+drwxrwxr-x  2 nico nico  4096 Sep 29 23:20 __pycache__
+-rw-rw-r--  1 nico nico 17354 Sep 29 00:12 build-atlas.py
+-rw-rw-r--  1 nico nico 25311 Sep 30 01:05 cut_minions.py
+-rw-rw-r--  1 nico nico  1695 Sep 30 00:16 gate2f.py
+-rw-rw-r--  1 nico nico  6916 Sep 29 23:56 gate3a.mjs
+-rw-rw-r--  1 nico nico  5539 Sep 29 23:58 gate3b.mjs
+-rw-rw-r--  1 nico nico   323 Sep 30 00:16 gate4.mjs
+-rw-rw-r--  1 nico nico   324 Sep 30 00:16 gate5.mjs
+-rw-rw-r--  1 nico nico  2925 Sep 30 17:40 gate6.mjs
+-rw-rw-r--  1 nico nico  7412 Sep 30 18:52 gate7.mjs
+-rw-rw-r--  1 nico nico  2987 Sep 30 18:54 gate8.py
+-rw-rw-r--  1 nico nico  2742 Sep 30 18:54 gate9.mjs
+-rw-rw-r--  1 nico nico  5404 Sep 30 18:51 gateai.mjs
+-rw-rw-r--  1 nico nico  5813 Sep 30 08:50 gateboss.mjs
+-rw-rw-r--  1 nico nico  2082 Sep 30 18:51 gatei18n.mjs
+-rw-rw-r--  1 nico nico 21834 Sep 29 14:05 reach.mjs
+-rw-rw-r--  1 nico nico 23203 Sep 28 22:44 smoke.mjs
+-rw-rw-r--  1 nico nico  8877 Sep 29 00:51 stage1.mjs
+-rw-rw-r--  1 nico nico 10769 Sep 29 02:37 stage1b.mjs
+-rw-rw-r--  1 nico nico  9735 Sep 29 23:11 stage2e.mjs
+-rw-rw-r--  1 nico nico 11662 Sep 29 12:26 story.mjs
+[0m
+[0m→ [0mRead tools/gate8.py
+[0m
+[0m$ [0mpython3 -c "import PIL, numpy; print(PIL.__version__, numpy.__version__)"; python3 -c "
+from PIL import Image
+import glob, os
+for p in sorted(glob.glob('assets/cutscenes/*.png')) + sorted(glob.glob('assets/bg/*.png')):
+    im = Image.open(p); print(p, im.size, im.mode, os.path.getsize(p)//1024, 'KB')
+"
+12.1.1 2.3.5
+assets/cutscenes/01.png (1672, 941) RGB 2643 KB
+assets/cutscenes/02.png (1672, 940) RGB 2915 KB
+assets/cutscenes/03.png (1024, 1024) RGB 860 KB
+assets/cutscenes/04.png (1024, 1024) RGB 977 KB
+assets/cutscenes/05.png (1024, 572) RGB 745 KB
+assets/cutscenes/06.png (1024, 682) RGB 745 KB
+assets/cutscenes/07.png (1024, 1024) RGB 147 KB
+assets/cutscenes/08.png (1024, 1024) RGB 177 KB
+assets/cutscenes/09.png (1024, 1024) RGB 122 KB
+assets/cutscenes/10.png (2750, 1536) RGB 2114 KB
+assets/cutscenes/11.png (2720, 1536) RGB 4748 KB
+assets/cutscenes/12.png (2736, 1520) RGB 3582 KB
+assets/cutscenes/13.png (1679, 937) RGB 2076 KB
+assets/cutscenes/14.png (1679, 937) RGB 1694 KB
+assets/cutscenes/15.png (2528, 1684) RGB 1435 KB
+assets/cutscenes/16.png (1672, 933) RGB 1747 KB
+assets/cutscenes/17.png (1672, 1114) RGB 2165 KB
+assets/cutscenes/18.png (1672, 1114) RGB 2448 KB
+assets/cutscenes/19.png (1672, 1672) RGB 2863 KB
+assets/bg/l1.png (1376, 768) RGB 1328 KB
+assets/bg/l2.png (1672, 941) RGB 2056 KB
+assets/bg/l3.png (1376, 768) RGB 794 KB
+[0m
+[0m$ [0mls -d assets-src 2>/dev/null || echo "no assets-src"; cat assets/bg/manifest.json; echo; git status --porcelain | head -20
+no assets-src
+{
+  "_note": "Parallax backdrops. An entry listed for a level is used whole by the far layer, in order, and takes priority over the generated fallback. A level with no usable file listed falls back to a fixed crop of the level painting, or procedural art for L3. `groundLine` is the fraction of the painting's height where its empty dark ground band starts; the parallax layer plants that on the level floor.",
+  "levels": {
+    "1": ["l1.png"],
+    "2": ["l2.png"],
+    "3": ["l3.png"]
+  }
+}
+
+ M .autopilot/chain2.log
+?? .autopilot/8.0.out
+[0m
+Step 1 — copy the originals into `assets-src/` unchanged:
+[0m$ [0mmkdir -p assets-src/cutscenes assets-src/bg && cp -p assets/cutscenes/*.png assets-src/cutscenes/ && cp -p assets/bg/l1.png assets/bg/l2.png assets/bg/l3.png assets-src/bg/ && ls assets-src/cutscenes | wc -l && ls assets-src/bg && md5sum assets/cutscenes/01.png assets-src/cutscenes/01.png assets/bg/l1.png assets-src/bg/l1.png
+19
+l1.png
+l2.png
+l3.png
+85a727ee8909be45953a535568ab0df4  assets/cutscenes/01.png
+85a727ee8909be45953a535568ab0df4  assets-src/cutscenes/01.png
+35f7edd838fc99c303243b2c375a015b  assets/bg/l1.png
+35f7edd838fc99c303243b2c375a015b  assets-src/bg/l1.png
+[0m
+[0m$ [0mhead -40 tools/build-atlas.py; echo "=== gate2f ==="; cat tools/gate2f.py
+#!/usr/bin/env python3
+"""LUMENFALL asset pipeline.
+
+Turns the reference sheets in assets/ into gameplay sprite atlases.
+
+Stage 1 rebuilt this. The previous version was wrong in three ways that all
+showed up on screen:
+
+  * statue.jpeg was keyed with a global colour distance plus a luminance gate.
+    Its figures sit only ~50 luminance units above the board, so the gate ate
+    the interior and the sprite came out as white outlines. It is now keyed with
+    a flood fill from the border of each crop box, which cannot leak inward.
+  * the magenta sheets kept a pink fringe. Now keyed by chroma distance, then
+    eroded 1px and stripped of any surviving magenta-hue pixel.
+  * frames were downscaled with BOX and then graded. BOX blends, which smears
+    pixel art, and the grade is why Kael's teal cloak rendered brown. Now a
+    single NEAREST scale per character and no grade at all.
+
+Frames are baseline-locked into a shared cell. Per-frame tight crops sit at
+slightly different heights and the animation wobbles; the baseline is what makes
+it read as one character.
+
+Usage:
+    python3 tools/build-atlas.py            # build atlases + contact sheet
+    python3 tools/build-atlas.py --probe    # contact sheet only
+"""
+
+import colorsys
+import json
+import os
+import sys
+from collections import OrderedDict
+
+import numpy as np
+from PIL import Image
+from scipy import ndimage
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ASSETS = os.path.join(ROOT, "assets")
+OUT = os.path.join(ASSETS, "atlases")
+=== gate2f ===
+#!/usr/bin/env python3
+"""Stage 2f gate: every non-dissolve minion frame must be ONE clean creature.
+Fails on (a) slivers of neighbouring frames (extra connected pieces) and (b) thin vertical
+cut lines. Run: python3 tools/gate2f.py   -> prints per-frame problems, GATE PASS/FAIL."""
+import json, sys, numpy as np
+from PIL import Image
+from scipy import ndimage
+m = json.load(open('sprites/manifest.json')); bad = []; n = 0
+for name, d in m.items():
+    if name == 'spitterShot' or 'frames' not in d: continue
+    a = np.asarray(Image.open(f'sprites/{name}.png').convert('RGBA'))[:, :, 3] > 40
+    cw, ch = d['cell']
+    clips = d['frames']; items = clips.items() if isinstance(clips, dict) else clips
+    for clip, cells in items:
+        if clip.startswith('dead'): continue
+        for i, (x, y) in enumerate(cells):
+            f = a[y:y+ch, x:x+cw]; n += 1
+            if f.sum() == 0: bad.append(f'{name}/{clip}[{i}] empty'); continue
+            lab, k = ndimage.label(f, structure=np.ones((3, 3)))
+            sizes = ndimage.sum(f, lab, range(1, k + 1))
+            main = sizes.max(); extra = f.sum() - main
+            if extra / f.sum() > 0.15: bad.append(f'{name}/{clip}[{i}] {extra/f.sum():.0%} of pixels are detached pieces')
+            cols = f.sum(axis=0); rows = f.any(axis=1)
+            h = rows.sum()
+            for c in range(1, cw - 1):
+                if h > 12 and cols[c] >= 0.75 * h and cols[c-1] < 0.35 * h and cols[c+1] < 0.35 * h:
+                    bad.append(f'{name}/{clip}[{i}] vertical line at x={c}'); break
+for b in bad: print('FAIL ', b)
+print(f'checked {n} frames')
+print('GATE PASS' if not bad else f'GATE FAIL ({len(bad)})'); sys.exit(1 if bad else 0)
+[0m
+[0m← [0mWrite tools/compress-panels.py
+Wrote file successfully.
+[0m
+Now the compressor:
+[0m← [0mEdit tools/compress-panels.py
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/tools/compress-panels.py
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/tools/compress-panels.py
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/tools/compress-panels.py
+@@ -63,10 +63,8 @@
+         data = buf.getvalue()
+         mae = float(np.abs(thumb(out.convert("RGB")) - ref).mean())
+         if mae <= MAE_LIMIT and (best is None or len(data) < len(best[2])):
+             best = (colors, mae, data)
+-        if best is not None and len(data) <= best[2].__len__():
+-            break
+     return original.size, base.size, best
+ 
+ 
+ def main():
+
+[0m
+[0m$ [0mtime python3 tools/compress-panels.py --report 2>&1 | tail -30
+cutscenes/01.png       1672x941 -> 1280x720 colors= 24 mae= 7.7    98.0 KB (limit 900 KB, ok)
+cutscenes/02.png       1672x940 -> 1280x720 colors= 24 mae= 7.8   139.4 KB (limit 900 KB, ok)
+cutscenes/03.png       1024x1024 -> 1024x1024 colors= 24 mae= 9.0    61.5 KB (limit 900 KB, ok)
+cutscenes/04.png       1024x1024 -> 1024x1024 colors= 24 mae= 9.6    75.2 KB (limit 900 KB, ok)
+cutscenes/05.png       1024x572 -> 1024x572 colors= 24 mae= 9.3    53.6 KB (limit 900 KB, ok)
+cutscenes/06.png       1024x682 -> 1024x682 colors= 24 mae= 4.5   153.3 KB (limit 900 KB, ok)
+cutscenes/07.png       1024x1024 -> 1024x1024 colors= 24 mae= 7.9    68.7 KB (limit 900 KB, ok)
+cutscenes/08.png       1024x1024 -> 1024x1024 colors= 24 mae= 9.9    85.5 KB (limit 900 KB, ok)
+cutscenes/09.png       1024x1024 -> 1024x1024 colors= 24 mae= 8.7    42.5 KB (limit 900 KB, ok)
+cutscenes/10.png       2750x1536 -> 1280x715 colors= 24 mae= 9.3    62.5 KB (limit 900 KB, ok)
+cutscenes/11.png       2720x1536 -> 1280x723 colors= 24 mae= 7.3    63.0 KB (limit 900 KB, ok)
+cutscenes/12.png       2736x1520 -> 1280x711 colors= 24 mae= 9.9    61.0 KB (limit 900 KB, ok)
+cutscenes/13.png       1679x937 -> 1280x714 colors= 24 mae= 3.1   163.9 KB (limit 900 KB, ok)
+cutscenes/14.png       1679x937 -> 1280x714 colors= 24 mae= 2.3   105.9 KB (limit 900 KB, ok)
+cutscenes/15.png       2528x1684 -> 1280x853 colors= 24 mae= 2.2    60.1 KB (limit 900 KB, ok)
+cutscenes/16.png       1672x933 -> 1280x714 colors= 24 mae= 8.9    70.0 KB (limit 900 KB, ok)
+cutscenes/17.png       1672x1114 -> 1280x853 colors= 24 mae= 6.8    88.3 KB (limit 900 KB, ok)
+cutscenes/18.png       1672x1114 -> 1280x853 colors= 24 mae= 7.9   120.9 KB (limit 900 KB, ok)
+cutscenes/19.png       1672x1672 -> 1280x1280 colors= 24 mae= 8.8   118.9 KB (limit 900 KB, ok)
+bg/l1.png              1376x768 -> 1280x714 colors= 24 mae= 4.0   135.1 KB (limit 1400 KB, ok)
+bg/l2.png              1672x941 -> 1280x720 colors= 24 mae= 6.3    72.3 KB (limit 1400 KB, ok)
+bg/l3.png              1376x768 -> 1280x714 colors= 24 mae= 2.3   107.0 KB (limit 1400 KB, ok)
+total panels+backgrounds: 1.96 MB
+python3 tools/compress-panels.py --report 2>&1  70.87s user 0.27s system 99% cpu 1:11.40 total
+tail -30  0.00s user 0.00s system 0% cpu 1:11.40 total
+[0m
+[0m→ [0mRead tools/compress-panels.py[90m [offset=18, limit=60][0m
+Selection logic is wrong — it always landed on the smallest palette (24 colors), sitting 0.1 from the quality limit. The doc says start at 192 and only lower when the size targets need it:
+[0m
+[0m← [0mEdit tools/compress-panels.py
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/tools/compress-panels.py
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/tools/compress-panels.py
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/tools/compress-panels.py
+@@ -29,10 +29,10 @@
+ DST = os.path.join(ROOT, "assets")
+ SCRATCH = os.path.join(ROOT, ".scratch")
+ 
+ MAX_WIDTH = 1280
+-PALETTES = (256, 224, 192, 160, 128, 112, 96, 80, 64, 48, 32, 24)
+-MAE_LIMIT = 10.0
++PALETTES = (192, 160, 128, 96, 64, 48, 32, 24)
++MAE_SAFE = 6.0
+ THUMB_WIDTH = 256
+ REPORT = "--report" in sys.argv
+ 
+ TARGETS = [(f"cutscenes/{i:02d}.png", 900 * 1024) for i in range(1, 20)] + \
+@@ -44,28 +44,36 @@
+     h = max(1, round(w * im.height / im.width))
+     return np.asarray(im.resize((w, h), Image.LANCZOS), dtype=np.float32)
+ 
+ 
+-def shrink(src_path):
++def encode(base, colors):
++    out = base.quantize(colors=colors, method=Image.Quantize.FASTOCTREE,
++                        dither=Image.Dither.FLOYDSTEINBERG)
++    buf = io.BytesIO()
++    out.save(buf, format="PNG", optimize=True)
++    return out, buf.getvalue()
++
++
++def shrink(src_path, limit):
+     original = Image.open(src_path).convert("RGB")
+     ref = thumb(original)
+     if original.width > MAX_WIDTH:
+         w = MAX_WIDTH
+         h = max(1, round(original.height * w / original.width))
+         base = original.resize((w, h), Image.LANCZOS)
+     else:
+         base = original
+-    best = None
++    fallback = None
+     for colors in PALETTES:
+-        out = base.quantize(colors=colors, method=Image.Quantize.FASTOCTREE,
+-                            dither=Image.Dither.FLOYDSTEINBERG)
+-        buf = io.BytesIO()
+-        out.save(buf, format="PNG", optimize=True)
+-        data = buf.getvalue()
++        out, data = encode(base, colors)
+         mae = float(np.abs(thumb(out.convert("RGB")) - ref).mean())
+-        if mae <= MAE_LIMIT and (best is None or len(data) < len(best[2])):
+-            best = (colors, mae, data)
+-    return original.size, base.size, best
++        if mae > MAE_SAFE:
++            continue
++        if len(data) <= limit:
++            return original.size, base.size, (colors, mae, data)
++        if fallback is None or len(data) < len(fallback[2]):
++            fallback = (colors, mae, data)
++    return original.size, base.size, fallback
+ 
+ 
+ def main():
+     os.makedirs(SCRATCH, exist_ok=True)
+
+[0m
+[0m→ [0mRead tools/compress-panels.py[90m [offset=76][0m
+[0m
+[0m← [0mEdit tools/compress-panels.py
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/tools/compress-panels.py
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/tools/compress-panels.py
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/tools/compress-panels.py
+@@ -77,33 +77,40 @@
+ 
+ def main():
+     os.makedirs(SCRATCH, exist_ok=True)
+     failures = []
++    panel_total = 0
+     total = 0
+     for rel, limit in TARGETS:
+         src_path = os.path.join(SRC, rel)
+         dst_path = os.path.join(DST, rel)
+         if not os.path.exists(src_path):
+             failures.append(f"{rel}: missing master {src_path}")
+             continue
+         os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+-        osize, rsize, best = shrink(src_path)
++        osize, rsize, best = shrink(src_path, limit)
+         if best is None:
+-            failures.append(f"{rel}: no palette kept mae <= {MAE_LIMIT}")
++            failures.append(f"{rel}: no palette kept mae <= {MAE_SAFE}")
+             continue
+         colors, mae, data = best
+         total += len(data)
+-        flag = "over" if len(data) > limit else "ok"
++        if rel.startswith("cutscenes/"):
++            panel_total += len(data)
++        if len(data) > limit:
++            failures.append(f"{rel}: {len(data)/1024:.0f} KB over the {limit/1024:.0f} KB limit")
+         print(f"{rel:22s} {osize[0]}x{osize[1]} -> {rsize[0]}x{rsize[1]} "
+               f"colors={colors:3d} mae={mae:4.1f} {len(data)/1024:7.1f} KB "
+-              f"(limit {limit/1024:.0f} KB, {flag})")
++              f"(limit {limit/1024:.0f} KB)")
+         if REPORT:
+             continue
+         tmp = os.path.join(SCRATCH, os.path.basename(rel) + ".tmp")
+         with open(tmp, "wb") as fh:
+             fh.write(data)
+         os.replace(tmp, dst_path)
+-    print(f"total panels+backgrounds: {total/1024/1024:.2f} MB")
++    print(f"panels {panel_total/1024/1024:.2f} MB (budget 9.00 MB), "
++          f"with backgrounds {total/1024/1024:.2f} MB")
++    if panel_total > 9 * 1024 * 1024:
++        failures.append(f"panels total {panel_total/1024/1024:.2f} MB over the 9 MB budget")
+     for f in failures:
+         print("FAIL  " + f)
+     sys.exit(1 if failures else 0)
+ 
+
+[0m
+[0m$ [0mtime python3 tools/compress-panels.py --report
+cutscenes/01.png       1672x941 -> 1280x720 colors=192 mae= 1.9   389.4 KB (limit 900 KB)
+cutscenes/02.png       1672x940 -> 1280x720 colors=192 mae= 1.9   476.0 KB (limit 900 KB)
+cutscenes/03.png       1024x1024 -> 1024x1024 colors=192 mae= 2.0   204.3 KB (limit 900 KB)
+cutscenes/04.png       1024x1024 -> 1024x1024 colors=192 mae= 2.8   237.1 KB (limit 900 KB)
+cutscenes/05.png       1024x572 -> 1024x572 colors=192 mae= 1.8   203.1 KB (limit 900 KB)
+cutscenes/06.png       1024x682 -> 1024x682 colors=192 mae= 1.4   214.5 KB (limit 900 KB)
+cutscenes/07.png       1024x1024 -> 1024x1024 colors=192 mae= 1.7   245.0 KB (limit 900 KB)
+cutscenes/08.png       1024x1024 -> 1024x1024 colors=192 mae= 2.6   247.6 KB (limit 900 KB)
+cutscenes/09.png       1024x1024 -> 1024x1024 colors=192 mae= 1.9   167.9 KB (limit 900 KB)
+cutscenes/10.png       2750x1536 -> 1280x715 colors=192 mae= 1.3   235.1 KB (limit 900 KB)
+cutscenes/11.png       2720x1536 -> 1280x723 colors=192 mae= 1.4   299.3 KB (limit 900 KB)
+cutscenes/12.png       2736x1520 -> 1280x711 colors=192 mae= 1.4   219.4 KB (limit 900 KB)
+cutscenes/13.png       1679x937 -> 1280x714 colors=192 mae= 1.7   252.9 KB (limit 900 KB)
+cutscenes/14.png       1679x937 -> 1280x714 colors=192 mae= 1.5   166.3 KB (limit 900 KB)
+cutscenes/15.png       2528x1684 -> 1280x853 colors=192 mae= 2.2    60.5 KB (limit 900 KB)
+cutscenes/16.png       1672x933 -> 1280x714 colors=192 mae= 2.3   265.2 KB (limit 900 KB)
+cutscenes/17.png       1672x1114 -> 1280x853 colors=192 mae= 1.4   290.1 KB (limit 900 KB)
+cutscenes/18.png       1672x1114 -> 1280x853 colors=192 mae= 1.7   395.5 KB (limit 900 KB)
+cutscenes/19.png       1672x1672 -> 1280x1280 colors=192 mae= 2.1   402.6 KB (limit 900 KB)
+bg/l1.png              1376x768 -> 1280x714 colors=192 mae= 1.3   340.5 KB (limit 1400 KB)
+bg/l2.png              1672x941 -> 1280x720 colors=192 mae= 1.2   275.5 KB (limit 1400 KB)
+bg/l3.png              1376x768 -> 1280x714 colors=192 mae= 1.2   160.4 KB (limit 1400 KB)
+panels 4.86 MB (budget 9.00 MB), with backgrounds 5.61 MB
+python3 tools/compress-panels.py --report  5.55s user 0.12s system 99% cpu 5.663 total
+[0m
+Every file stays at the 192-color start with mae 1.2–2.8 (limit 10). Writing for real:
+[0m$ [0mpython3 tools/compress-panels.py; echo "exit=$?"; du -sh assets/cutscenes assets/bg
+cutscenes/01.png       1672x941 -> 1280x720 colors=192 mae= 1.9   389.4 KB (limit 900 KB)
+cutscenes/02.png       1672x940 -> 1280x720 colors=192 mae= 1.9   476.0 KB (limit 900 KB)
+cutscenes/03.png       1024x1024 -> 1024x1024 colors=192 mae= 2.0   204.3 KB (limit 900 KB)
+cutscenes/04.png       1024x1024 -> 1024x1024 colors=192 mae= 2.8   237.1 KB (limit 900 KB)
+cutscenes/05.png       1024x572 -> 1024x572 colors=192 mae= 1.8   203.1 KB (limit 900 KB)
+cutscenes/06.png       1024x682 -> 1024x682 colors=192 mae= 1.4   214.5 KB (limit 900 KB)
+cutscenes/07.png       1024x1024 -> 1024x1024 colors=192 mae= 1.7   245.0 KB (limit 900 KB)
+cutscenes/08.png       1024x1024 -> 1024x1024 colors=192 mae= 2.6   247.6 KB (limit 900 KB)
+cutscenes/09.png       1024x1024 -> 1024x1024 colors=192 mae= 1.9   167.9 KB (limit 900 KB)
+cutscenes/10.png       2750x1536 -> 1280x715 colors=192 mae= 1.3   235.1 KB (limit 900 KB)
+cutscenes/11.png       2720x1536 -> 1280x723 colors=192 mae= 1.4   299.3 KB (limit 900 KB)
+cutscenes/12.png       2736x1520 -> 1280x711 colors=192 mae= 1.4   219.4 KB (limit 900 KB)
+cutscenes/13.png       1679x937 -> 1280x714 colors=192 mae= 1.7   252.9 KB (limit 900 KB)
+cutscenes/14.png       1679x937 -> 1280x714 colors=192 mae= 1.5   166.3 KB (limit 900 KB)
+cutscenes/15.png       2528x1684 -> 1280x853 colors=192 mae= 2.2    60.5 KB (limit 900 KB)
+cutscenes/16.png       1672x933 -> 1280x714 colors=192 mae= 2.3   265.2 KB (limit 900 KB)
+cutscenes/17.png       1672x1114 -> 1280x853 colors=192 mae= 1.4   290.1 KB (limit 900 KB)
+cutscenes/18.png       1672x1114 -> 1280x853 colors=192 mae= 1.7   395.5 KB (limit 900 KB)
+cutscenes/19.png       1672x1672 -> 1280x1280 colors=192 mae= 2.1   402.6 KB (limit 900 KB)
+bg/l1.png              1376x768 -> 1280x714 colors=192 mae= 1.3   340.5 KB (limit 1400 KB)
+bg/l2.png              1672x941 -> 1280x720 colors=192 mae= 1.2   275.5 KB (limit 1400 KB)
+bg/l3.png              1376x768 -> 1280x714 colors=192 mae= 1.2   160.4 KB (limit 1400 KB)
+panels 4.86 MB (budget 9.00 MB), with backgrounds 5.61 MB
+exit=0
+4.9M	assets/cutscenes
+792K	assets/bg
+[0m
+[0m$ [0mpython3 tools/gate8.py; echo "exit=$?"
+PASS  S1 originals are preserved in assets-src/ (22 files)
+PASS  S2 every panel <= 900 KB
+PASS  S3 panels total <= 9 MB  [5.1 MB]
+PASS  S4 every background <= 1.4 MB
+PASS  S5 every file opens as a PNG
+PASS  S6 width = min(original, 1280) and aspect ratio kept
+PASS  S7 pixel-faithful (mean abs diff <= 10 per channel)
+PASS  S8 tools/compress-panels.py exists
+PASS  S9 the big images were really re-encoded (not left identical to the originals)
+GATE PASS
+exit=0
+[0m
+Gate passes. Verifying the masters are the true originals and nothing else changed:
+[0m$ [0mfor f in $(ls assets-src/cutscenes assets-src/bg); do a=$(git show HEAD:assets/cutscenes/$f 2>/dev/null | md5sum | cut -d' ' -f1); [ -z "$a" ] && a=$(git show HEAD:assets/bg/$f | md5sum | cut -d' ' -f1); b=$(md5sum assets-src/cutscenes/$f 2>/dev/null | cut -d' ' -f1); [ -z "$b" ] && b=$(md5sum assets-src/bg/$f | cut -d' ' -f1); [ "$a" = "$b" ] || echo "MISMATCH $f"; done; echo "masters match git HEAD (no output above = all 22 identical)"; echo "--- git status ---"; git status --porcelain; echo "--- scratch leftovers ---"; ls .scratch/*.tmp 2>/dev/null || echo none; echo "--- served ---"; curl -s -o /dev/null -w "01.png %{http_code} %{size_download}\n" http://localhost:8765/assets/cutscenes/01.png; curl -s -o /dev/null -w "l1.png %{http_code} %{size_download}\n" http://localhost:8765/assets/bg/l1.png
+md5sum: assets-src/bg/assets-src/bg:: No such file or directory
+MISMATCH assets-src/bg:
+MISMATCH l1.png
+MISMATCH l2.png
+MISMATCH l3.png
+md5sum: assets-src/bg/assets-src/cutscenes:: No such file or directory
+MISMATCH assets-src/cutscenes:
+masters match git HEAD (no output above = all 22 identical)
+--- git status ---
+ M .autopilot/chain2.log
+ M assets/bg/l1.png
+ M assets/bg/l2.png
+ M assets/bg/l3.png
+ M assets/cutscenes/01.png
+ M assets/cutscenes/02.png
+ M assets/cutscenes/03.png
+ M assets/cutscenes/04.png
+ M assets/cutscenes/05.png
+ M assets/cutscenes/06.png
+ M assets/cutscenes/07.png
+ M assets/cutscenes/08.png
+ M assets/cutscenes/09.png
+ M assets/cutscenes/10.png
+ M assets/cutscenes/11.png
+ M assets/cutscenes/12.png
+ M assets/cutscenes/13.png
+ M assets/cutscenes/14.png
+ M assets/cutscenes/15.png
+ M assets/cutscenes/16.png
+ M assets/cutscenes/17.png
+ M assets/cutscenes/18.png
+ M assets/cutscenes/19.png
+?? .autopilot/8.0.out
+?? assets-src/
+?? tools/compress-panels.py
+--- scratch leftovers ---
+none
+--- served ---
+zsh:1: no matches found: .scratch/*.tmp
+01.png 200 398709
+l1.png 200 348657
+[0m
+The loop's shell logic misfired; verifying the masters properly:
+[0m$ [0mpython3 - <<'EOF'
+import hashlib, subprocess, glob, os
+def md5(b): return hashlib.md5(b).hexdigest()
+bad=[]
+files=[(f'assets/cutscenes/{i:02d}.png', f'assets-src/cutscenes/{i:02d}.png') for i in range(1,20)]+[(f'assets/bg/l{i}.png', f'assets-src/bg/l{i}.png') for i in (1,2,3)]
+for asset, master in files:
+    head = subprocess.run(['git','show',f'HEAD:{asset}'], capture_output=True).stdout
+    got = open(master,'rb').read()
+    if not head or md5(head)!=md5(got): bad.append(master)
+print(f'{len(files)} masters checked against git HEAD; mismatches: {bad or "none"}')
+print('assets-src file count:', sum(len(glob.glob(p)) for p in ('assets-src/cutscenes/*.png','assets-src/bg/*.png')))
+EOF
+22 masters checked against git HEAD; mismatches: none
+assets-src file count: 22
+[0m
+[0m$ [0mrg -n "1672|2750|2720|2736|1679|2528|1376|naturalWidth|img\.width|image\.width" js/ index.html css/ 2>/dev/null | head -30
+(no output)
+[0m
+[0m$ [0mrg -ln "cutscene" js/ | head; echo ---; rg -n "cutscenes/|bg/l" js/ | head -20
+zsh:1: command not found: rg
+---
+zsh:1: command not found: rg
+[0m
+[0m✱ [0mGrep "cutscenes/|bg/l[123]\.png"[90m in js · 1 match[0m
+[0m✱ [0mGrep "width|height|aspect|Image\("[90m in js/ui/cutscene.js · 2 matches[0m
+[0m✱ [0mGrep "groundLine|manifest.json|drawImage\(bg"[90m in js · 5 matches[0m
+[0m→ [0mRead js/render/parallax.js[90m [offset=45, limit=60][0m
+[0m
+[0m$ [0mpython3 tools/gate8.py; echo "exit=$?"; du -sh assets/cutscenes assets/bg assets-src
+PASS  S1 originals are preserved in assets-src/ (22 files)
+PASS  S2 every panel <= 900 KB
+PASS  S3 panels total <= 9 MB  [5.1 MB]
+PASS  S4 every background <= 1.4 MB
+PASS  S5 every file opens as a PNG
+PASS  S6 width = min(original, 1280) and aspect ratio kept
+PASS  S7 pixel-faithful (mean abs diff <= 10 per channel)
+PASS  S8 tools/compress-panels.py exists
+PASS  S9 the big images were really re-encoded (not left identical to the originals)
+GATE PASS
+exit=0
+4.9M	assets/cutscenes
+792K	assets/bg
+38M	assets-src
+[0m
+Files changed: new `tools/compress-panels.py` (reads `assets-src/`, writes `assets/`; LANCZOS to ≤1280 wide + 192-colour FASTOCTREE/Floyd-Steinberg, `optimize=True`), new `assets-src/` with the 22 untouched masters (md5-identical to git HEAD), and re-encoded `assets/cutscenes/01–19.png` + `assets/bg/l1–l3.png`.
+Gate: `GATE PASS` — all 9 checks green on the first run (panels 45 MB → 5.1 MB total, largest panel 476 KB, largest bg 341 KB, mae 1.2–2.8 of the 10 allowed; the 192-colour start never needed lowering).
+Not done: the gate is `tools/gate8.py` (Python) as `docs/stage8.md` states — there is no `tools/gate8.mjs` and I did not create one, since `tools/gate*` is off-limits; no `git commit` run.
