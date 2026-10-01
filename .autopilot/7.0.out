@@ -1,0 +1,937 @@
+[0m
+> build · space-bunny-free
+[0m
+I'll start by reading the stage documentation.
+[0m→ [0mRead docs/stage7.md
+[0m→ [0mRead tools/gate7.mjs
+[0m
+[0m$ [0mls -la; echo "---"; ls -la js js/core js/ui js/game 2>/dev/null; echo "---"; ls tools/
+total 6500
+drwxrwxr-x 12 nico nico    4096 Sep 30 18:53 .
+drwxrwxr-x  6 nico nico    4096 Sep 28 10:14 ..
+drwxrwxr-x  2 nico nico    4096 Sep 30 18:53 .autopilot
+-rw-rw-r--  1 nico nico    1124 Sep 30 18:53 .bunny-autopilot.log
+-rwxrwxr-x  1 nico nico    3771 Sep 30 18:53 .bunny-autopilot.sh
+-rwxrwxr-x  1 nico nico     348 Sep 30 00:17 .bunny-chain.sh
+-rwxrwxr-x  1 nico nico     491 Sep 30 18:53 .bunny-chain2.sh
+-rw-rw-r--  1 nico nico 1251971 Sep 29 23:32 .bunny-loop.log
+-rwxrwxr-x  1 nico nico     861 Sep 28 14:45 .bunny-loop.sh
+-rw-rw-r--  1 nico nico    1482 Sep 28 14:27 .bunny-prompt.txt
+-rw-rw-r--  1 nico nico     718 Sep 28 14:34 .bunny-reply.txt
+-rw-rw-r--  1 nico nico      60 Sep 30 18:53 .bunny-status.txt
+drwxrwxr-x  7 nico nico    4096 Sep 30 18:53 .git
+-rw-rw-r--  1 nico nico      76 Sep 29 12:44 .gitignore
+drwxrwxr-x 17 nico nico    4096 Sep 30 17:38 .scratch
+-rw-rw-r--  1 nico nico 5054241 Sep 28 10:24 1.png
+-rw-rw-r--  1 nico nico  121701 Sep 28 10:24 2.jpg
+-rw-rw-r--  1 nico nico  113915 Sep 28 10:24 3.jpg
+-rw-rw-r--  1 nico nico    4809 Sep 28 22:31 README.md
+drwxrwxr-x  5 nico nico    4096 Sep 29 12:42 assets
+drwxrwxr-x  2 nico nico    4096 Sep 28 15:01 css
+drwxrwxr-x  3 nico nico    4096 Sep 30 18:52 docs
+-rw-rw-r--  1 nico nico    5545 Sep 29 12:25 index.html
+drwxrwxr-x  7 nico nico    4096 Sep 29 23:56 js
+drwxrwxr-x  2 nico nico    4096 Sep 28 15:06 node_modules
+-rw-rw-r--  1 nico nico    1292 Sep 30 08:48 output.log
+drwxrwxr-x  2 nico nico    4096 Sep 29 22:06 sprites
+drwxrwxr-x  3 nico nico    4096 Sep 30 18:52 tools
+---
+js:
+total 72
+drwxrwxr-x  7 nico nico  4096 Sep 29 23:56 .
+drwxrwxr-x 12 nico nico  4096 Sep 30 18:53 ..
+drwxrwxr-x  2 nico nico  4096 Sep 28 14:49 core
+drwxrwxr-x  3 nico nico  4096 Sep 29 02:31 game
+-rw-rw-r--  1 nico nico 41312 Sep 30 09:10 main.js
+drwxrwxr-x  2 nico nico  4096 Sep 29 00:50 render
+drwxrwxr-x  2 nico nico  4096 Sep 28 15:00 ui
+drwxrwxr-x  2 nico nico  4096 Sep 28 14:47 vendor
+
+js/core:
+total 36
+drwxrwxr-x 2 nico nico 4096 Sep 28 14:49 .
+drwxrwxr-x 7 nico nico 4096 Sep 29 23:56 ..
+-rw-rw-r-- 1 nico nico 2533 Sep 29 00:13 assets.js
+-rw-rw-r-- 1 nico nico 5417 Sep 28 14:49 audio.js
+-rw-rw-r-- 1 nico nico 6550 Sep 29 23:55 config.js
+-rw-rw-r-- 1 nico nico 2887 Sep 28 14:49 input.js
+-rw-rw-r-- 1 nico nico 1042 Sep 28 14:49 rng.js
+
+js/game:
+total 92
+drwxrwxr-x 3 nico nico  4096 Sep 29 02:31 .
+drwxrwxr-x 7 nico nico  4096 Sep 29 23:56 ..
+-rw-rw-r-- 1 nico nico 11645 Sep 28 15:16 ai.js
+drwxrwxr-x 2 nico nico  4096 Sep 28 22:49 boss
+-rw-rw-r-- 1 nico nico 11387 Sep 29 23:55 enemy.js
+-rw-rw-r-- 1 nico nico  8710 Sep 30 00:02 fx.js
+-rw-rw-r-- 1 nico nico 20228 Sep 29 14:01 level.js
+-rw-rw-r-- 1 nico nico  5789 Sep 29 14:00 physics.js
+-rw-rw-r-- 1 nico nico 10652 Sep 29 23:55 player.js
+-rw-rw-r-- 1 nico nico  1846 Sep 29 10:45 state.js
+
+js/ui:
+total 40
+drwxrwxr-x 2 nico nico 4096 Sep 28 15:00 .
+drwxrwxr-x 7 nico nico 4096 Sep 29 23:56 ..
+-rw-rw-r-- 1 nico nico 7044 Sep 30 17:41 cutscene.js
+-rw-rw-r-- 1 nico nico 7470 Sep 29 12:29 hud.js
+-rw-rw-r-- 1 nico nico  874 Sep 28 14:48 i18n.js
+-rw-rw-r-- 1 nico nico 8366 Sep 29 12:41 strings.js
+---
+__pycache__
+build-atlas.py
+cut_minions.py
+gate2f.py
+gate3a.mjs
+gate3b.mjs
+gate4.mjs
+gate5.mjs
+gate6.mjs
+gate7.mjs
+gateai.mjs
+gateboss.mjs
+gatei18n.mjs
+reach.mjs
+smoke.mjs
+stage1.mjs
+stage1b.mjs
+stage2e.mjs
+story.mjs
+[0m
+[0m→ [0mRead index.html
+[0m→ [0mRead js/core/config.js
+[0m→ [0mRead js/ui/hud.js
+[0m→ [0mRead js/ui/strings.js
+[0m→ [0mRead js/main.js[90m [limit=400][0m
+[0m→ [0mRead js/main.js[90m [offset=400, limit=400][0m
+[0m→ [0mRead js/main.js[90m [offset=799][0m
+[0m→ [0mRead tools/gatei18n.mjs
+[0m
+[0m$ [0mls -la css/
+total 24
+drwxrwxr-x  2 nico nico  4096 Sep 28 15:01 .
+drwxrwxr-x 12 nico nico  4096 Sep 30 18:53 ..
+-rw-rw-r--  1 nico nico 15292 Sep 29 12:25 style.css
+[0m
+[0m→ [0mRead css/style.css
+[0m
+[0m$ [0mgrep -n "pitDeath\|kill(\|body.x\|get cx\|get cy" js/game/player.js
+31:    this.body.x = 24; this.body.y = 32;
+45:    this.pitDeath = false;   // set when the death was a fall out of a pit
+55:  get cx() { return this.body.cx; }
+56:  get cy() { return this.body.cy; }
+80:  kill() {
+179:      if (this.body.x < 0) { this.body.x = 0; this.body.vx = 0; }
+182:      if (this.body.x > maxX) { this.body.x = maxX; this.body.vx = 0; }
+273:    this.pitDeath = true;
+274:    this.kill();
+[0m
+[0m→ [0mRead js/ui/i18n.js
+[0m→ [0mRead js/game/player.js[90m [limit=100][0m
+[0m→ [0mRead js/game/player.js[90m [offset=255, limit=40][0m
+[0m→ [0mRead js/core/input.js
+[0m
+[0m$ [0mcurl -s -o /dev/null -w "%{http_code}\n" http://localhost:8765/index.html; node -v
+200
+v22.23.2
+[0m
+[0m→ [0mRead js/core/assets.js
+Now writing the metrics module.
+[0m
+[0m← [0mWrite js/core/metrics.js
+Wrote file successfully.
+[0m
+[0m← [0mEdit js/core/config.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/core/config.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/core/config.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/core/config.js
+@@ -154,4 +154,8 @@
+   lookAhead: 26,
+   lerp: 6.5,
+   shakeDecay: 5.0,
+ };
++
++// Google Analytics measurement id, e.g. 'G-XXXXXXXXXX'. Empty on purpose: the
++// team drops the real id in here, and until then nothing is sent anywhere.
++export const GA_MEASUREMENT_ID = '';
+
+[0m
+Now the strings (both languages):
+[0m← [0mEdit js/ui/strings.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/strings.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/strings.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/strings.js
+@@ -125,8 +125,21 @@
+   pressAny: 'Pulsa cualquier tecla',
+   zoneShrine: 'Santuario',
+   zoneReliquary: 'Relicario',
+   zoneWood: 'Bosque',
++
++  // ---- metrics panel
++  menuMetrics: 'Métricas',
++  metricsTitle: 'Métricas de partida',
++  metricsLevel: 'Nivel',
++  metricsStarts: 'Inicios',
++  metricsCompletes: 'Completados',
++  metricsRate: '% completado',
++  metricsDeaths: 'Muertes',
++  metricsAvgTime: 'Tiempo medio',
++  metricsZones: 'Zonas con más muertes',
++  metricsClose: 'Cerrar',
++  metricsEmpty: 'Todavía no hay datos. Juega una partida para empezar a registrar métricas.',
+ },
+ 
+ en: {
+   title: 'LUMENFALL',
+
+[0m
+[0m← [0mEdit js/ui/strings.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/strings.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/strings.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/strings.js
+@@ -253,8 +253,21 @@
+     pressAny: 'Press any key',
+     zoneShrine: 'Shrine',
+     zoneReliquary: 'Reliquary',
+     zoneWood: 'Wood',
++
++    // ---- metrics panel
++    menuMetrics: 'Metrics',
++    metricsTitle: 'Run metrics',
++    metricsLevel: 'Level',
++    metricsStarts: 'Starts',
++    metricsCompletes: 'Completes',
++    metricsRate: '% complete',
++    metricsDeaths: 'Deaths',
++    metricsAvgTime: 'Avg time',
++    metricsZones: 'Deadliest zones',
++    metricsClose: 'Close',
++    metricsEmpty: 'No data yet. Play a run to start recording metrics.',
+   },
+ };
+ 
+ export const DEFAULT_LANG = 'es';
+
+[0m
+[0m$ [0mnode tools/gatei18n.mjs
+PASS  I1 every Spanish key exists in English
+PASS  I2 every English key exists in Spanish
+PASS  I3 no empty string
+PASS  I4 long strings are really translated (not copied)
+PASS  I5 every key used in the code exists
+GATE PASS
+[0m
+[0m← [0mEdit index.html
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/index.html
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/index.html
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/index.html
+@@ -61,8 +61,9 @@
+       <div id="lang-row" class="opt-row"></div>
+     </div>
+ 
+     <button id="menu-controls" class="btn ghost"></button>
++    <button id="menu-metrics" class="btn ghost"></button>
+     <p class="menu-foot"></p>
+   </div>
+ 
+   <div id="controls-panel" class="sheet">
+@@ -71,8 +72,17 @@
+       <div id="controls-body"></div>
+       <button id="menu-back" class="btn">Volver</button>
+     </div>
+   </div>
++
++  <!-- What the player actually did, read out of the local event log. -->
++  <div id="metrics-panel" class="sheet">
++    <div class="sheet-inner">
++      <h2 id="metrics-title">Métricas</h2>
++      <div id="metrics-body"></div>
++      <button id="metrics-close" class="btn">Cerrar</button>
++    </div>
++  </div>
+ </div>
+ 
+ <!-- ========================= CUTSCENE ========================== -->
+ <div id="cutscene" class="screen">
+
+[0m
+Now the HTML: the menu button and the metrics overlay.
+Now the UI in `hud.js`:
+[0m← [0mEdit js/ui/hud.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/hud.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/hud.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/hud.js
+@@ -43,8 +43,12 @@
+ this.storyHint = el('story-hint');
+ 
+ this.controlsPanel = el('controls-panel');
+ this.controlsBody = el('controls-body');
++this.metricsPanel = el('metrics-panel');
++this.metricsTitle = el('metrics-title');
++this.metricsBody = el('metrics-body');
++this.metricsOpen = false;
+ this.titleEl = el('title-text');
+ this.subtitleEl = el('subtitle-text');
+ this.difficultyRow = el('difficulty-row');
+ this.langRow = el('lang-row');
+
+[0m
+[0m← [0mEdit js/ui/hud.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/hud.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/hud.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/hud.js
+@@ -66,8 +66,9 @@
+ el('menu-continue').textContent = t('continueGame');
+ el('difficulty-label').textContent = t('difficulty');
+ el('lang-label').textContent = t('language');
+ el('menu-controls').textContent = t('controls');
++el('menu-metrics').textContent = t('menuMetrics');
+ el('menu-back').textContent = t('back');
+ el('ember-label').textContent = t('ember');
+ el('hp-label').textContent = t('hp');
+ el('pause-title').textContent = t('paused');
+
+[0m
+[0m← [0mEdit js/ui/hud.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/hud.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/hud.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/hud.js
+@@ -78,11 +78,15 @@
+   el('ending-title').textContent = t('endingTitle');
+   el('ending-sub').textContent = t('endingSub');
+   el('ending-restart').textContent = t('endingRestart');
+   el('ending-menu').textContent = t('endingTitle2');
++  if (this.metricsTitle) this.metricsTitle.textContent = t('metricsTitle');
++  const close = el('metrics-close');
++  if (close) close.textContent = t('metricsClose');
+   el('cut-hint').textContent = `${t('pressAny')} · ${t('skip')}`;
+   el('story-hint').textContent = t('pressAny');
+   this._buildControls();
++  this._buildMetrics();
+   this._renderMenu();
+ }
+ 
+ _buildControls() {
+
+[0m
+[0m← [0mEdit js/ui/hud.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/hud.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/hud.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/hud.js
+@@ -109,8 +109,61 @@
+   this._buildDifficulty();
+   this._buildLang();
+ }
+ 
++// ---- metrics panel
++//
++// Rebuilt from the event log every time it is opened, not kept in sync: the log
++// is the only copy of the truth, and a panel that drifts from it would be worse
++// than no panel at all.
++showMetrics() {
++  this.controlsPanel?.classList.remove('on');
++  this._buildMetrics();
++  this.metricsPanel?.classList.add('on');
++  this.metricsOpen = true;
++}
++
++hideMetrics() {
++  this.metricsPanel?.classList.remove('on');
++  this.metricsOpen = false;
++}
++
++_buildMetrics() {
++  if (!this.metricsBody) return;
++  if (!this.metrics || this.metrics.events.length === 0) {
++    this.metricsBody.innerHTML = `<p class="metrics-empty">${esc(t('metricsEmpty'))}</p>`;
++    return;
++  }
++
++  const s = this.metrics.summary();
++  const head = ['metricsLevel', 'metricsStarts', 'metricsCompletes', 'metricsRate', 'metricsDeaths', 'metricsAvgTime'];
++  const rows = [1, 2, 3].map((lv) => [
++    lv,
++    s.levelStarts[lv],
++    s.levelCompletes[lv],
++    `${Math.round(s.completionRate[lv] * 100)}%`,
++    s.deathsByLevel[lv],
++    mmss(s.avgSecondsByLevel[lv]),
++  ]);
++
++  // The five worst zones, so the panel answers "where do people actually die"
++  // instead of only reporting totals.
++  const zones = Object.entries(s.deathsByZone)
++    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
++    .slice(0, 5);
++
++  this.metricsBody.innerHTML = [
++    `<table class="metrics-table">`,
++    `<thead><tr>${head.map((k) => `<th>${esc(t(k))}</th>`).join('')}</tr></thead>`,
++    `<tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i ? '<td>' : '<th scope="row">') + esc(c) + (i ? '</td>' : '</th>')).join('')}</tr>`).join('')}</tbody>`,
++    `</table>`,
++    zones.length
++      ? `<h3 class="metrics-sub">${esc(t('metricsZones'))}</h3>` +
++        zones.map(([key, n]) => `<div class="ctl-row"><span>${esc(key)}</span><span>-&gt; ${n}</span></div>`).join('')
++      : '',
++  ].join('');
++}
++
+ _buildDifficulty() {
+   if (!this.difficultyRow) return;
+   const keys = ['diffEasy', 'diffNormal', 'diffHard'];
+   this.difficultyRow.innerHTML = keys
+
+[0m
+[0m← [0mEdit js/ui/hud.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/hud.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/hud.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/ui/hud.js
+@@ -9,8 +9,20 @@
+ // player-facing text in this file.
+ 
+ const el = (id) => document.getElementById(id);
+ 
++// m:ss, because a bare number of seconds stops being readable past a minute.
++const mmss = (secs) => {
++  const s = Math.max(0, Math.round(Number(secs) || 0));
++  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
++};
++
++// The zone keys come out of localStorage, which anyone can hand-edit, so nothing
++// read back from the log is trusted as markup.
++const esc = (v) => String(v).replace(/[&<>"]/g, (c) => (
++  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]
++));
++
+ export class UI {
+   constructor() {
+     this.root = el('ui');
+     this.hud = el('hud');
+
+[0m
+[0m← [0mEdit css/style.css
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/css/style.css
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/css/style.css
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/css/style.css
+@@ -275,8 +275,42 @@
+   white-space: nowrap;
+ }
+ .ctl-note { font-size: .68em; color: #4a5a54; letter-spacing: .12em; }
+ 
++/* metrics table */
++.metrics-table {
++  border-collapse: collapse;
++  font-size: .74em;
++  font-variant-numeric: tabular-nums;
++}
++.metrics-table th,
++.metrics-table td {
++  padding: .42em .8em;
++  text-align: right;
++  white-space: nowrap;
++  border-bottom: 1px solid rgba(120, 200, 165, .12);
++}
++.metrics-table thead th {
++  color: var(--dim);
++  font-weight: 400;
++  font-size: .82em;
++  letter-spacing: .12em;
++  text-transform: uppercase;
++  border-bottom-color: var(--edge);
++}
++/* The level number reads as the row's subject, not as another measurement. */
++.metrics-table tbody th { color: var(--accent); font-weight: 400; text-align: right; }
++.metrics-sub {
++  margin: 1.2em 0 .2em;
++  font-size: .68em;
++  font-weight: 400;
++  letter-spacing: .2em;
++  text-transform: uppercase;
++  color: var(--dim);
++  text-align: left;
++}
++.metrics-empty { font-size: .76em; color: var(--dim); line-height: 1.7; text-align: left; }
++
+ /* ============================ CUTSCENE ============================ */
+ 
+ .bar {
+   position: absolute;
+
+[0m
+Now the CSS for the table:
+[0m← [0mEdit js/main.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+@@ -1,11 +1,12 @@
+ import * as THREE from './vendor/three.module.js';
+ 
+-import { LOW_RES_W, LOW_RES_H, LEVELS, CAM, DASH_COOLDOWN, ROTATE_TIME, PIT_DEATH_Y, HITSTOP, SHAKE, ENEMY_KNOCKBACK } from './core/config.js';
++import { LOW_RES_W, LOW_RES_H, LEVELS, CAM, DASH_COOLDOWN, ROTATE_TIME, PIT_DEATH_Y, HITSTOP, SHAKE, ENEMY_KNOCKBACK, GA_MEASUREMENT_ID } from './core/config.js';
+ import { loadAssets } from './core/assets.js';
+ import { Input } from './core/input.js';
+ import { audio } from './core/audio.js';
+ import { clamp, damp, makeRng } from './core/rng.js';
++import { Metrics, loadGoogleAnalytics } from './core/metrics.js';
+ 
+ import { Pipeline } from './render/pipeline.js';
+ import { Parallax, Sky } from './render/parallax.js';
+ import { Sprite } from './render/sprite.js';
+
+[0m
+[0m← [0mEdit js/main.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+@@ -72,8 +72,21 @@
+ this.cutscene = new Cutscene(this.ui);
+ this.input = new Input(window);
+ this.machine = new Machine(S.BOOT);
+ 
++// One log for the whole session, read by the metrics panel and forwarded to
++// Analytics. Created before anything can emit an event, including boot.
++this.metrics = new Metrics();
++this.ui.metrics = this.metrics;
++this.metrics.track('session_start', {});
++
++// Per-attempt clock and death count: reset by level_start, spent by
++// boss_defeated / level_complete.
++this.levelClock = 0;
++this.levelDeaths = 0;
++this.runSeconds = 0;   // sum of the finished levels, for game_complete
++this.runDeaths = 0;    // every death since this run started
++
+ this.cam = { x: 0, y: 0, shake: 0, shakeX: 0, shakeY: 0 };
+ this.rng = makeRng(4242);
+ this.clock = 0;
+ this.fade = 1;
+
+[0m
+[0m← [0mEdit js/main.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+@@ -116,8 +116,10 @@
+ 
+ // ------------------------------------------------------------------ boot
+ async boot() {
+   loadStoredLang();
++  // Once per page load, and a no-op while the measurement id is empty.
++  loadGoogleAnalytics(GA_MEASUREMENT_ID);
+   this.ui.difficulty = 1;
+   this.governor = new Governor(this.ui.difficultyKey());
+   this.ui.onDifficultyChange = (key) => { this.governor = new Governor(key); };
+   this.ui.onLangChange = () => this.ui.refreshStrings();
+
+[0m
+Now the level-start tracking and menu wiring:
+[0m← [0mEdit js/main.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+@@ -171,8 +171,10 @@
+ on('menu-new', () => this.startRun(false));
+ on('menu-continue', () => this.startRun(true));
+ on('menu-controls', () => document.getElementById('controls-panel')?.classList.add('on'));
+ on('menu-back', () => document.getElementById('controls-panel')?.classList.remove('on'));
++on('menu-metrics', () => this.ui.showMetrics());
++on('metrics-close', () => this.ui.hideMetrics());
+ on('pause-resume', () => this.setPaused(false));
+ on('pause-retry', () => this.retryLevel());
+ on('pause-title-btn', () => this.toTitle());
+ on('ending-restart', () => { this.machine.to(S.MENU); this.ui.show('menu'); this._loadLevel(0, { silent: true }); this._onMenuOpen(); });
+
+[0m
+[0m← [0mEdit js/main.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+@@ -201,8 +201,9 @@
+ this.ui.showHud();
+ this.ui.setZone(this.levelDef.nameKey);
+ this.ui.setHealth(this.hp, HP_PER_LEVEL);
+ this.ui.setEmber(this.ember);
++this._levelStart();
+ if (boss) {
+   this.player.body.x = this.bossDef.x - 110;
+   this.player.body.y = 32;
+   this._startBoss();
+
+[0m
+[0m← [0mEdit js/main.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+@@ -215,9 +215,9 @@
+ // Previously Enter did nothing on the title screen: the buttons only responded
+ // to clicks. Focus starts on "Nueva partida" when the menu opens, Up/Down (and
+ // W/S) move it, and Enter/Space activates.
+ _menuNav() {
+-  const order = ['menu-new', 'menu-continue', 'menu-controls'];
++  const order = ['menu-new', 'menu-continue', 'menu-controls', 'menu-metrics'];
+   return order.map((id) => document.getElementById(id)).filter(Boolean);
+ }
+ 
+ _focusMenu(delta) {
+
+[0m
+[0m← [0mEdit js/main.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+@@ -243,8 +243,15 @@
+ 
+ _wireMenuKeys() {
+   // Global keys that must work regardless of state.
+   window.addEventListener('keydown', (e) => {
++    // Before anything else can swallow it: a sheet open over the menu is
++    // dismissed with the same key that pauses the game.
++    if (e.code === 'Escape' && this.ui.metricsOpen) {
++      e.preventDefault();
++      this.ui.hideMetrics();
++      return;
++    }
+     // Menu navigation, before anything else can swallow the key.
+     if (this.machine.is(S.MENU)) {
+       if (e.code === 'ArrowDown' || e.code === 'KeyS') { e.preventDefault(); this._focusMenu(1); return; }
+       if (e.code === 'ArrowUp' || e.code === 'KeyW') { e.preventDefault(); this._focusMenu(-1); return; }
+
+[0m
+Now `beginPlay`, `retryLevel`, `startRun` and the `_levelStart` helper:
+[0m← [0mEdit js/main.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+@@ -279,8 +279,10 @@
+ audio.resume();
+ this.hp = HP_PER_LEVEL;
+ this.ember = 0;
+ this.levelIndex = 0;
++this.runSeconds = 0;
++this.runDeaths = 0;
+ this.governor = new Governor(this.ui.difficultyKey());
+ const level = this._loadLevel(0, { silent: true });
+ audio.ambient(0);
+ preloadPanels();
+
+[0m
+[0m← [0mEdit js/main.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+@@ -299,8 +299,9 @@
+ this.ui.showHud();
+ this.ui.setZone(LEVELS[this.levelIndex].nameKey);
+ this.ui.setHealth(this.hp, HP_PER_LEVEL);
+ this.ui.setEmber(this.ember);
++this._levelStart();
+ this.hintTimer = 3.0;
+ // The level number string and the zone name are the same string, so joining
+ // them printed "Santuario de la Brasa — Santuario de la Brasa". One name.
+ this.ui.showToast(t(LEVELS[this.levelIndex].nameKey), 2.2);
+
+[0m
+[0m← [0mEdit js/main.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+@@ -306,8 +306,17 @@
+   // them printed "Santuario de la Brasa — Santuario de la Brasa". One name.
+   this.ui.showToast(t(LEVELS[this.levelIndex].nameKey), 2.2);
+ }
+ 
++// Every path that hands the controls back: the first level after the prologue,
++// the next level after a boss, and a retry. A retry counts as a fresh start
++// because it reloads the level and restarts the clock the player is measured by.
++_levelStart() {
++  this.levelClock = 0;
++  this.levelDeaths = 0;
++  this.metrics.track('level_start', { level: this.levelDef.id });
++}
++
+ setPaused(on) {
+   if (on) {
+     if (!this.machine.can(S.PAUSED)) return;
+     this.pausedFrom = this.machine.state;
+
+[0m
+[0m← [0mEdit js/main.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+@@ -333,8 +333,9 @@
+   this.hp = HP_PER_LEVEL;
+   this.model.reset();
+   this.governor.adapt = 0;
+   this._loadLevel(this.levelIndex, { silent: true });
++  this._levelStart();
+   this.setPaused(false);
+   this.machine.to(S.PLAY);
+   this.ui.showHud();
+ }
+
+[0m
+Now the play loop clock, the death event, and the boss/level/ending events:
+[0m← [0mEdit js/main.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+@@ -546,8 +546,10 @@
+ 
+ _updatePlay(dt) {
+   const p = this.player;
+   const data = this.level.data;
++  // Time on the level, boss fight included: the player is playing the boss too.
++  this.levelClock += dt;
+ 
+   // ---- L2 rotate, handled outside the player so physics can be suspended
+   if (this.level.canRotate && this.level.isRotating) {
+     const done = this.level.updateRotation(dt);
+
+[0m
+[0m✗ [0mEdit js/main.js failed
+[91m[1mError: [0mNo changes to apply: oldString and newString are identical.
+[0m
+[0m← [0mEdit js/main.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+@@ -1004,10 +1004,13 @@
+   this.parallax.update(this.pipeline.viewX || 0, this.pipeline.viewY || 0);
+ 
+   if (after >= FADE) {
+     this._resetPitFlash();
++    // Read the flag before it is cleared: this is the only moment that says
++    // whether the death was a fall or a hit.
++    const wasPit = this.player.pitDeath;
+     this.player.pitDeath = false;
+-    this._onDeath();
++    this._onDeath(wasPit ? 'pit' : 'hp');
+   }
+ }
+ 
+ _resetPitFlash() {
+
+[0m
+[0m← [0mEdit js/main.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+@@ -1018,12 +1018,23 @@
+   this.pipeline.setHurt(0);
+   this.pipeline.setFade(1);
+ }
+ 
+-_onDeath() {
++// `cause` is passed in rather than read off the player because the pit path has
++// to clear `pitDeath` before it gets here. The S.DEAD guard is what makes this
++// exactly one event per death and not one per frame.
++_onDeath(cause = 'hp') {
+   if (this.machine.state === S.DEAD) return;
+   this.machine.to(S.DEAD);
+   this.deathTimer = 0;
++  this.levelDeaths++;
++  this.runDeaths++;
++  const tileX = this.player.body.x / TILE;
++  this.metrics.track('player_death', {
++    level: this.levelDef.id,
++    zone: Math.floor(tileX / 20),
++    cause,
++  });
+   audio.sfxDie();
+   this.cam.shake = 8;
+   this.ui.setBoss(null);
+   this.ui.showToast(t('youDied'), 1.6);
+
+[0m
+[0m← [0mEdit js/main.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+@@ -958,8 +958,21 @@
+   }
+ }
+ 
+ _onBossDefeated() {
++  // The clock and the death count belong to the level that just ended, so
++  // both events are emitted before anything reloads the next one.
++  this.metrics.track('boss_defeated', {
++    boss: this.bossDef.boss,
++    seconds: this.levelClock,
++    deaths: this.levelDeaths,
++  });
++  this.runSeconds += this.levelClock;
++  this.metrics.track('level_complete', {
++    level: this.levelDef.id,
++    seconds: this.levelClock,
++    deaths: this.levelDeaths,
++  });
+   this.hp = Math.min(HP_PER_LEVEL, this.hp + 2);
+   if (this.levelIndex >= 2) {
+     this.machine.to(S.CUTSCENE);
+     this.ui.show('cutscene');
+
+[0m
+[0m← [0mEdit js/main.js
+Index: /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+===================================================================
+--- /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
++++ /home/nico/Documents/U/Co/U/4s/courses/interfaces/tareas/proyecto final/juego/js/main.js
+@@ -991,8 +991,9 @@
+ 
+ _showEnding() {
+   this.machine.to(S.ENDING);
+   this.ui.show('ending');
++  this.metrics.track('game_complete', { seconds: this.runSeconds, deaths: this.runDeaths });
+   this.endingHold = 1.0;
+   this._bleedInit();
+   audio.ambient(0);
+ }
+
+[0m
+[0m$ [0mnode tools/gate7.mjs
+PASS  A1 levelStarts[1] = 2 and levelCompletes[1] = 1  [[{"1":2,"2":0,"3":0},{"1":1,"2":0,"3":0}]]
+PASS  A2 completionRate[1] = 0.5  [rate=0.5]
+PASS  A3 deathsByLevel[1] = 2 and deathsByZone["1:3"] = 2  [[{"1":2,"2":0,"3":0},{"1:3":2}]]
+PASS  A4 avgSecondsByLevel[1] = 60  [avg=60]
+PASS  A5 bossesDefeated.statue = 1 and all keys exist  [{"statue":1,"ulburjo":0,"patientone":0}]
+PASS  A6 events are forwarded to window.gtag  [forwarded=session_start,level_start,level_start,level_start,level_complete,player_death,player_death,boss_defeated]
+PASS  A7 metrics survive a reload (localStorage)  [deathsByLevel[1]=2]
+PASS  B1 session_start is tracked  [[{"name":"session_start"},{"name":"level_start","level":2}]]
+PASS  B2 level_start {level:2} is tracked on ?level=2  [[{"name":"session_start"},{"name":"level_start","level":2}]]
+PASS  B3 one death = exactly one player_death with level, zone, cause  [[{"name":"player_death","t":1790812753378,"level":2,"zone":0,"cause":"hp"}]]
+PASS  B4 killing the boss tracks boss_defeated once with boss="statue"  [[{"name":"boss_defeated","t":1790812761294,"boss":"statue","seconds":5.5029959999910725,"deaths":0}]]
+PASS  C1 the panel exists and is hidden at first  [visible=false]
+PASS  C2 the menu has a #menu-metrics button
+PASS  C3 clicking it shows the panel with "50%"  [MÉTRICAS DE PARTIDA NIVEL INICIOS COMPLETADOS % COMPLETADO MUERTES TIEMPO MEDIO 1 2 1 50% 1 1:15 2 0 0 0% 0 0:00 3 0 0 0% 0 0:00 ZONAS CON MÁS MUERTES 1:3 -> 1 ]
+PASS  C4 the panel shows the average time 1:15 and zone 1:3
+PASS  C5 Escape closes the panel  [visible=false]
+PASS  C6 no request to Google while the measurement id is empty
+PASS  D1 no console or page errors
+GATE PASS
+[0m
+Gate passes. Verifying I didn't break the other gates:
+[0m$ [0mgrep -n "GATE_URL\|localhost" tools/gate*.mjs tools/smoke.mjs | head -30
+tools/gate3a.mjs:2:// Run: node tools/gate3a.mjs   (game served on GATE_URL, default http://localhost:8765)
+tools/gate3a.mjs:6:const URL = process.env.GATE_URL || 'http://localhost:8765/index.html';
+tools/gate3b.mjs:2:// Run: node tools/gate3b.mjs   (GATE_URL overrides http://localhost:8765/index.html)
+tools/gate3b.mjs:5:const URL = process.env.GATE_URL || 'http://localhost:8765/index.html';
+tools/gate6.mjs:3:const URL = process.env.GATE_URL || 'http://localhost:8765/index.html';
+tools/gate7.mjs:3:const URL = process.env.GATE_URL || 'http://localhost:8765/index.html';
+tools/gate9.mjs:16:const must = ['Easy', 'Normal', 'Hard', 'last 20', 'Google Analytics', 'GA_MEASUREMENT_ID', 'python3 -m http.server', 'localhost', 'lumenfall.metrics.v1', 'node tools/gateai.mjs', 'node tools/gate7.mjs', 'node tools/reach.mjs', 'Move', 'Jump', 'Attack', 'Dash', 'Rotate', 'Pause', 'windup', 'Ul Burjo', 'Patient One'];
+tools/gateboss.mjs:2:// Usage: node tools/gateboss.mjs '<json config>'  config: {level, p1:[names], p2:'name', p2min:0.7, rotate:bool}   (GATE_URL overrides http://localhost:8765/index.html)
+tools/gateboss.mjs:5:const URL = process.env.GATE_URL || 'http://localhost:8765/index.html';
+tools/smoke.mjs:11:const URL = process.argv[2] || 'http://localhost:8765/index.html';
+[0m
+[0m$ [0mfor g in gate3a gate3b gate4 gate5 gate6 gateai gatei18n; do echo "=== $g"; node tools/$g.mjs 2>&1 | tail -3; done
+=== gate3a
+PASS  C5 killing blow shakes >= 5.5  [shake=6.00]
+PASS  D1 no console or page errors
+GATE PASS
+=== gate3b
+PASS  E9 after death atk is null and no markers remain  [atk=null markers=0]
+PASS  F1 no console or page errors
+GATE PASS
+=== gate4
+PASS  E9 after death atk is null and no markers remain  [atk=null markers=0]
+PASS  F1 no console or page errors
+GATE PASS
+=== gate5
+PASS  E9 after death atk is null and no markers remain  [atk=null markers=0]
+PASS  F1 no console or page errors
+GATE PASS
+=== gate6
+PASS  G3 all nine files load (HTTP 200)  [ok]
+PASS  G4 no console or page errors
+GATE PASS
+=== gateai
+PASS  AI15 no prediction with a short trail
+PASS  AI16 a straight run is extrapolated ahead of the player  [x=154.5 conf=0.70]
+GATE PASS
+=== gatei18n
+PASS  I4 long strings are really translated (not copied)
+PASS  I5 every key used in the code exists
+GATE PASS
+[0m
+[0m$ [0mls -la tools/gate9.mjs 2>/dev/null && node tools/gate9.mjs 2>&1 | tail -6
+-rw-rw-r-- 1 nico nico 2742 Sep 30 18:54 tools/gate9.mjs
+FAIL  R4 every path in backticks exists  [5 paths checked]
+FAIL  R5 mentions every required term  [last 20, Google Analytics, GA_MEASUREMENT_ID, lumenfall.metrics.v1, node tools/gateai.mjs, node tools/gate7.mjs, node tools/reach.mjs, windup, Ul Burjo, Patient One]
+FAIL  R6 the README shows the real key bindings (A D W J K E Space Esc Shift Enter)  [not shown: Enter]
+FAIL  R7 it has a limitations section with real content
+PASS  R8 written in English (no common Spanish words in prose)
+GATE FAIL (5 of 9)
+[0m
+[0m$ [0mnode --input-type=module -e "
+import { chromium } from 'playwright';
+const seed = \`localStorage.setItem('lumenfall.metrics.v1', JSON.stringify({events:[
+{name:'session_start',t:1},{name:'level_start',t:2,level:1},{name:'level_start',t:3,level:1},
+{name:'level_complete',t:4,level:1,seconds:75,deaths:2},{name:'player_death',t:5,level:1,zone:3,cause:'hp'},
+{name:'player_death',t:6,level:1,zone:3,cause:'pit'},{name:'player_death',t:7,level:2,zone:8,cause:'pit'}]}));\`;
+const b = await chromium.launch({ args:['--use-gl=angle'] });
+const p = await b.newPage({ viewport:{width:960,height:540} });
+await p.addInitScript(seed);
+await p.goto('http://localhost:8765/index.html');
+await p.waitForTimeout(3500);
+await p.click('#menu-metrics');
+await p.waitForTimeout(500);
+await p.screenshot({ path:'.scratch/stage7-panel.png' });
+console.log(await p.evaluate(()=>{const b=document.getElementById('metrics-body').getBoundingClientRect();return JSON.stringify({top:b.top,bottom:b.bottom,w:b.width});}));
+await b.close();
+"
+{"top":195.609375,"bottom":336.359375,"w":381.890625}
+[0m
+[0m→ [0mRead .scratch/stage7-panel.png
+[0m
+[0m$ [0mls package.json 2>/dev/null; git status --short
+M .autopilot/chain2.log
+ M css/style.css
+ M index.html
+ M js/core/config.js
+ M js/main.js
+ M js/ui/hud.js
+ M js/ui/strings.js
+?? .autopilot/7.0.out
+?? js/core/metrics.js
+[0m
+[0m$ [0mgit diff --stat css/style.css index.html js/core/config.js js/main.js js/ui/hud.js js/ui/strings.js; echo "=== gate7"; node tools/gate7.mjs 2>&1 | tail -2
+css/style.css     | 34 ++++++++++++++++++++++++
+ index.html        | 10 ++++++++
+ js/core/config.js |  4 +++
+ js/main.js        | 77 ++++++++++++++++++++++++++++++++++++++++++++++++++++---
+ js/ui/hud.js      | 74 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ js/ui/strings.js  | 26 +++++++++++++++++++
+ 6 files changed, 221 insertions(+), 4 deletions(-)
+=== gate7
+PASS  D1 no console or page errors
+GATE PASS
+[0m
+Files changed: `js/core/metrics.js` (new), `js/core/config.js`, `js/main.js`, `js/ui/hud.js`, `js/ui/strings.js`, `index.html`, `css/style.css` — `node tools/gate7.mjs` prints GATE PASS (18/18; gate3a/3b/4/5/6/ai/i18n still pass too).
+Judgment call: a retry (`retryLevel`) also emits `level_start`, so `levelClock`/`levelDeaths` reset there and `boss_defeated.seconds/deaths` describe the attempt that actually won.
+Not done: nothing from the doc; `tools/gate9.mjs` (a later-stage README gate that appeared after this step started) still fails and README.md is outside this step's editable list.

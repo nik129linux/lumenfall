@@ -10,6 +10,18 @@ import { audio } from '../core/audio.js';
 
 const el = (id) => document.getElementById(id);
 
+// m:ss, because a bare number of seconds stops being readable past a minute.
+const mmss = (secs) => {
+  const s = Math.max(0, Math.round(Number(secs) || 0));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+
+// The zone keys come out of localStorage, which anyone can hand-edit, so nothing
+// read back from the log is trusted as markup.
+const esc = (v) => String(v).replace(/[&<>"]/g, (c) => (
+  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]
+));
+
 export class UI {
   constructor() {
     this.root = el('ui');
@@ -44,6 +56,10 @@ export class UI {
 
     this.controlsPanel = el('controls-panel');
     this.controlsBody = el('controls-body');
+    this.metricsPanel = el('metrics-panel');
+    this.metricsTitle = el('metrics-title');
+    this.metricsBody = el('metrics-body');
+    this.metricsOpen = false;
     this.titleEl = el('title-text');
     this.subtitleEl = el('subtitle-text');
     this.difficultyRow = el('difficulty-row');
@@ -63,6 +79,7 @@ export class UI {
     el('difficulty-label').textContent = t('difficulty');
     el('lang-label').textContent = t('language');
     el('menu-controls').textContent = t('controls');
+    el('menu-metrics').textContent = t('menuMetrics');
     el('menu-back').textContent = t('back');
     el('ember-label').textContent = t('ember');
     el('hp-label').textContent = t('hp');
@@ -74,9 +91,13 @@ export class UI {
     el('ending-sub').textContent = t('endingSub');
     el('ending-restart').textContent = t('endingRestart');
     el('ending-menu').textContent = t('endingTitle2');
+    if (this.metricsTitle) this.metricsTitle.textContent = t('metricsTitle');
+    const close = el('metrics-close');
+    if (close) close.textContent = t('metricsClose');
     el('cut-hint').textContent = `${t('pressAny')} · ${t('skip')}`;
     el('story-hint').textContent = t('pressAny');
     this._buildControls();
+    this._buildMetrics();
     this._renderMenu();
   }
 
@@ -99,6 +120,59 @@ export class UI {
   _renderMenu() {
     this._buildDifficulty();
     this._buildLang();
+  }
+
+  // ---- metrics panel
+  //
+  // Rebuilt from the event log every time it is opened, not kept in sync: the log
+  // is the only copy of the truth, and a panel that drifts from it would be worse
+  // than no panel at all.
+  showMetrics() {
+    this.controlsPanel?.classList.remove('on');
+    this._buildMetrics();
+    this.metricsPanel?.classList.add('on');
+    this.metricsOpen = true;
+  }
+
+  hideMetrics() {
+    this.metricsPanel?.classList.remove('on');
+    this.metricsOpen = false;
+  }
+
+  _buildMetrics() {
+    if (!this.metricsBody) return;
+    if (!this.metrics || this.metrics.events.length === 0) {
+      this.metricsBody.innerHTML = `<p class="metrics-empty">${esc(t('metricsEmpty'))}</p>`;
+      return;
+    }
+
+    const s = this.metrics.summary();
+    const head = ['metricsLevel', 'metricsStarts', 'metricsCompletes', 'metricsRate', 'metricsDeaths', 'metricsAvgTime'];
+    const rows = [1, 2, 3].map((lv) => [
+      lv,
+      s.levelStarts[lv],
+      s.levelCompletes[lv],
+      `${Math.round(s.completionRate[lv] * 100)}%`,
+      s.deathsByLevel[lv],
+      mmss(s.avgSecondsByLevel[lv]),
+    ]);
+
+    // The five worst zones, so the panel answers "where do people actually die"
+    // instead of only reporting totals.
+    const zones = Object.entries(s.deathsByZone)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 5);
+
+    this.metricsBody.innerHTML = [
+      `<table class="metrics-table">`,
+      `<thead><tr>${head.map((k) => `<th>${esc(t(k))}</th>`).join('')}</tr></thead>`,
+      `<tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i ? '<td>' : '<th scope="row">') + esc(c) + (i ? '</td>' : '</th>')).join('')}</tr>`).join('')}</tbody>`,
+      `</table>`,
+      zones.length
+        ? `<h3 class="metrics-sub">${esc(t('metricsZones'))}</h3>` +
+          zones.map(([key, n]) => `<div class="ctl-row"><span>${esc(key)}</span><span>-&gt; ${n}</span></div>`).join('')
+        : '',
+    ].join('');
   }
 
   _buildDifficulty() {

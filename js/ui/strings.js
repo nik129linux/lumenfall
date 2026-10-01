@@ -126,6 +126,19 @@ export const STRINGS = {
     zoneShrine: 'Santuario',
     zoneReliquary: 'Relicario',
     zoneWood: 'Bosque',
+
+    // ---- metrics panel
+    menuMetrics: 'Métricas',
+    metricsTitle: 'Métricas de partida',
+    metricsLevel: 'Nivel',
+    metricsStarts: 'Inicios',
+    metricsCompletes: 'Completados',
+    metricsRate: '% completado',
+    metricsDeaths: 'Muertes',
+    metricsAvgTime: 'Tiempo medio',
+    metricsZones: 'Zonas con más muertes',
+    metricsClose: 'Cerrar',
+    metricsEmpty: 'Todavía no hay datos. Juega una partida para empezar a registrar métricas.',
   },
 
   en: {
@@ -241,6 +254,19 @@ export const STRINGS = {
     zoneShrine: 'Shrine',
     zoneReliquary: 'Reliquary',
     zoneWood: 'Wood',
+
+    // ---- metrics panel
+    menuMetrics: 'Metrics',
+    metricsTitle: 'Run metrics',
+    metricsLevel: 'Level',
+    metricsStarts: 'Starts',
+    metricsCompletes: 'Completes',
+    metricsRate: '% complete',
+    metricsDeaths: 'Deaths',
+    metricsAvgTime: 'Avg time',
+    metricsZones: 'Deadliest zones',
+    metricsClose: 'Close',
+    metricsEmpty: 'No data yet. Play a run to start recording metrics.',
   },
 };
 

@@ -155,3 +155,7 @@ export const CAM = {
   lerp: 6.5,
   shakeDecay: 5.0,
 };
+
+// Google Analytics measurement id, e.g. 'G-XXXXXXXXXX'. Empty on purpose: the
+// team drops the real id in here, and until then nothing is sent anywhere.
+export const GA_MEASUREMENT_ID = '';

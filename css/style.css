@@ -276,6 +276,40 @@ kbd {
 }
 .ctl-note { font-size: .68em; color: #4a5a54; letter-spacing: .12em; }
 
+/* metrics table */
+.metrics-table {
+  border-collapse: collapse;
+  font-size: .74em;
+  font-variant-numeric: tabular-nums;
+}
+.metrics-table th,
+.metrics-table td {
+  padding: .42em .8em;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid rgba(120, 200, 165, .12);
+}
+.metrics-table thead th {
+  color: var(--dim);
+  font-weight: 400;
+  font-size: .82em;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  border-bottom-color: var(--edge);
+}
+/* The level number reads as the row's subject, not as another measurement. */
+.metrics-table tbody th { color: var(--accent); font-weight: 400; text-align: right; }
+.metrics-sub {
+  margin: 1.2em 0 .2em;
+  font-size: .68em;
+  font-weight: 400;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--dim);
+  text-align: left;
+}
+.metrics-empty { font-size: .76em; color: var(--dim); line-height: 1.7; text-align: left; }
+
 /* ============================ CUTSCENE ============================ */
 
 .bar {

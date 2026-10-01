@@ -1,10 +1,11 @@
 import * as THREE from './vendor/three.module.js';
 
-import { LOW_RES_W, LOW_RES_H, LEVELS, CAM, DASH_COOLDOWN, ROTATE_TIME, PIT_DEATH_Y, HITSTOP, SHAKE, ENEMY_KNOCKBACK } from './core/config.js';
+import { LOW_RES_W, LOW_RES_H, LEVELS, CAM, DASH_COOLDOWN, ROTATE_TIME, PIT_DEATH_Y, HITSTOP, SHAKE, ENEMY_KNOCKBACK, GA_MEASUREMENT_ID } from './core/config.js';
 import { loadAssets } from './core/assets.js';
 import { Input } from './core/input.js';
 import { audio } from './core/audio.js';
 import { clamp, damp, makeRng } from './core/rng.js';
+import { Metrics, loadGoogleAnalytics } from './core/metrics.js';
 
 import { Pipeline } from './render/pipeline.js';
 import { Parallax, Sky } from './render/parallax.js';
@@ -72,6 +73,19 @@ class Game {
     this.input = new Input(window);
     this.machine = new Machine(S.BOOT);
 
+    // One log for the whole session, read by the metrics panel and forwarded to
+    // Analytics. Created before anything can emit an event, including boot.
+    this.metrics = new Metrics();
+    this.ui.metrics = this.metrics;
+    this.metrics.track('session_start', {});
+
+    // Per-attempt clock and death count: reset by level_start, spent by
+    // boss_defeated / level_complete.
+    this.levelClock = 0;
+    this.levelDeaths = 0;
+    this.runSeconds = 0;   // sum of the finished levels, for game_complete
+    this.runDeaths = 0;    // every death since this run started
+
     this.cam = { x: 0, y: 0, shake: 0, shakeX: 0, shakeY: 0 };
     this.rng = makeRng(4242);
     this.clock = 0;
@@ -103,6 +117,8 @@ class Game {
   // ------------------------------------------------------------------ boot
   async boot() {
     loadStoredLang();
+    // Once per page load, and a no-op while the measurement id is empty.
+    loadGoogleAnalytics(GA_MEASUREMENT_ID);
     this.ui.difficulty = 1;
     this.governor = new Governor(this.ui.difficultyKey());
     this.ui.onDifficultyChange = (key) => { this.governor = new Governor(key); };
@@ -156,6 +172,8 @@ class Game {
     on('menu-continue', () => this.startRun(true));
     on('menu-controls', () => document.getElementById('controls-panel')?.classList.add('on'));
     on('menu-back', () => document.getElementById('controls-panel')?.classList.remove('on'));
+    on('menu-metrics', () => this.ui.showMetrics());
+    on('metrics-close', () => this.ui.hideMetrics());
     on('pause-resume', () => this.setPaused(false));
     on('pause-retry', () => this.retryLevel());
     on('pause-title-btn', () => this.toTitle());
@@ -184,6 +202,7 @@ class Game {
     this.ui.setZone(this.levelDef.nameKey);
     this.ui.setHealth(this.hp, HP_PER_LEVEL);
     this.ui.setEmber(this.ember);
+    this._levelStart();
     if (boss) {
       this.player.body.x = this.bossDef.x - 110;
       this.player.body.y = 32;
@@ -197,7 +216,7 @@ class Game {
   // to clicks. Focus starts on "Nueva partida" when the menu opens, Up/Down (and
   // W/S) move it, and Enter/Space activates.
   _menuNav() {
-    const order = ['menu-new', 'menu-continue', 'menu-controls'];
+    const order = ['menu-new', 'menu-continue', 'menu-controls', 'menu-metrics'];
     return order.map((id) => document.getElementById(id)).filter(Boolean);
   }
 
@@ -225,6 +244,13 @@ class Game {
   _wireMenuKeys() {
     // Global keys that must work regardless of state.
     window.addEventListener('keydown', (e) => {
+      // Before anything else can swallow it: a sheet open over the menu is
+      // dismissed with the same key that pauses the game.
+      if (e.code === 'Escape' && this.ui.metricsOpen) {
+        e.preventDefault();
+        this.ui.hideMetrics();
+        return;
+      }
       // Menu navigation, before anything else can swallow the key.
       if (this.machine.is(S.MENU)) {
         if (e.code === 'ArrowDown' || e.code === 'KeyS') { e.preventDefault(); this._focusMenu(1); return; }
@@ -254,6 +280,8 @@ class Game {
     this.hp = HP_PER_LEVEL;
     this.ember = 0;
     this.levelIndex = 0;
+    this.runSeconds = 0;
+    this.runDeaths = 0;
     this.governor = new Governor(this.ui.difficultyKey());
     const level = this._loadLevel(0, { silent: true });
     audio.ambient(0);
@@ -272,10 +300,20 @@ class Game {
     this.ui.setZone(LEVELS[this.levelIndex].nameKey);
     this.ui.setHealth(this.hp, HP_PER_LEVEL);
     this.ui.setEmber(this.ember);
+    this._levelStart();
     this.hintTimer = 3.0;
     // The level number string and the zone name are the same string, so joining
     // them printed "Santuario de la Brasa — Santuario de la Brasa". One name.
     this.ui.showToast(t(LEVELS[this.levelIndex].nameKey), 2.2);
+  }
+
+  // Every path that hands the controls back: the first level after the prologue,
+  // the next level after a boss, and a retry. A retry counts as a fresh start
+  // because it reloads the level and restarts the clock the player is measured by.
+  _levelStart() {
+    this.levelClock = 0;
+    this.levelDeaths = 0;
+    this.metrics.track('level_start', { level: this.levelDef.id });
   }
 
   setPaused(on) {
@@ -296,6 +334,7 @@ class Game {
     this.model.reset();
     this.governor.adapt = 0;
     this._loadLevel(this.levelIndex, { silent: true });
+    this._levelStart();
     this.setPaused(false);
     this.machine.to(S.PLAY);
     this.ui.showHud();
@@ -508,6 +547,8 @@ class Game {
   _updatePlay(dt) {
     const p = this.player;
     const data = this.level.data;
+    // Time on the level, boss fight included: the player is playing the boss too.
+    this.levelClock += dt;
 
     // ---- L2 rotate, handled outside the player so physics can be suspended
     if (this.level.canRotate && this.level.isRotating) {
@@ -918,6 +959,19 @@ class Game {
   }
 
   _onBossDefeated() {
+    // The clock and the death count belong to the level that just ended, so
+    // both events are emitted before anything reloads the next one.
+    this.metrics.track('boss_defeated', {
+      boss: this.bossDef.boss,
+      seconds: this.levelClock,
+      deaths: this.levelDeaths,
+    });
+    this.runSeconds += this.levelClock;
+    this.metrics.track('level_complete', {
+      level: this.levelDef.id,
+      seconds: this.levelClock,
+      deaths: this.levelDeaths,
+    });
     this.hp = Math.min(HP_PER_LEVEL, this.hp + 2);
     if (this.levelIndex >= 2) {
       this.machine.to(S.CUTSCENE);
@@ -938,6 +992,7 @@ class Game {
   _showEnding() {
     this.machine.to(S.ENDING);
     this.ui.show('ending');
+    this.metrics.track('game_complete', { seconds: this.runSeconds, deaths: this.runDeaths });
     this.endingHold = 1.0;
     this._bleedInit();
     audio.ambient(0);
@@ -964,8 +1019,11 @@ class Game {
 
     if (after >= FADE) {
       this._resetPitFlash();
+      // Read the flag before it is cleared: this is the only moment that says
+      // whether the death was a fall or a hit.
+      const wasPit = this.player.pitDeath;
       this.player.pitDeath = false;
-      this._onDeath();
+      this._onDeath(wasPit ? 'pit' : 'hp');
     }
   }
 
@@ -975,10 +1033,21 @@ class Game {
     this.pipeline.setFade(1);
   }
 
-  _onDeath() {
+  // `cause` is passed in rather than read off the player because the pit path has
+  // to clear `pitDeath` before it gets here. The S.DEAD guard is what makes this
+  // exactly one event per death and not one per frame.
+  _onDeath(cause = 'hp') {
     if (this.machine.state === S.DEAD) return;
     this.machine.to(S.DEAD);
     this.deathTimer = 0;
+    this.levelDeaths++;
+    this.runDeaths++;
+    const tileX = this.player.body.x / TILE;
+    this.metrics.track('player_death', {
+      level: this.levelDef.id,
+      zone: Math.floor(tileX / 20),
+      cause,
+    });
     audio.sfxDie();
     this.cam.shake = 8;
     this.ui.setBoss(null);
