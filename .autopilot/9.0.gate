@@ -1,0 +1,10 @@
+PASS  R0 README.md exists
+PASS  R1 all required headings exist
+PASS  R2 headings are in the required order
+PASS  R3 at most 250 lines  [lines=250]
+PASS  R4 every path in backticks exists  [16 paths checked]
+PASS  R5 mentions every required term
+PASS  R6 the README shows the real key bindings (A D W J K E Space Esc Shift Enter)  [all shown]
+PASS  R7 it has a limitations section with real content
+PASS  R8 written in English (no common Spanish words in prose)
+GATE PASS
