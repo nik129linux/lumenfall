@@ -54,6 +54,12 @@ const AFTER_ATTACK = 0.35;  // pause after recover before the next decision
 const SHIFT_CD = 6.0;       // a shift at most this often, phase 2 only
 const BLINK_OFFSET = 60;    // he lands this far past the player, never on them
 const SWEEP_RANGE = 50;     // a sweep is a point-blank answer, not a poke
+// The volley's bolts only live for its active window, so its real reach is the
+// 60px strip it marks (plus half of Kael). Thrown from further away it cannot
+// land at all, and it used to be thrown from anywhere.
+const VOLLEY_RANGE = 64;
+// Where he likes to stand: inside volley reach, outside sweep-a-face range.
+const SPACING = { near: 26, far: 58 };
 const BOLT_SPEED = 400;     // px/s: crosses the strip inside the active window
 const SHIFT_MARK = 0x9b5cf0;
 
@@ -116,7 +122,7 @@ export class UlBurjo extends Boss {
     if (this.state === 'phase') this.body.vx = 0;
     else if (this.atk) this._runAttack(dt, player);
     else if (this.pause <= 0) this._decide(action, player, dx);
-    else this.dampVx(0.8);
+    else this.keepSpacing(dx, SPACING.near, 30);
 
     this.integrate(dt, level);
     this._animate(dt);
@@ -126,11 +132,33 @@ export class UlBurjo extends Boss {
     // The shift comes first in phase 2, and only off its cooldown: it is the
     // loudest thing in the fight.
     if (this.phase >= 2 && this.shiftCooldown <= 0 && action === 'shift') { this._begin('shift', player); return; }
-    if (action === 'volley' || action === 'blink') { this._begin(action, player); return; }
+    const adx = Math.abs(dx);
+    let name = action;
+    // A volley from out of its reach becomes a blink: he closes the gap with
+    // the move made for it instead of throwing bolts that die in the air.
+    if (name === 'volley' && adx > VOLLEY_RANGE) name = 'blink';
+    if (this.repeatsTooMuch(name)) {
+      // Three of the same in a row is swapped for another attack that fits
+      // this distance. Variety is a preference, never a lock: far away the
+      // blink is the only thing that works, and forbidding a third one left
+      // him walking in place with no attack at all.
+      const alt = name !== 'volley' && adx <= VOLLEY_RANGE ? 'volley'
+        : name !== 'blink' ? 'blink' : null;
+      if (alt) name = alt;
+    }
+    if (name === 'volley' || name === 'blink') { this._begin(name, player); return; }
     // A sweep is a point-blank answer. At range it would be a second volley with
     // a different shape and no more reach, so it waits for the player to close.
-    if (action === 'sweep' && Math.abs(dx) <= SWEEP_RANGE) { this._begin('sweep', player); return; }
-    if (action === 'reposition') { this.body.vx = Math.sign(dx) * (24 + this.phase * 5); return; }
+    if (name === 'sweep' && adx <= SWEEP_RANGE) { this._begin('sweep', player); return; }
+    if (name === 'reposition') {
+      // He is a caster: repositioning means finding his spacing, not walking
+      // into the player, which is what it used to do.
+      const speed = 24 + this.phase * 5;
+      if (adx > SPACING.far) this.steer(Math.sign(dx) * speed);
+      else if (adx < SPACING.near) this.steer(-Math.sign(dx) * speed);
+      else this.dampVx(0.9);
+      return;
+    }
     this.dampVx(0.9);
   }
 
@@ -154,6 +182,7 @@ export class UlBurjo extends Boss {
     }
     this.body.vx = 0;
     this.agent.markAttack();
+    this.noteAttack(name);
     this._log();
     this._mark();
   }

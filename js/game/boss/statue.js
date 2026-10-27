@@ -26,6 +26,11 @@ const T = { swing: [0.65, 0.14, 0.80], slam: [0.85, 0.14, 1.00], roots: [0.90, 0
 const P2_WINDUP = 0.8;      // phase 2 multiplies every windup by this
 const AFTER_ATTACK = 0.35;  // pause after recover before the next decision
 const ROOTS_COOLDOWN = 4.0;
+// How far from the player's centre each attack still connects, in px: the
+// swing's hit box reaches ~33px in front plus half of Kael's width, the slam
+// is 80px wide and centred. Kept a touch inside the real reach so a swing is
+// never thrown at the very edge of it.
+const REACH = { swing: 38, slam: 44 };
 
 export class Statue extends Boss {
   constructor(opts) {
@@ -72,7 +77,7 @@ export class Statue extends Boss {
     if (this.state === 'phase') this.body.vx = 0;
     else if (this.atk) this._runAttack(dt, player);
     else if (this.pause <= 0) this._decide(action, player, dx);
-    else this.dampVx(0.8);
+    else this.keepSpacing(dx, 18, 30);
 
     this.integrate(dt, level);
     this._animate(dt, action);
@@ -83,8 +88,28 @@ export class Statue extends Boss {
     // the windup: at point-blank they would just be a second swing with a
     // different shape.
     if (this.phase >= 2 && this.rootsCd <= 0 && Math.abs(dx) > 50) { this._begin('roots', player); return; }
-    if (action === 'swing' || action === 'slam') { this._begin(action, player); return; }
-    if (action === 'chase') { this.body.vx = Math.sign(dx) * (26 + this.phase * 4); return; }
+    if (action === 'swing' || action === 'slam') {
+      // The attack is chosen for where the player is. Standing on top of it,
+      // only the slam (centred) can land; and no attack a third time in a row.
+      const adx = Math.abs(dx);
+      let name = adx < 14 ? 'slam' : action;
+      if (this.repeatsTooMuch(name)) {
+        const other = name === 'swing' ? 'slam' : 'swing';
+        const otherFits = adx <= REACH[other] && !(other === 'swing' && adx < 14);
+        if (otherFits) name = other;
+        else if (adx <= REACH[name]) {
+          // Nothing else lands from here: step back, which opens up the
+          // other attack for the next decision, instead of a third repeat.
+          this.steer(-Math.sign(dx || this.facing) * 30);
+          return;
+        }
+      }
+      if (adx <= REACH[name]) { this._begin(name, player); return; }
+      // Out of reach: walk in instead of swinging at the air.
+      this.steer(Math.sign(dx) * (26 + this.phase * 4));
+      return;
+    }
+    if (action === 'chase') { this.steer(Math.sign(dx) * (26 + this.phase * 4)); return; }
     this.dampVx(0.9);
   }
 
@@ -97,6 +122,7 @@ export class Statue extends Boss {
       tx: player.cx,
     };
     this.body.vx = 0;
+    this.noteAttack(name);
     this._log();
 
     // The markers are the promise: same ground, same width, same lifetime as
