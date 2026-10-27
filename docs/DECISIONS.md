@@ -210,6 +210,88 @@ reachable from the adaptive weights — attacking is only ever offered through
 
 ---
 
+## AI, motion and level polish (MarioZaMu)
+
+The brief was: smarter attacks and movement for every enemy, smoother motion
+for every character, and levels that look finished. The rules: no gate may
+break, no new dependencies, and the boss attack contract does not change.
+
+### Minions got the boss contract
+
+Minion attacks used to land on the same AI tick that picked `attack`: a
+crawler lunged with no tell at all. They now run a small windup -> active ->
+recover (`ATTACK_T` in `js/game/enemy.js`), blink and crouch through the
+windup, and can only hurt during `active`. Hitting one during its windup
+cancels the attack. One AI decision buys at most one attack (`attackArmed`),
+so an `attack` action that outlives a fast attack cannot start a second one
+that skipped the fairness gates.
+
+`AI.maxConcurrentAttackers` was defined in `config.js` and never read. It is
+now a shared token: only that many minions can be in windup or active at once,
+and the rest wait at striking distance instead of crowding in.
+
+Each type only attacks from its own `RANGE`; the spitter keeps a spacing band
+and leads its shot by half the player's vertical motion. Walkers check the tile
+ahead and below before every step, so they no longer walk into pits (on master
+both L1 crawlers fell in within ten seconds of nobody touching them). Out of
+aggro range, `approach` and `attack` turn into going home: the table offers
+them at any distance, and wisps were crossing half the level to chase.
+
+### `_hold` keys were being rolled as actions
+
+The weight tables carry `<action>_hold` durations next to the weights, and
+`Agent.decide()` copied all of them into the roll. A share of every decision,
+for every minion and boss, picked an "action" that does nothing. `decide()` now
+skips them; `update()` still reads them. Neutral weights are unchanged, so
+`gateai` AI5 still holds.
+
+### Bosses pick attacks for the distance
+
+The reach of each attack was measured from its hit box, not guessed: swing 38
+px and slam 44 px for the statue, a 64 px volley for Ul Burjo (the bolts only
+live for the active window), a 95 px ring for The Patient One. Out of reach
+the boss closes in (statue), blinks (Ul Burjo) or uses the cutoff (Patient
+One) instead of attacking empty air. Measured over 40 s per boss, master threw
+8 of 15 statue attacks out of reach; now none are.
+
+No attack goes three times in a row when another attack fits the distance.
+That is a preference and not a lock: the first version made it a lock and Ul
+Burjo, far away with two blinks behind him, stopped attacking altogether.
+After an attack a boss standing inside the player steps back. None of this
+runs after `_begin()`, so windup/active/recover is untouched.
+
+Boss friction was `vx *= 0.86` per frame, which brakes 2.4x harder at 144 Hz
+than at 60. `Boss.dampVx()` raises the factor to `dt * 60`: identical at 60
+fps, the same at every other rate.
+
+### Motion is visual only
+
+Lean (`setLean`, a rotation about the feet), squash, dust and the run cadence
+never touch a body or a hit box. Kael's jump and run constants are untouched,
+because `tools/reach.mjs` proves the levels against them. `Sprite.play()` only
+applies `speed` when the clip changes, so the run cadence is now set on
+`sprite.speed` every frame.
+
+### Level shading is mixed in sRGB
+
+The first pass mixed lip colour into the tile bodies in linear light. The post
+pass encodes to sRGB, which lifted a 20 % mix into bright slabs that
+outshone Kael, the exact problem the near-black bodies were chosen to avoid.
+`mixHex()` blends the hex values instead, so 10 % looks like 10 %. Decoration
+and stone grain are one `InstancedMesh` per world, seeded per level.
+
+### Found, not fixed
+
+- `tools/smoke.mjs` fails on master at "level 2 cannot rotate": it still tests
+  the L2 rotation that the Shift replaced.
+- The L3 crawler spawns at tile 104, inside the hole at tiles 98-111, and falls
+  out on its first frame (master and this branch alike). Its patrol `[100, 114]`
+  is over the hole too.
+- `gate4` fails about one run in eight on master as well: phase 2 sometimes
+  does not roll `shift` inside the gate's window.
+
+---
+
 ## Verification
 
 `tools/smoke.mjs` drives a headless Chromium through a full run and fails on any
