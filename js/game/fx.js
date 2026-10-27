@@ -12,6 +12,17 @@ const MAX = 320;
 // Red floor markers that show where a boss attack will land. Off by request.
 const SHOW_TELEGRAPHS = false;
 
+// Ambient motes: a separate, small pool, so the air never takes particles away
+// from a hit. One look per level id: fireflies in the shrine, spores in the
+// reliquary, embers in the wood. `rate` is spawns per second, `rise` the
+// vertical drift in px/s, `wobble` the sideways sway amplitude in px/s.
+const AMBIENT_MAX = 48;
+const AMBIENT = {
+  1: { rate: 5, colors: [0x9fffc8, 0x54f0a8], size: [1, 2], life: [2.5, 4.5], rise: [-3, 6], wobble: 7, blink: true },
+  2: { rate: 6, colors: [0xc89cff, 0x9be34a], size: [1, 1], life: [3.0, 5.0], rise: [2, 7], wobble: 4, blink: false },
+  3: { rate: 7, colors: [0xffb060, 0xff7a2a], size: [1, 2], life: [1.8, 3.2], rise: [10, 22], wobble: 6, blink: false },
+};
+
 export class FX {
   constructor(scene) {
     this.scene = scene;
@@ -32,6 +43,60 @@ export class FX {
       this.items.push({ mesh, life: 0, max: 1, vx: 0, vy: 0, g: 0, size: 2, fade: true });
     }
     this.next = 0;
+
+    // Additive, so a mote glows against the dark instead of sitting on it.
+    this.motes = [];
+    this.moteTimer = 0;
+    for (let i = 0; i < AMBIENT_MAX; i++) {
+      const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+        color: 0xffffff, transparent: true, opacity: 0, depthTest: false, depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }));
+      mesh.visible = false;
+      mesh.frustumCulled = false;
+      mesh.renderOrder = 4;
+      this.group.add(mesh);
+      this.motes.push({ mesh, life: 0, max: 1, vy: 0, phase: 0, wobble: 0, blink: false });
+    }
+  }
+
+  // Spawns and moves the ambient motes for the view at (viewX, viewY), which
+  // is the bottom-left of the screen in level pixels. Motes are born inside
+  // the view so none of the small pool is spent off-screen, fade in and out so
+  // none pops, and sway on a sine so they drift rather than slide.
+  ambient(dt, levelId, viewX, viewY, viewW, viewH) {
+    const look = AMBIENT[levelId];
+    if (!look) return;
+    const r = this.rng;
+    this.moteTimer += dt * look.rate;
+    while (this.moteTimer >= 1) {
+      this.moteTimer -= 1;
+      const m = this.motes.find((x) => x.life <= 0);
+      if (!m) break;
+      m.life = m.max = r.range(look.life[0], look.life[1]);
+      m.vy = r.range(look.rise[0], look.rise[1]);
+      m.phase = r.range(0, Math.PI * 2);
+      m.wobble = look.wobble * r.range(0.5, 1);
+      m.blink = look.blink;
+      const s = r.int(look.size[0], look.size[1]);
+      m.mesh.scale.set(s, s, 1);
+      m.mesh.material.color.set(r.pick(look.colors));
+      m.mesh.position.set(viewX + r.range(0, viewW), viewY + r.range(viewH * 0.1, viewH * 0.9), 0);
+      m.mesh.visible = true;
+    }
+    for (const m of this.motes) {
+      if (m.life <= 0) continue;
+      m.life -= dt;
+      if (m.life <= 0) { m.mesh.visible = false; continue; }
+      m.phase += dt * 1.3;
+      m.mesh.position.x += Math.cos(m.phase) * m.wobble * dt;
+      m.mesh.position.y += m.vy * dt;
+      // Bell curve over the lifetime: 0 at birth and death, full in between.
+      const k = 1 - m.life / m.max;
+      let a = Math.sin(k * Math.PI);
+      if (m.blink) a *= 0.55 + 0.45 * Math.sin(m.phase * 4);   // fireflies pulse
+      m.mesh.material.opacity = a * 0.85;
+    }
   }
 
   _take() {
