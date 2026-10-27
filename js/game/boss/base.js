@@ -99,6 +99,7 @@ export class Boss extends THREE.Object3D {
   }
 
   updateCommon(dt, player, level) {
+    this.frameDt = dt;   // for dampVx() in code paths that are not handed dt
     this.hurtFlash = Math.max(0, this.hurtFlash - dt * 4);
     this.sprite.setFlash(this.hurtFlash * 0.85);
     this.contactCd = Math.max(0, this.contactCd - dt);
@@ -129,8 +130,16 @@ export class Boss extends THREE.Object3D {
     this.body.vy = Math.max(-320, this.body.vy - 620 * dt);
     moveX(this.body, level, this.body.vx * dt);
     moveY(this.body, level, this.body.vy * dt);
-    this.body.vx *= 0.86;
+    this.dampVx(0.86, dt);
     this.mesh.position.set(this.cx, this.body.bottom, 0);
+  }
+
+  // Friction, written as the factor it applies per frame AT 60 FPS. The bosses
+  // used to do `vx *= 0.86` once per frame, which brakes 2.4x harder on a
+  // 144 Hz screen than on a 60 Hz one. Raising the factor to dt * 60 keeps the
+  // 60 fps feel exactly and makes every other frame rate match it.
+  dampVx(perFrame, dt = this.frameDt ?? 1 / 60) {
+    this.body.vx *= Math.pow(perFrame, dt * 60);
   }
 
   onStateEnd() { this.state = 'idle'; }
