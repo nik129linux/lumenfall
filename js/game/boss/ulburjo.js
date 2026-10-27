@@ -116,7 +116,7 @@ export class UlBurjo extends Boss {
     if (this.state === 'phase') this.body.vx = 0;
     else if (this.atk) this._runAttack(dt, player);
     else if (this.pause <= 0) this._decide(action, player, dx);
-    else this.body.vx *= 0.8;
+    else this.dampVx(0.8);
 
     this.integrate(dt, level);
     this._animate(dt);
@@ -131,7 +131,7 @@ export class UlBurjo extends Boss {
     // a different shape and no more reach, so it waits for the player to close.
     if (action === 'sweep' && Math.abs(dx) <= SWEEP_RANGE) { this._begin('sweep', player); return; }
     if (action === 'reposition') { this.body.vx = Math.sign(dx) * (24 + this.phase * 5); return; }
-    this.body.vx *= 0.9;
+    this.dampVx(0.9);
   }
 
   _begin(name, player) {

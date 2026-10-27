@@ -137,7 +137,7 @@ export class PatientOne extends Boss {
     if (this.state === 'phase') this.body.vx = 0;
     else if (this.atk) this._runAttack(dt, player);
     else if (this.pause <= 0) this._decide(action, player, dx);
-    else this.body.vx *= 0.8;
+    else this.dampVx(0.8);
 
     this.integrate(dt, level);
 
@@ -166,7 +166,7 @@ export class PatientOne extends Boss {
       this.body.vx = Math.sign(dx) * DRIFT_SPEED;
       return;
     }
-    this.body.vx *= 0.9;
+    this.dampVx(0.9);
   }
 
   _begin(name, player) {

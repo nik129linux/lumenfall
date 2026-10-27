@@ -72,7 +72,7 @@ export class Statue extends Boss {
     if (this.state === 'phase') this.body.vx = 0;
     else if (this.atk) this._runAttack(dt, player);
     else if (this.pause <= 0) this._decide(action, player, dx);
-    else this.body.vx *= 0.8;
+    else this.dampVx(0.8);
 
     this.integrate(dt, level);
     this._animate(dt, action);
@@ -85,7 +85,7 @@ export class Statue extends Boss {
     if (this.phase >= 2 && this.rootsCd <= 0 && Math.abs(dx) > 50) { this._begin('roots', player); return; }
     if (action === 'swing' || action === 'slam') { this._begin(action, player); return; }
     if (action === 'chase') { this.body.vx = Math.sign(dx) * (26 + this.phase * 4); return; }
-    this.body.vx *= 0.9;
+    this.dampVx(0.9);
   }
 
   _begin(name, player) {
