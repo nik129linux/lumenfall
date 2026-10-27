@@ -3,7 +3,7 @@ import { Body, moveX, moveY, tileAt, TILE, SOLID, PLATFORM } from './physics.js'
 import { Agent } from './ai.js';
 import { clamp, approach } from '../core/rng.js';
 import { audio } from '../core/audio.js';
-import { ENEMY_STAGGER } from '../core/config.js';
+import { ENEMY_STAGGER, AI } from '../core/config.js';
 
 const GRAVITY = 620;
 
@@ -86,12 +86,34 @@ const LUNGE = { wisp: 1.7, crawler: 2.4 };
 // main.js _spitterShot(): the aim below needs the flight time.
 const SHOT_SPEED = 88;
 
-// The spitter's fireball leaves on the third cast frame, so a cast has to live
+<// The spitter's fireball leaves on the third cast frame, so a cast has to live
 // long enough to reach it. This is also the floor between shots, in case the AI
 // holds the attack action.
 const SPIT_INTERVAL = 0.9;
 
+// Minions closer than this push gently apart, so a group spreads out instead
+// of stacking into one sprite.
+const SEPARATION = 18;   // px
+
 let nextId = 1;
+
+// Every minion that has been built, so neighbours can keep their spacing.
+// Only the live ones count: dead, or out of the scene after a level reload.
+const roster = new Set();
+const isLive = (e) => !e.dead && e.mesh && e.mesh.parent;
+
+// Attack tokens. Only AI.maxConcurrentAttackers minions may be in windup or
+// active at the same time; the rest wait their turn. Without it, three
+// minions reaching the player on the same tick land three hits that no dodge
+// can answer. A token is held through windup and active and handed back at
+// recover.
+const attackers = new Set();
+function takeAttackToken(e) {
+  for (const a of attackers) if (!isLive(a) || !a.atk || a.atk.stage === 'recover') attackers.delete(a);
+  if (attackers.size >= AI.maxConcurrentAttackers) return false;
+  attackers.add(e);
+  return true;
+}
 
 export class Enemy {
   constructor(def, model, governor, makeBodySprite) {
@@ -124,6 +146,7 @@ export class Enemy {
     this.sprite = makeBodySprite(this.type);
     this.mesh = this.sprite.object;
     this.mesh.position.set(def.x + this.stats.w / 2, def.y, 0);
+    roster.add(this);
   }
 
   get cx() { return this.body.cx; }
@@ -222,7 +245,10 @@ export class Enemy {
         break;
       }
       case 'approach':
-        want = this.type === 'spitter' && engaged ? this._spacing(dir, Math.abs(dx)) : dir * sp;
+        // Close in, but stop once inside striking distance: pressing on into
+        // the player only stacks minions on top of each other.
+        if (this.type === 'spitter' && engaged) want = this._spacing(dir, Math.abs(dx));
+        else want = Math.abs(dx) > RANGE[this.type].max * 0.6 ? dir * sp : 0;
         this.patrolDir = dir;
         if (this.wisp) this._bob(dt);
         break;
@@ -256,9 +282,15 @@ export class Enemy {
       case 'antiAir':
         // The fairness gates already passed when the AI picked this. What is
         // left is whether the attack can actually connect from here.
-        if (this.attackArmed && this._inRange(dx, player)) {
-          this._beginAttack(dir);
-          return;
+        if (this._inRange(dx, player)) {
+          if (this.attackArmed && takeAttackToken(this)) {
+            this._beginAttack(dir);
+            return;
+          }
+          // In range but another minion holds the token: wait at this
+          // distance for the turn instead of crowding into the player.
+          want = this.type === 'spitter' ? this._spacing(dir, Math.abs(dx)) : 0;
+          break;
         }
         // Out of range: close in (or, for the spitter, find its spacing).
         want = this.type === 'spitter' ? this._spacing(dir, Math.abs(dx)) : dir * sp;
@@ -266,6 +298,8 @@ export class Enemy {
       default:
         want = 0;
     }
+
+    want += this._separation();
 
     // Never walk off a ledge or into a wall. A patrol turns around instead of
     // standing at the edge.
@@ -275,6 +309,23 @@ export class Enemy {
     }
 
     this.body.vx = approach(this.body.vx, want, ACCEL[this.type] * dt);
+  }
+
+  // A push away from any live neighbour that is too close, as a velocity.
+  // Walkers only push walkers and wisps only wisps: a wisp above a crawler is
+  // not crowding it.
+  _separation() {
+    let push = 0;
+    for (const o of roster) {
+      if (o === this) continue;
+      if (!isLive(o)) { roster.delete(o); continue; }
+      if (o.wisp !== this.wisp) continue;
+      const d = this.cx - o.cx;
+      if (Math.abs(d) < SEPARATION && Math.abs(this.cy - o.cy) < 16) {
+        push += (Math.sign(d) || (this.id > o.id ? 1 : -1)) * (1 - Math.abs(d) / SEPARATION);
+      }
+    }
+    return push * this.stats.speed * 1.2;
   }
 
   // Wisps on the approach bob a little instead of flying a straight line.
@@ -320,6 +371,7 @@ export class Enemy {
 
   _cancelAttack() {
     this.atk = null;
+    attackers.delete(this);
   }
 
   _runAttack(dt, player, level) {
@@ -342,7 +394,7 @@ export class Enemy {
         this.body.vx = clear ? a.dir * this.stats.speed * LUNGE[this.type] : 0;
         this._checkMelee(player);
       }
-      if (a.t >= a.dur) { a.stage = 'recover'; a.t = 0; a.dur = T.recover; }
+      if (a.t >= a.dur) { a.stage = 'recover'; a.t = 0; a.dur = T.recover; attackers.delete(this); }
     } else {
       this.body.vx = approach(this.body.vx, 0, 320 * dt);
       if (a.t >= a.dur) this.atk = null;
