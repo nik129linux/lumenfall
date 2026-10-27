@@ -199,7 +199,10 @@ export class Agent {
     const g = this.governor;
     const s = this.sense;
     const out = {};
-    for (const [k, w] of Object.entries(weights)) out[k] = w;
+    // `<action>_hold` entries share the table but are durations read by
+    // update(), not actions. Rolled as actions, they won a share of every
+    // decision and made the agent stand there doing nothing.
+    for (const [k, w] of Object.entries(weights)) if (!k.endsWith('_hold')) out[k] = w;
 
     // Counter-dodge: a player who evades a lot is dealt with by delaying rather
     // than committing into the dash. The delay scales with their dodge bias, so
