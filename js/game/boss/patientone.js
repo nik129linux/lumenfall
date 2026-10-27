@@ -68,6 +68,9 @@ const SURGE_TIME = 3.0;     // ...and for this long afterwards
 const DRIFT_SPEED = 12;     // it barely moves
 const DRIFT_STOP = 60;      // and it stops well short of the player
 const CUTOFF_LEAD = 0.6;    // seconds of the player's velocity the cutoff reads
+// The ring's two strips reach 90px either side of it, plus half of Kael. From
+// further away it is a wave that cannot touch anyone.
+const RING_RANGE = 95;
 const MARK = {
   lantern: { w: 16, h: 60 },
   ring: { w: 90, h: 14 },
@@ -157,13 +160,18 @@ export class PatientOne extends Boss {
     // one attack that does not hurt, so it has to be used to say something
     // about the room rather than to be a free one.
     if (this.phase >= 2 && this.surgeCd <= 0 && action === 'surge') { this._begin('surge', player); return; }
-    if (action === 'strike') { this._begin('lantern', player); return; }
-    if (action === 'ring' || action === 'cutoff') { this._begin(action, player); return; }
+    let name = action === 'strike' ? 'lantern' : action;
+    // Ring only when it can reach; the lantern and the cutoff land anywhere.
+    if (name === 'ring' && Math.abs(dx) > RING_RANGE) name = 'cutoff';
+    // No attack three times in a row: the lantern is its signature, so it is
+    // what the others fall back to, and a third lantern becomes a cutoff.
+    if (this.repeatsTooMuch(name)) name = name === 'lantern' ? 'cutoff' : 'lantern';
+    if (name === 'lantern' || name === 'ring' || name === 'cutoff') { this._begin(name, player); return; }
     // A drift is a shuffle, not a chase. It closes the gap a little and stops
     // well short: the patient one wins by standing still, so it must never be
     // the thing that walks the player into a hit.
     if (action === 'drift' && Math.abs(dx) > DRIFT_STOP) {
-      this.body.vx = Math.sign(dx) * DRIFT_SPEED;
+      this.steer(Math.sign(dx) * DRIFT_SPEED);
       return;
     }
     this.dampVx(0.9);
@@ -190,6 +198,7 @@ export class PatientOne extends Boss {
     };
     this.body.vx = 0;
     this.agent.markAttack();
+    this.noteAttack(name);
     this._log();
     audio.sfxWarn();
     this._mark();

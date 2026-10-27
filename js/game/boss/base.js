@@ -2,6 +2,7 @@ import * as THREE from '../../vendor/three.module.js';
 import { Body, moveX, moveY } from '../physics.js';
 import { Agent } from '../ai.js';
 import { audio } from '../../core/audio.js';
+import { approach } from '../../core/rng.js';
 
 // Shared boss scaffolding: health, phases, the arena gate, and the contact
 // damage. What each boss actually does lives in its own file.
@@ -31,6 +32,7 @@ export class Boss extends THREE.Object3D {
     this.contactCd = 0;
     this.homeX = 0;
     this.homeY = 0;
+    this.recentAttacks = [];   // the last few attack names, for variety
 
     this.body = new Body(0, 0, this.w, this.h);
     this.agent = new Agent({ model: opts.model, governor: opts.governor, self: this });
@@ -140,6 +142,35 @@ export class Boss extends THREE.Object3D {
   // 60 fps feel exactly and makes every other frame rate match it.
   dampVx(perFrame, dt = this.frameDt ?? 1 / 60) {
     this.body.vx *= Math.pow(perFrame, dt * 60);
+  }
+
+  // Eases toward a walking speed instead of setting it outright, so a boss
+  // starts and stops walking over a few frames rather than in one. The accel is
+  // high on purpose: integrate() brakes by 0.86 a frame, and a softer push
+  // would settle below the walking speed it asked for.
+  steer(targetVx, dt = this.frameDt ?? 1 / 60, accel = 420) {
+    this.body.vx = approach(this.body.vx, targetVx, accel * dt);
+  }
+
+  // Variety: no attack three times in a row. The AI rolls weights every
+  // decision, so long streaks of the same move happen by chance and read as a
+  // boss with one idea. Each boss swaps to another attack when this says no.
+  repeatsTooMuch(name) {
+    const r = this.recentAttacks;
+    return r.length >= 2 && r[r.length - 1] === name && r[r.length - 2] === name;
+  }
+
+  noteAttack(name) {
+    this.recentAttacks.push(name);
+    if (this.recentAttacks.length > 4) this.recentAttacks.shift();
+  }
+
+  // After an attack, while it pauses: a boss standing inside the player steps
+  // back to its spacing instead of resting there, which used to make the
+  // contact damage the follow-up to every attack.
+  keepSpacing(dx, minGap, speed) {
+    if (Math.abs(dx) < minGap) this.steer(-Math.sign(dx || this.facing) * speed);
+    else this.dampVx(0.8);
   }
 
   onStateEnd() { this.state = 'idle'; }
