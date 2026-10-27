@@ -459,6 +459,7 @@ class Game {
         // The spitter's onFire was optional-chained and never assigned, so it
         // had been holding position and shooting nothing at all.
         if (def.type === 'spitter') en.onFire = this._spitterShot();
+        en.fx = this.fx;   // dust on lunges and landings
         this.pipeline.scene.add(en.mesh);
         this.enemies.push(en);
       } else if (def.type === 'elder') {
@@ -500,9 +501,10 @@ class Game {
   // between two scales so a single still frame reads as thrown, not stuck.
   _spitterShot() {
     const shot = this.minionArt.character('spitterShot');
-    return (x, y, dir) => {
+    // vy is the spitter's aim (see Enemy._spit); 0 is the old straight shot.
+    return (x, y, dir, vy = 0) => {
       this.fx.projectiles.push(new Projectile(
-        this.pipeline.scene, x, y, dir * 88, 0, {
+        this.pipeline.scene, x, y, dir * 88, vy, {
           texture: shot.texture,
           size: shot.display,
           r: 4,
