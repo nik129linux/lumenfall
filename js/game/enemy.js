@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { Body, moveX, moveY, tileAt, TILE, SOLID, PLATFORM } from './physics.js';
 import { Agent } from './ai.js';
-import { clamp, approach } from '../core/rng.js';
+import { clamp, approach, damp } from '../core/rng.js';
 import { audio } from '../core/audio.js';
 import { ENEMY_STAGGER, AI } from '../core/config.js';
 
@@ -138,6 +138,9 @@ export class Enemy {
     this.hurtTimer = 0;
     this.staggerTimer = 0;
     this.atk = null;          // the attack in progress: { stage, t, dur, dir }
+    this.squash = 0;          // visual only, like the lean
+    this.lean = 0;
+    this.wasGrounded = true;
     this.attackArmed = false; // set by an 'attack' decision, spent by starting one
     this.flipTimer = 0;
     this.toPlayer = 1;
@@ -171,6 +174,8 @@ export class Enemy {
   update(dt, player, level) {
     if (this.dead) {
       this._cancelAttack();
+      this.sprite.setLean(0);
+      this.sprite.setSquash(0);
       this.deathTimer += dt;
       // Play the cut death animation rather than squashing the sprite flat: the
       // sheets have a real dissolve for all three, and it is the one clip that
@@ -218,6 +223,13 @@ export class Enemy {
       this.body.y = approach(this.body.y, this.def.y, dt * 24);
       this.body.vy = 0;
     }
+
+    // A walker that touches down squashes and kicks up dust.
+    if (!this.wisp && this.body.onGround && !this.wasGrounded) {
+      this.squash = -0.18;
+      this.fx?.dust(this.cx, this.body.bottom);
+    }
+    this.wasGrounded = this.wisp || this.body.onGround;
 
     this.mesh.position.set(this.cx, this.body.bottom, 0);
     this._animate(dt, action, player);
@@ -448,6 +460,18 @@ export class Enemy {
     // The tell: blinking during windup, on top of whatever hurt flash is left.
     const blink = a && a.stage === 'windup' && Math.floor(a.t * 14) % 2 === 0 ? 0.55 : 0;
     this.sprite.setFlash(Math.max(this.hurtFlash * 0.8, blink));
+
+    // Body language. The windup crouches deeper the closer it is to firing
+    // (anticipation), the lunge flattens it (it is all forward speed), and
+    // everything else eases back to rest. Wisps tilt into their drift, walkers
+    // only a little. None of this touches the hit box.
+    const crouch = a && a.stage === 'windup' ? -0.14 * Math.min(1, a.t / a.dur)
+      : a && a.stage === 'active' ? -0.08 : 0;
+    this.squash = damp(this.squash, crouch, 12, dt);
+    this.sprite.setSquash(this.squash);
+    const tilt = this.wisp ? 0.16 : 0.05;
+    this.lean = damp(this.lean, -clamp(this.body.vx / (this.stats.speed * 2), -1, 1) * tilt, 8, dt);
+    this.sprite.setLean(this.lean);
 
     if (this.hurtTimer > 0) {
       this.sprite.play('hurt', { speed: 6, loop: false });

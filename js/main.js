@@ -87,7 +87,7 @@ class Game {
     this.runSeconds = 0;   // sum of the finished levels, for game_complete
     this.runDeaths = 0;    // every death since this run started
 
-    this.cam = { x: 0, y: 0, shake: 0, shakeX: 0, shakeY: 0 };
+    this.cam = { x: 0, y: 0, shake: 0, shakeX: 0, shakeY: 0, look: 0 };
     this.rng = makeRng(4242);
     this.clock = 0;
     this.fade = 1;
@@ -648,6 +648,15 @@ class Game {
       audio.sfxJump();
       this.fx.dust(p.cx, p.body.bottom);
     }
+    if (p.justLanded) {
+      p.justLanded = false;
+      this.fx.dust(p.cx - 4, p.body.bottom);
+      this.fx.dust(p.cx + 4, p.body.bottom);
+    }
+    if (p.justSkidded) {
+      p.justSkidded = false;
+      this.fx.dust(p.cx - p.facing * 6, p.body.bottom);
+    }
 
     // ---- the player model: everything the adaptive AI reads
     this._recordActions(dt);
@@ -1148,7 +1157,10 @@ class Game {
     // is no longer at -- the camera snaps to the corner of the room and the
     // player leaves the frame. Transforming the level's four corners and taking
     // their bounds keeps the clamp correct at any rotation angle.
-    const targetX = p.mesh.position.x + p.facing * CAM.lookAhead;
+    // The look-ahead eases across on a turn instead of jumping 2 * lookAhead
+    // in one frame, which made every turnaround a sudden pan.
+    this.cam.look = snap ? p.facing * CAM.lookAhead : damp(this.cam.look, p.facing * CAM.lookAhead, 2.5, dt);
+    const targetX = p.mesh.position.x + this.cam.look;
     const targetY = p.mesh.position.y - LOW_RES_H * 0.52;
 
     if (snap) {

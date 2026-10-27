@@ -6,7 +6,7 @@ import {
   GRAVITY, MAX_FALL, RUN_SPEED, PIT_DEATH_Y, GROUND_ACCEL, AIR_ACCEL, GROUND_FRICTION, AIR_FRICTION,
   ATTACK_TIME, ATTACK_ACTIVE, ATTACK_REACH, ATTACK_DMG, IFRAMES_ON_HIT,
 } from '../core/config.js';
-import { clamp, approach } from '../core/rng.js';
+import { clamp, approach, damp } from '../core/rng.js';
 
 export class Player {
   constructor(scene, character) {
@@ -44,6 +44,8 @@ export class Player {
     this.deadTimer = 0;
     this.pitDeath = false;   // set when the death was a fall out of a pit
     this.squash = 0;
+    this.lean = 0;
+    this.skidCd = 0;
     this.coyote = 0;
     this.jumpHeld = false;
     this.lightX = 0;
@@ -79,6 +81,7 @@ export class Player {
 
   kill() {
     if (this.dead) return;
+    this.sprite.setLean(0);
     this.dead = true;
     this.deadTimer = 0;
     this.body.vx = 0;
@@ -147,12 +150,13 @@ export class Player {
     this._clampToLevel(level);
 
     if (this.onGround) {
-      if (wasAir && this.body.vy <= 0) this.squash = -0.16;
+      if (wasAir && this.body.vy <= 0) { this.squash = -0.16; this.justLanded = true; }
       this.airDashUsed = false;
     }
 
     this.squash = approach(this.squash, 0, dt * 2.4);
     this.sprite.setSquash(this.squash);
+    this._updateLean(dt, input);
 
     this._animate(dt);
     this._updateLight();
@@ -205,6 +209,25 @@ export class Player {
     }
   }
 
+  // The body leans into a run and a dash, and a hard turn on the ground kicks
+  // up a skid. All of it is visual: physics never reads `lean`.
+  _updateLean(dt, input) {
+    const target = this.isDashing ? -this.facing * 0.14
+      : this.onGround ? -clamp(this.body.vx / RUN_SPEED, -1, 1) * 0.07
+      : -clamp(this.body.vx / RUN_SPEED, -1, 1) * 0.03;
+    this.lean = damp(this.lean, target, 14, dt);
+    this.sprite.setLean(this.lean);
+
+    // Skid: pushing against a fast run on the ground. Throttled so holding the
+    // turn does not spray dust every frame.
+    this.skidCd = Math.max(0, this.skidCd - dt);
+    const dir = (input.isDown('right') ? 1 : 0) - (input.isDown('left') ? 1 : 0);
+    if (this.onGround && dir && Math.sign(this.body.vx) === -dir && Math.abs(this.body.vx) > 60 && this.skidCd <= 0) {
+      this.justSkidded = true;
+      this.skidCd = 0.25;
+    }
+  }
+
   _animate(dt) {
     this.sprite.setFacing(this.facing);
     if (this.attackTimer > 0) return;          // attack owns the animation
@@ -212,7 +235,11 @@ export class Player {
     if (!this.onGround) {
       this.sprite.play('jump', { speed: 8 });
     } else if (Math.abs(this.body.vx) > 8) {
-      this.sprite.play('run', { speed: 6 + Math.abs(this.body.vx) / RUN_SPEED * 6 });
+      this.sprite.play('run');
+      // The stride follows the speed every frame. Passing it to play() only
+      // set it on the frame the run started (play() returns early while the
+      // clip is unchanged), so speeding up never quickened the legs.
+      this.sprite.speed = 6 + Math.abs(this.body.vx) / RUN_SPEED * 6;
     } else {
       this.sprite.play('idle', { speed: 4 });
     }

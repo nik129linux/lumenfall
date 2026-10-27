@@ -2,7 +2,7 @@ import * as THREE from '../../vendor/three.module.js';
 import { Body, moveX, moveY } from '../physics.js';
 import { Agent } from '../ai.js';
 import { audio } from '../../core/audio.js';
-import { approach } from '../../core/rng.js';
+import { approach, damp, clamp } from '../../core/rng.js';
 
 // Shared boss scaffolding: health, phases, the arena gate, and the contact
 // damage. What each boss actually does lives in its own file.
@@ -33,6 +33,8 @@ export class Boss extends THREE.Object3D {
     this.homeX = 0;
     this.homeY = 0;
     this.recentAttacks = [];   // the last few attack names, for variety
+    this.squash = 0;           // visual only: anticipation and follow-through
+    this.lean = 0;
 
     this.body = new Body(0, 0, this.w, this.h);
     this.agent = new Agent({ model: opts.model, governor: opts.governor, self: this });
@@ -108,6 +110,7 @@ export class Boss extends THREE.Object3D {
 
     if (this.dead) {
       this.deathTimer += dt;
+      this.mesh.rotation.z = 0;   // the collapse is straight down, not tilted
       this.mesh.scale.y = this.sprite.cell[1] * Math.max(0, 1 - this.deathTimer * 0.5);
       if (this.deathTimer < 1.2 && Math.random() < 0.5) {
         this.fx.burst(this.cx + this.body.w / 2, this.body.bottom + Math.random() * this.h, 0xffd08a, 3, 50);
@@ -134,6 +137,22 @@ export class Boss extends THREE.Object3D {
     moveY(this.body, level, this.body.vy * dt);
     this.dampVx(0.86, dt);
     this.mesh.position.set(this.cx, this.body.bottom, 0);
+    this._bodyLanguage(dt);
+  }
+
+  // Squash and lean, read off the attack stage and the walk. Anticipation
+  // (a slow crouch through the windup) is what makes a big body read as
+  // heavy; the stretch on `active` sells the release. Small numbers on
+  // purpose: the floor markers are the tell, this only supports them.
+  // Visual only -- the hit boxes come from `body`, never from the mesh.
+  _bodyLanguage(dt) {
+    const a = this.atk;
+    const target = a && a.stage === 'windup' ? -0.06 * Math.min(1, a.t / a.dur)
+      : a && a.stage === 'active' ? 0.05 : 0;
+    this.squash = damp(this.squash, target, 10, dt);
+    this.sprite.setSquash(this.squash);
+    this.lean = damp(this.lean, -clamp(this.body.vx / 60, -1, 1) * 0.05, 6, dt);
+    this.sprite.setLean(this.lean);
   }
 
   // Friction, written as the factor it applies per frame AT 60 FPS. The bosses
