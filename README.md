@@ -83,6 +83,11 @@ wore before, and the ending says so — the light came home, and that is the who
 All three bosses have two phases, a phase change at 55 % health, and the same attack contract.
 Layouts are in `js/game/level.js`; tuning constants in `js/core/config.js`.
 
+Each tile is shaded by its depth under the surface, and every level is dressed from a
+fixed seed: grass and stones in the Shrine, crystals in the Reliquary, roots and
+mushrooms in the Wood, plus ambient fireflies, spores or embers (`FX.ambient` in
+`js/game/fx.js`). All of it is visual and none of it collides.
+
 ## Adaptive AI
 
 Everything lives in `js/game/ai.js`, in three parts.
@@ -139,6 +144,19 @@ contact damage is rate-limited, so brushing past a boss is survivable.
 
 A phase change or a death cancels the attack *and* its markers together, so you are
 never left reading a tell that does not resolve.
+
+**Bosses choose for the distance.** Every boss only starts an attack that can reach
+the player from where they stand (swing 38 px, slam 44 px, volley 64 px, ring 95 px);
+otherwise it closes in, blinks or picks one that reaches. No attack is used three times
+in a row while another one fits, and a boss that ends up on top of the player after an
+attack steps back to its spacing.
+
+**Minions follow the same contract, smaller.** In `js/game/enemy.js` every minion
+attack is windup (blinking and crouched), active (the lunge or the shot, the only
+damage), recover. A hit during the windup cancels it. Only `AI.maxConcurrentAttackers`
+minions can be attacking at once; the rest wait their turn at striking distance. Each
+type attacks only from its own range, walkers never step off a ledge, the spitter keeps
+its distance, and outside aggro range minions go back to their patch of the level.
 
 **Verification:** `node tools/gateai.mjs` — pure Node, no browser. 16 checks covering
 the 20-action window and forgetting, each of the three counters, the governor ceiling
@@ -216,7 +234,8 @@ The browser gates drive a real Chromium through Playwright, so serve the game fi
 
 All nine pass. `tools/smoke.mjs` is the older end-to-end pass
 (title, cutscene, movement, rotation, both boss phases, ending, language toggle) and
-fails on any console error.
+fails on any console error. It currently stops at "level 2 cannot rotate": it still
+checks the L2 rotation that the Shift replaced, and fails on master the same way.
 
 ## Known limitations
 
