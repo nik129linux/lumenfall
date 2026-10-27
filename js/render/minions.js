@@ -272,4 +272,7 @@ export class MinionSprite {
   // Never called for minions -- the sheets have a real death clip -- but kept so
   // Enemy can treat every sprite the same.
   setSquash(a) { this.mesh.scale.y = this.cell[1] * (1 + a); }
+
+  // Same as Sprite.setLean: a tilt about the feet, visual only.
+  setLean(a) { this.mesh.rotation.z = a; }
 }

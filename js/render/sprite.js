@@ -116,6 +116,11 @@ export class Sprite {
     this.mesh.scale.y = this.cell[1] * (1 + amount);
   }
 
+  // Leans the figure into its motion, in radians (negative leans right). The
+  // quad's origin is at the feet, so the lean pivots on the floor and never
+  // lifts the sprite off it. Purely visual, like the squash.
+  setLean(amount) { this.mesh.rotation.z = amount; }
+
   get object() { return this.mesh; }
 }
 
