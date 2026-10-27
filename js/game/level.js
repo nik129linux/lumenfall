@@ -1,6 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { TILE, SOLID, PLATFORM, SPIKE, tileAt } from './physics.js';
 import { LEVELS } from '../core/config.js';
+import { makeRng } from '../core/rng.js';
 
 // The level lives inside a THREE.Group that shares the world's axes. Nothing
 // ever rotates it any more.
@@ -22,6 +23,51 @@ const LAYER_LOOKS = [
   { body: 0x0f2210, lip: 0x9be34a },   // world B only: toxic green
 ];
 const RUNE_COLOR = 0x9be34a;  // the rune on the ground says toxic, like world B
+
+// How the tile bodies are shaded. A flat colour per box read as a slab cut
+// out of the screen; this fakes light falling on the surface. Each tile mixes
+// a little of its lip colour in, by how many tiles below the surface it sits
+// (index = depth), so the top row glows faintly and the depths go black.
+// The mix is done on the sRGB hex values (see mixHex), so these fractions are
+// what the eye sees. Mixed in linear light instead, the post pass's sRGB
+// encode lifted them several times over and the near-black bodies became
+// bright slabs that outshone Kael.
+const SHADE_BY_DEPTH = [0.10, 0.05, 0.025, 0.01];
+const SHADE_SIDE = 0.04;      // extra for a tile whose side is open to the air
+const SHADE_JITTER = 0.012;   // per-tile variation, so rows do not band
+
+// Blends two sRGB hex colours by k, per channel, and returns a THREE.Color
+// (setHex converts it to the linear value the renderer works in).
+function mixHex(a, b, k) {
+  const ch = (shift) => {
+    const x = (a >> shift) & 255, y = (b >> shift) & 255;
+    return Math.round(x + (y - x) * k) & 255;
+  };
+  return new THREE.Color().setHex((ch(16) << 16) | (ch(8) << 8) | ch(0));
+}
+
+// Surface dressing, per level. Each entry is a small shape scattered on top of
+// standable tiles with a fixed seed, so a level looks the same every attempt.
+// w/h are pixel ranges, `chance` is per surface tile, `mix` blends the level's
+// lip colour (0) toward `color` (1). Visual only: none of it collides.
+const DECOR = {
+  1: [   // Shrine of Ember: grass blades and the odd stone
+    { chance: 0.55, w: [1, 1], h: [2, 5], color: 0x2f8f5a, mix: 0.6, count: [1, 3] },
+    { chance: 0.10, w: [3, 4], h: [2, 2], color: 0x26302c, mix: 1.0, count: [1, 1] },
+    { chance: 0.05, w: [1, 1], h: [1, 1], color: 0xbfffd8, mix: 1.0, count: [1, 1], lift: [3, 6] },
+  ],
+  2: [   // Rotting Reliquary: crystal shards and bone-pale shards
+    { chance: 0.18, w: [1, 2], h: [3, 7], color: 0xc89cff, mix: 0.5, count: [1, 2] },
+    { chance: 0.12, w: [2, 3], h: [1, 1], color: 0x8a8070, mix: 1.0, count: [1, 1] },
+  ],
+  3: [   // Lantern Wood: roots and small glowing mushrooms
+    { chance: 0.30, w: [2, 5], h: [1, 1], color: 0x3a2412, mix: 1.0, count: [1, 1] },
+    { chance: 0.08, w: [1, 1], h: [2, 3], color: 0x6b4a2a, mix: 1.0, count: [1, 1], cap: 0xffb060 },
+  ],
+};
+// One-pixel grains of stone inside the bodies, so a large block reads as
+// rock rather than a hole in the picture.
+const GRAIN_CHANCE = 0.35;
 const SHIFT_CD = 0.5;         // seconds between two player shifts
 const SHIFT_LIFT_STEPS = 64;  // safety bound on the forced shift's lift-out
 
@@ -481,15 +527,27 @@ export class Level {
     }
 
     this.layerMeshes = [];
+    // Fixed seed per level: the shading and dressing are the same every attempt.
+    const rng = makeRng(0x5eed + d.id * 977);
+    const key = ([x, y]) => `${x},${y}`;
+    const commonCells = new Set([...common.solid, ...common.plat].map(key));
     for (let g = 0; g < 3; g++) {
       const list = groups[g];
       const look = LAYER_LOOKS[g] || { body: pal.tile, plat: pal.platform, lip: pal.lip };
       const platColor = look.plat ?? look.body;
+      // What is solid in the world this group lives in: itself plus the
+      // common tiles (a world-only bridge sits next to common ground).
+      const occupied = g === 0 ? commonCells
+        : new Set([...commonCells, ...[...list.solid, ...list.plat].map(key)]);
       const made = [];
-      const m1 = this._inst(geo, list.solid, look.body, 1.0, false);
+      const m1 = this._inst(geo, list.solid, look.body, 1.0, false,
+        this._shadeTiles(list.solid, occupied, look.body, look.lip, rng));
       if (m1) made.push(m1);
-      const m2 = this._inst(geo, list.plat, platColor, 1.0, false);
+      const m2 = this._inst(geo, list.plat, platColor, 1.0, false,
+        this._shadeTiles(list.plat, occupied, platColor, look.lip, rng));
       if (m2) made.push(m2);
+      const dec = this._buildDecor(list.solid.concat(list.plat), occupied, look.body, look.lip, rng);
+      if (dec) made.push(dec);
       const m3 = this._inst(geo, list.spike, 0x8a4a3a, 1.0, false);
       if (m3) made.push(m3);
       this.layerMeshes.push(made);
@@ -574,7 +632,7 @@ export class Level {
     }
   }
 
-  _inst(geo, list, color, opacity, lip = false) {
+  _inst(geo, list, color, opacity, lip = false, colors = null) {
     if (!list.length) return null;
     // transparent:true on purpose, even at full opacity. Three renders the
     // opaque pass before the transparent pass, and the parallax layers are
@@ -592,8 +650,79 @@ export class Level {
     list.forEach(([tx, ty], i) => {
       m.makeTranslation(tx * TILE + TILE / 2, ty * TILE + TILE / 2, 0);
       mesh.setMatrixAt(i, m);
+      // With per-instance colours the material colour multiplies them, so it
+      // goes to white and each instance carries its full colour.
+      if (colors) mesh.setColorAt(i, colors[i]);
+    });
+    if (colors) { mat.color.set(0xffffff); mesh.instanceColor.needsUpdate = true; }
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.frustumCulled = false;
+    this.tilesGroup.add(mesh);
+    return mesh;
+  }
+
+  // The shaded colour of every tile in `list`. `occupied` holds every cell
+  // that is solid in the same world (the common tiles plus this group), so
+  // depth and open sides are measured against what is actually there.
+  _shadeTiles(list, occupied, body, lip, rng) {
+    const has = (x, y) => occupied.has(`${x},${y}`);
+    return list.map(([tx, ty]) => {
+      let depth = 0;
+      while (depth < SHADE_BY_DEPTH.length && has(tx, ty + depth + 1)) depth++;
+      let k = depth < SHADE_BY_DEPTH.length ? SHADE_BY_DEPTH[depth] : 0;
+      if (!has(tx - 1, ty) || !has(tx + 1, ty)) k += SHADE_SIDE;
+      k = Math.max(0, k + rng.range(-SHADE_JITTER, SHADE_JITTER));
+      return mixHex(body, lip, k);
+    });
+  }
+
+  // Grass, crystals, roots and stone grain for one layer group. Everything is
+  // one InstancedMesh of unit quads, scaled and coloured per instance, so a
+  // whole level of dressing is a single draw call per world.
+  _buildDecor(list, occupied, body, lip, rng) {
+    const shapes = DECOR[this.data.id] || [];
+    const has = (x, y) => occupied.has(`${x},${y}`);
+    const holes = this.data.holeCol || [];
+    const items = [];   // [x, y, w, h, color]
+    const tint = (c, mix) => mixHex(lip, c, mix);
+    for (const [tx, ty] of list) {
+      // Stone grain on any tile with rock around it.
+      if (has(tx, ty + 1) && rng.chance(GRAIN_CHANCE)) {
+        items.push([tx * TILE + rng.int(1, 6), ty * TILE + rng.int(1, 6), 1, 1,
+          mixHex(body, lip, rng.range(0.10, 0.18))]);
+      }
+      // Dressing only on a surface with open air above it, and not on the lip
+      // of a pit: the edge of a hole stays clean so it reads as an edge.
+      if (has(tx, ty + 1) || holes[tx - 1] || holes[tx + 1]) continue;
+      const top = (ty + 1) * TILE;
+      for (const s of shapes) {
+        if (!rng.chance(s.chance)) continue;
+        const n = rng.int(s.count[0], s.count[1]);
+        for (let i = 0; i < n; i++) {
+          const w = rng.int(s.w[0], s.w[1]), h = rng.int(s.h[0], s.h[1]);
+          const x = tx * TILE + rng.int(0, TILE - w);
+          const y = top + (s.lift ? rng.int(s.lift[0], s.lift[1]) : 0);
+          items.push([x, y, w, h, tint(s.color, s.mix * rng.range(0.8, 1))]);
+          if (s.cap) items.push([x - 1, y + h, 3, 1, new THREE.Color(s.cap)]);
+        }
+      }
+    }
+    if (!items.length) return null;
+    const geo = new THREE.PlaneGeometry(1, 1);
+    geo.translate(0.5, 0.5, 0);   // origin at the bottom-left, like the items
+    const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthTest: false, depthWrite: false });
+    const mesh = new THREE.InstancedMesh(geo, mat, items.length);
+    // After the tiles (1) and with the lips (2): the dressing sits on top of
+    // the rock but under every character.
+    mesh.renderOrder = 2;
+    const m = new THREE.Matrix4();
+    items.forEach(([x, y, w, h, c], i) => {
+      m.makeScale(w, h, 1).setPosition(x, y, 0.5);
+      mesh.setMatrixAt(i, m);
+      mesh.setColorAt(i, c);
     });
     mesh.instanceMatrix.needsUpdate = true;
+    mesh.instanceColor.needsUpdate = true;
     mesh.frustumCulled = false;
     this.tilesGroup.add(mesh);
     return mesh;
