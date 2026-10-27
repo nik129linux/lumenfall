@@ -606,6 +606,7 @@ class Game {
       p.justSkidded = false;
       this.fx.dust(p.cx - p.facing * 6, p.body.bottom);
     }
+    this.fx.ambient(dt, this.levelDef?.id, this.cam.x, this.cam.y, LOW_RES_W, LOW_RES_H);
 
     // ---- the player model: everything the adaptive AI reads
     this._recordActions(dt);
