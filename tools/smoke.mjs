@@ -1,7 +1,7 @@
 // Headless smoke check.
 //
 // Loads the game, captures every console message and page error, then drives it
-// through a full run: title, cutscene, each level, the L2 rotation, a boss, and
+// through a full run: title, cutscene, each level, the L2 shift, a boss, and
 // the ending. Any console error or unhandled rejection fails the run.
 //
 //   node tools/smoke.mjs [url]
@@ -208,7 +208,7 @@ record(await step('player cannot escape the level bounds', async () => {
   }
 }));
 
-record(await step('L1 -> L2 with rotation mechanic', async () => {
+record(await step('L1 -> L2 with the shift mechanic', async () => {
   await page.evaluate(() => {
     const g = window.__lumenfall;
     g._onBossDefeated();          // skips straight to the next level
@@ -225,44 +225,29 @@ record(await step('L1 -> L2 with rotation mechanic', async () => {
   if (id !== 2) throw new Error(`expected level 2, got ${id}`);
 }));
 
-record(await step('L2 rotate: 90deg over ~0.6s, physics suspended', async () => {
+record(await step('L2 shift: E toggles between the two worlds', async () => {
   const before = await page.evaluate(() => {
     const g = window.__lumenfall;
-    return { rot: g.level.rot, can: g.level.canRotate, enabled: g.player.body.enabled };
+    // Kael spawns on the common floor, so the shift is never refused by the map.
+    g.player.body.x = 24; g.player.body.y = 32; g.player.body.vx = 0; g.player.body.vy = 0;
+    g.level.shiftCd = 0;
+    return { world: g.level.world, can: g.level.canShift, count: g.level.shiftCount };
   });
-  if (!before.can) throw new Error('level 2 cannot rotate');
+  if (!before.can) throw new Error('level 2 cannot shift');
 
+  await page.waitForTimeout(150);
   await page.keyboard.press('KeyE');
-  await page.waitForTimeout(80);
-  const during = await page.evaluate(() => ({
-    rotating: window.__lumenfall.level.isRotating,
-    enabled: window.__lumenfall.player.body.enabled,
-  }));
-  if (!during.rotating) throw new Error('rotation did not start');
-  if (during.enabled) throw new Error('physics not suspended during rotation');
-
-  await page.waitForTimeout(1200);
+  await page.waitForTimeout(150);
   const after = await page.evaluate(() => {
     const g = window.__lumenfall;
-    const local = g.level.worldToLocal(g.player.mesh.position.clone());
-    return {
-      rot: g.level.rot,
-      rotCount: g.level.rotCount,
-      rotating: g.level.isRotating,
-      enabled: g.player.body.enabled,
-      drift: Math.hypot(local.x - g.player.cx, local.y - g.player.body.bottom),
-    };
+    return { world: g.level.world, count: g.level.shiftCount, mapWorld: g.level.data.world, enabled: g.player.body.enabled };
   });
-  const turned = Math.abs(after.rot - before.rot);
-  if (after.rotating) throw new Error('rotation never finished');
-  if (Math.abs(turned - Math.PI / 2) > 0.02) throw new Error(`rotated ${turned}, expected PI/2`);
-  if (after.rotCount < 1) throw new Error('rotCount did not increment');
-  if (!after.enabled) throw new Error('physics not restored after rotation');
-  // The player must be back in local space where the body thinks they are,
-  // otherwise the next physics step teleports them.
-  if (after.drift > 2) throw new Error(`local/world drift after rotation: ${after.drift}`);
+  if (after.world === before.world) throw new Error('E did not change the world');
+  if (after.mapWorld !== after.world) throw new Error('the physics map did not follow the world');
+  if (after.count !== before.count + 1) throw new Error(`shiftCount ${before.count} -> ${after.count}, expected +1`);
+  if (!after.enabled) throw new Error('the body was disabled by a shift');
 }));
-await page.screenshot({ path: `${SHOT_DIR}/04-rotate.png` });
+await page.screenshot({ path: `${SHOT_DIR}/04-shift.png` });
 
 record(await step('L2 -> L3, halo is the only light', async () => {
   await page.evaluate(() => window.__lumenfall._onBossDefeated());
@@ -429,7 +414,7 @@ record(await step('boss phase 2 at 55% health', async () => {
   if (p.phase !== 2) throw new Error(`expected phase 2, got ${p.phase}`);
 }));
 
-record(await step('Ul Burjo: phase 2 drops the disguise and rotates the arena', async () => {
+record(await step('Ul Burjo: phase 2 drops the disguise and shifts the arena', async () => {
   const r = await page.evaluate(async () => {
     const g = window.__lumenfall;
     g.ui.hideAll();
@@ -445,20 +430,18 @@ record(await step('Ul Burjo: phase 2 drops the disguise and rotates the arena', 
 
     const beforeSprite = b.sprite.char.name;
     b.hurt(Math.ceil(b.maxHp * 0.6));   // cross the 55% phase threshold
-    for (let i = 0; i < 600; i++) {
-      b.update(1 / 60, g.player, g.level.data, g.fx);
-      if (g.level.isRotating) {
-        for (let k = 0; k < 80; k++) g.level.updateRotation(1 / 60);
-        b.onRotationDone();
-      }
-    }
+    // Phase 2 rolls `shift` at random, so run until the first one instead of
+    // betting on a fixed number of frames, then keep going for the cooldown
+    // (6 s) to see it is not spammed.
+    const step = () => { g.hp = 5; b.update(1 / 60, g.player, g.level.data, g.fx); };
+    for (let i = 0; i < 6000 && g.level.shiftCount < 1; i++) step();
+    for (let i = 0; i < 360; i++) step();
     return {
       ok: true,
       beforeSprite,
       afterSprite: b.sprite.char.name,
       phase: b.phase,
-      rotCount: g.level.rotCount,
-      rot: +g.level.rot.toFixed(3),
+      shiftCount: g.level.shiftCount,
     };
   });
   console.log('      ul burjo:', JSON.stringify(r));
@@ -466,9 +449,9 @@ record(await step('Ul Burjo: phase 2 drops the disguise and rotates the arena', 
   if (r.beforeSprite !== 'goodwitch') throw new Error(`expected the elder disguise, got ${r.beforeSprite}`);
   if (r.afterSprite !== 'badwitch') throw new Error(`disguise never dropped, still ${r.afterSprite}`);
   if (r.phase !== 2) throw new Error(`expected phase 2, got ${r.phase}`);
-  if (r.rotCount < 1) throw new Error('phase 2 never rotated the arena');
-  // One turn per 4.5s cooldown: 10s of sim should not spin the room 144 times.
-  if (r.rotCount > 3) throw new Error(`arena rotating too often: ${r.rotCount}`);
+  if (r.shiftCount < 1) throw new Error('phase 2 never shifted the arena');
+  // One shift per 6 s cooldown: the sim after the first one is only 6 s.
+  if (r.shiftCount > 3) throw new Error(`arena shifting too often: ${r.shiftCount}`);
 }));
 
 record(await step('defeating the final boss reaches the ending', async () => {
