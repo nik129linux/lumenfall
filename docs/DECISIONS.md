@@ -287,12 +287,21 @@ It sat at tile 104, inside the hole at tiles 98-111, with its patrol
 well. It now stands on the floor just past that hole, at tile 122 with patrol
 `[114, 136]`, guarding the landing.
 
-### Found, not fixed
+### `smoke.mjs` tests the Shift now
 
-- `tools/smoke.mjs` fails on master at "level 2 cannot rotate": it still tests
-  the L2 rotation that the Shift replaced.
-- `gate4` fails about one run in eight on master as well: phase 2 sometimes
-  does not roll `shift` inside the gate's window.
+It still drove the L2 rotation that the Shift replaced and stopped at "level 2
+cannot rotate" on master. The two rotation steps now check the Shift: E flips
+the world, the physics map follows it, and Ul Burjo's phase 2 shifts the
+arena. The boss step runs until the first shift instead of a fixed number of
+frames, because the shift is rolled at random.
+
+### `gate4` flake
+
+On master, `gate4` failed about one run in eight: phase 2 sometimes did not
+roll `shift` inside the gate's window. After the `_hold` fix it passed 12 of 12
+runs. That is the likely cause (the boss was wasting decisions) but it is not a
+proof; if the gate flakes again, the window in `tools/gateboss.mjs` is the
+place to look.
 
 ---
 

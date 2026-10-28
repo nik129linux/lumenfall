@@ -234,8 +234,7 @@ The browser gates drive a real Chromium through Playwright, so serve the game fi
 
 All nine pass. `tools/smoke.mjs` is the older end-to-end pass
 (title, cutscene, movement, rotation, both boss phases, ending, language toggle) and
-fails on any console error. It currently stops at "level 2 cannot rotate": it still
-checks the L2 rotation that the Shift replaced, and fails on master the same way.
+fails on any console error.
 
 ## Known limitations
 
