@@ -372,7 +372,9 @@ export const LEVEL_DEFS = [
       { type: 'shard', x: 134 * TILE, y: at(14) },
       { type: 'shard', x: 152 * TILE, y: at(11) },
       { type: 'wisp', x: 60 * TILE, y: FLOOR_Y + 40, patrol: [56, 72] },
-      { type: 'crawler', x: 104 * TILE, y: FLOOR_Y, patrol: [100, 114] },
+      // On the floor just past the hole at 98..111, guarding the landing. It used
+      // to spawn at tile 104, inside the hole, and fell out on its first frame.
+      { type: 'crawler', x: 122 * TILE, y: FLOOR_Y, patrol: [114, 136] },
       { type: 'spitter', x: 146 * TILE, y: FLOOR_Y, patrol: [142, 162] },
       { type: 'spitter', x: 172 * TILE, y: FLOOR_Y, patrol: [166, 176] },
       { type: 'boss', boss: 'patientone', x: (W - 20) * TILE, y: FLOOR_Y },

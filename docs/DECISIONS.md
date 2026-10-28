@@ -280,13 +280,17 @@ outshone Kael, the exact problem the near-black bodies were chosen to avoid.
 `mixHex()` blends the hex values instead, so 10 % looks like 10 %. Decoration
 and stone grain are one `InstancedMesh` per world, seeded per level.
 
+### The L3 crawler was spawned inside a pit
+
+It sat at tile 104, inside the hole at tiles 98-111, with its patrol
+`[100, 114]` over the hole too, so it fell out on its first frame on master as
+well. It now stands on the floor just past that hole, at tile 122 with patrol
+`[114, 136]`, guarding the landing.
+
 ### Found, not fixed
 
 - `tools/smoke.mjs` fails on master at "level 2 cannot rotate": it still tests
   the L2 rotation that the Shift replaced.
-- The L3 crawler spawns at tile 104, inside the hole at tiles 98-111, and falls
-  out on its first frame (master and this branch alike). Its patrol `[100, 114]`
-  is over the hole too.
 - `gate4` fails about one run in eight on master as well: phase 2 sometimes
   does not roll `shift` inside the gate's window.
 
