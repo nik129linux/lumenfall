@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { TILE, SOLID, PLATFORM, SPIKE, tileAt } from './physics.js';
 import { LEVELS } from '../core/config.js';
-import { makeRng } from '../core/rng.js';
+import { paintGroup } from '../render/tilepaint.js';
 
 // The level lives inside a THREE.Group that shares the world's axes. Nothing
 // ever rotates it any more.
@@ -15,59 +15,8 @@ import { makeRng } from '../core/rng.js';
 
 const BOSS_ARENA_W = 40;   // tiles
 
-// The two palettes the shifting worlds use, kept apart from the level palettes
-// so a layer tile never inherits a level colour by accident.
-const LAYER_LOOKS = [
-  null,                       // layer 0 keeps the level's own palette
-  { body: 0x1a0f22, lip: 0xa86cf0 },   // world A only: purple
-  { body: 0x0f2210, lip: 0x9be34a },   // world B only: toxic green
-];
 const RUNE_COLOR = 0x9be34a;  // the rune on the ground says toxic, like world B
 
-// How the tile bodies are shaded. A flat colour per box read as a slab cut
-// out of the screen; this fakes light falling on the surface. Each tile mixes
-// a little of its lip colour in, by how many tiles below the surface it sits
-// (index = depth), so the top row glows faintly and the depths go black.
-// The mix is done on the sRGB hex values (see mixHex), so these fractions are
-// what the eye sees. Mixed in linear light instead, the post pass's sRGB
-// encode lifted them several times over and the near-black bodies became
-// bright slabs that outshone Kael.
-const SHADE_BY_DEPTH = [0.10, 0.05, 0.025, 0.01];
-const SHADE_SIDE = 0.04;      // extra for a tile whose side is open to the air
-const SHADE_JITTER = 0.012;   // per-tile variation, so rows do not band
-
-// Blends two sRGB hex colours by k, per channel, and returns a THREE.Color
-// (setHex converts it to the linear value the renderer works in).
-function mixHex(a, b, k) {
-  const ch = (shift) => {
-    const x = (a >> shift) & 255, y = (b >> shift) & 255;
-    return Math.round(x + (y - x) * k) & 255;
-  };
-  return new THREE.Color().setHex((ch(16) << 16) | (ch(8) << 8) | ch(0));
-}
-
-// Surface dressing, per level. Each entry is a small shape scattered on top of
-// standable tiles with a fixed seed, so a level looks the same every attempt.
-// w/h are pixel ranges, `chance` is per surface tile, `mix` blends the level's
-// lip colour (0) toward `color` (1). Visual only: none of it collides.
-const DECOR = {
-  1: [   // Shrine of Ember: grass blades and the odd stone
-    { chance: 0.55, w: [1, 1], h: [2, 5], color: 0x2f8f5a, mix: 0.6, count: [1, 3] },
-    { chance: 0.10, w: [3, 4], h: [2, 2], color: 0x26302c, mix: 1.0, count: [1, 1] },
-    { chance: 0.05, w: [1, 1], h: [1, 1], color: 0xbfffd8, mix: 1.0, count: [1, 1], lift: [3, 6] },
-  ],
-  2: [   // Rotting Reliquary: crystal shards and bone-pale shards
-    { chance: 0.18, w: [1, 2], h: [3, 7], color: 0xc89cff, mix: 0.5, count: [1, 2] },
-    { chance: 0.12, w: [2, 3], h: [1, 1], color: 0x8a8070, mix: 1.0, count: [1, 1] },
-  ],
-  3: [   // Lantern Wood: roots and small glowing mushrooms
-    { chance: 0.30, w: [2, 5], h: [1, 1], color: 0x3a2412, mix: 1.0, count: [1, 1] },
-    { chance: 0.08, w: [1, 1], h: [2, 3], color: 0x6b4a2a, mix: 1.0, count: [1, 1], cap: 0xffb060 },
-  ],
-};
-// One-pixel grains of stone inside the bodies, so a large block reads as
-// rock rather than a hole in the picture.
-const GRAIN_CHANCE = 0.35;
 const SHIFT_CD = 0.5;         // seconds between two player shifts
 const SHIFT_LIFT_STEPS = 64;  // safety bound on the forced shift's lift-out
 
@@ -151,6 +100,26 @@ const FLOOR_Y = (GROUND + 1) * TILE;   // standing surface, in pixels
 const VOID_H = 240;                   // depth of the black under a pit
 const RUNE_LEAD = 3;                   // tiles before a hole the rune is drawn
 const at = (ty) => ty * TILE + TILE;   // top face of a platform row, in pixels
+
+// Background colonnades (js/render/tilepaint's sibling, Level._buildProps). Each one is
+// COLONNADE_TILES wide and stands on the floor behind everything; they never collide.
+// They go wherever the floor is unbroken for their whole width, with a margin around the
+// holes, every COLONNADE_GAP tiles, and never in the boss arena (the telegraphs must read
+// against a plain backdrop). Deterministic: the same level always gets the same ones.
+const COLONNADE_TILES = 19;   // 152 px, from tools/build-tiles.py
+const COLONNADE_GAP = 30;
+function placeColonnades(lv) {
+  const arenaStart = lv.width - BOSS_ARENA_W - 2;
+  let last = -1e9;
+  for (let tx = 6; tx + COLONNADE_TILES < arenaStart; tx++) {
+    if (tx - last < COLONNADE_GAP) continue;
+    let clear = true;
+    for (let x = tx - 2; x < tx + COLONNADE_TILES + 2 && clear; x++) if (lv.holeCol && lv.holeCol[x]) clear = false;
+    if (!clear) continue;
+    lv.decor.push({ kind: 'colonnade', x: tx * TILE });
+    last = tx;
+  }
+}
 
 // The elder waits at x=30. Stage 2 wants that spot to be a safe place to stop
 // and talk, so the requirements are asserted here rather than eyeballed: this
@@ -248,6 +217,7 @@ export const LEVEL_DEFS = [
     // next to him fails here instead of shipping.
     const problem = elderSpotProblem(lv);
     if (problem) throw new Error(`L1 elder spot at x=${ELDER_TX} unusable: ${problem}`);
+    placeColonnades(lv);
     return lv;
   },
 
@@ -325,6 +295,7 @@ export const LEVEL_DEFS = [
       { type: 'crawler', x: 156 * TILE, y: FLOOR_Y, patrol: [150, 164] },
       { type: 'boss', boss: 'ulburjo', x: (W - 20) * TILE, y: FLOOR_Y },
     );
+    placeColonnades(lv);
     return lv;
   },
 
@@ -379,6 +350,7 @@ export const LEVEL_DEFS = [
       { type: 'spitter', x: 172 * TILE, y: FLOOR_Y, patrol: [166, 176] },
       { type: 'boss', boss: 'patientone', x: (W - 20) * TILE, y: FLOOR_Y },
     );
+    placeColonnades(lv);
     return lv;
   },
 ];
@@ -396,6 +368,7 @@ export class Level {
     this.shiftCd = 0;          // seconds of cooldown left
     this.shiftRefused = false; // the last player shift was refused by the map
     this.layerMeshes = [];     // meshes per layer group, toggled on a shift
+    this.art = null;           // the level tilesheets, set by main.js before the first load
     // The player, set by main.js. shiftWorld reads its body to decide whether a
     // shift is legal, so the level owns no copy of the player state.
     this.player = null;
@@ -507,69 +480,92 @@ export class Level {
   // ---- geometry
   _buildTiles() {
     const d = this.data;
-    const geo = new THREE.BoxGeometry(TILE, TILE, TILE);
-    const pal = (LEVELS[d.id - 1] || LEVELS[0]);
-    // One InstancedMesh per layer group and per tile kind. A 190x34 tile map is
-    // 6460 boxes, which is fine as instances and painful as individual meshes.
-    // The two shifting groups are built once here and toggled on a shift, so a
-    // world change costs no geometry at all.
-    const common = { solid: [], plat: [], spike: [] };
-    const groups = [common, { solid: [], plat: [], spike: [] }, { solid: [], plat: [], spike: [] }];
+    if (!this.art) throw new Error('level art not loaded');
+    // Three groups of tiles: the ones in both worlds, the ones only in world A and
+    // the ones only in world B. Each is painted once onto its own canvas and shown
+    // as one textured plane, so a world change just toggles two planes.
+    const groups = [
+      { solids: [], plats: [], spikes: [] }, { solids: [], plats: [], spikes: [] }, { solids: [], plats: [], spikes: [] },
+    ];
     for (let ty = 0; ty < d.height; ty++) {
       for (let tx = 0; tx < d.width; tx++) {
         const i = ty * d.width + tx;
         const layer = d.layer[i];
         const v = d.grid[i] || (layer ? SOLID : 0);   // a world-only cell the base map leaves empty is solid there
         if (!v) continue;
-        const bucket = groups[layer] || common;
-        if (v === SOLID) bucket.solid.push([tx, ty]);
-        else if (v === PLATFORM) bucket.plat.push([tx, ty]);
-        else if (v === SPIKE) bucket.spike.push([tx, ty]);
+        const g = groups[layer] || groups[0];
+        if (v === SOLID) g.solids.push([tx, ty]);
+        else if (v === PLATFORM) g.plats.push([tx, ty]);
+        else if (v === SPIKE) g.spikes.push([tx, ty]);
       }
     }
+    const key = ([x, y]) => `${x},${y}`;
+    const commonCells = new Set([...groups[0].solids, ...groups[0].plats].map(key));   // spikes are not footing
 
     this.layerMeshes = [];
-    // Fixed seed per level: the shading and dressing are the same every attempt.
-    const rng = makeRng(0x5eed + d.id * 977);
-    const key = ([x, y]) => `${x},${y}`;
-    const commonCells = new Set([...common.solid, ...common.plat].map(key));
+    const W = d.width * TILE, H = d.height * TILE;
     for (let g = 0; g < 3; g++) {
       const list = groups[g];
-      const look = LAYER_LOOKS[g] || { body: pal.tile, plat: pal.platform, lip: pal.lip };
-      const platColor = look.plat ?? look.body;
-      // What is solid in the world this group lives in: itself plus the
-      // common tiles (a world-only bridge sits next to common ground).
+      // What is solid in the world this group lives in: itself plus the common tiles.
       const occupied = g === 0 ? commonCells
-        : new Set([...commonCells, ...[...list.solid, ...list.plat].map(key)]);
+        : new Set([...commonCells, ...list.solids.map(key), ...list.plats.map(key)]);
       const made = [];
-      const m1 = this._inst(geo, list.solid, look.body, 1.0, false,
-        this._shadeTiles(list.solid, occupied, look.body, look.lip, rng));
-      if (m1) made.push(m1);
-      const m2 = this._inst(geo, list.plat, platColor, 1.0, false,
-        this._shadeTiles(list.plat, occupied, platColor, look.lip, rng));
-      if (m2) made.push(m2);
-      const dec = this._buildDecor(list.solid.concat(list.plat), occupied, look.body, look.lip, rng);
-      if (dec) made.push(dec);
-      const m3 = this._inst(geo, list.spike, 0x8a4a3a, 1.0, false);
-      if (m3) made.push(m3);
+      if (list.solids.length || list.plats.length || list.spikes.length) {
+        const canvas = paintGroup({
+          art: this.art, level: d.id, width: d.width, height: d.height,
+          solids: list.solids, plats: list.plats, spikes: list.spikes,
+          occupied, group: g,
+        });
+        made.push(this._plane(canvas, W, H, 1));
+      }
       this.layerMeshes.push(made);
     }
-
-    // A lip along the top of every floor tile reads as a highlight edge and
-    // makes the platform tops findable in a dark level without any lighting.
-    // Platforms too, not just solids -- they were built as PLATFORM tiles and
-    // never appeared in `solids`, so every floating platform had no accent
-    // edge and read as a plain black bar.
-    // .concat, not +. `+` on two arrays coerces both to strings, so
-    // `solids + plats` yielded "0,0,1,1,..." and every platform lost its lip.
-    for (let g = 0; g < 3; g++) {
-      const look = LAYER_LOOKS[g] || { lip: pal.lip };
-      const lipMesh = this._buildLips(groups[g].solid.concat(groups[g].plat), look.lip);
-      if (lipMesh) this.layerMeshes[g].push(lipMesh);
-    }
+    this._buildProps();
     this._buildVoid();
     this._buildRunes();
     this._applyWorld();
+  }
+
+  // The background colonnades of data.decor, drawn behind the tiles. Dimmed a little so
+  // they sit further back than anything you can stand on.
+  _buildProps() {
+    const art = this.art;
+    for (const def of this.data.decor) {
+      const prop = art.props[`${def.kind}_l${this.data.id}`];
+      if (!prop) continue;
+      const tex = new THREE.Texture(prop.img);
+      tex.magFilter = THREE.NearestFilter;
+      tex.minFilter = THREE.NearestFilter;
+      tex.generateMipmaps = false;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.needsUpdate = true;
+      const mesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(prop.w, prop.h),
+        new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false, color: 0xb4b4bc }));
+      // The image carries one transparent row under the plinth: the plinth rests on the floor.
+      mesh.position.set(def.x + prop.w / 2, FLOOR_Y - 1 + prop.h / 2, -1);
+      mesh.renderOrder = -5;
+      mesh.frustumCulled = false;
+      this.tilesGroup.add(mesh);
+    }
+  }
+
+  // A canvas shown 1:1 as a textured plane covering the whole level. Nearest
+  // filtering and no mipmaps: the canvas is already at buffer resolution.
+  _plane(canvas, w, h, order) {
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    tex.generateMipmaps = false;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, h),
+      new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false }));
+    mesh.position.set(w / 2, h / 2, 0);
+    mesh.renderOrder = order;
+    mesh.frustumCulled = false;
+    this.tilesGroup.add(mesh);
+    return mesh;
   }
 
   // Only the two world-only groups change visibility; the common tiles and the
@@ -634,125 +630,11 @@ export class Level {
     }
   }
 
-  _inst(geo, list, color, opacity, lip = false, colors = null) {
-    if (!list.length) return null;
-    // transparent:true on purpose, even at full opacity. Three renders the
-    // opaque pass before the transparent pass, and the parallax layers are
-    // transparent -- so opaque tiles drew FIRST and the backdrop painted over
-    // the playfield. In the transparent pass these sort by z and land between
-    // the far backdrop (z=-40) and the foreground band (z=+6), which is the
-    // order they need to be in.
-    const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity });
-    const mesh = new THREE.InstancedMesh(geo, mat, list.length);
-    // Explicit render order. Everything shares z=0, so the sort falls through to
-    // object ids and the 2px accent lip lost the tie-break against the tile
-    // boxes and never showed. Ordering by hand is the only reliable way here.
-    mesh.renderOrder = lip ? 2 : 1;
-    const m = new THREE.Matrix4();
-    list.forEach(([tx, ty], i) => {
-      m.makeTranslation(tx * TILE + TILE / 2, ty * TILE + TILE / 2, 0);
-      mesh.setMatrixAt(i, m);
-      // With per-instance colours the material colour multiplies them, so it
-      // goes to white and each instance carries its full colour.
-      if (colors) mesh.setColorAt(i, colors[i]);
-    });
-    if (colors) { mat.color.set(0xffffff); mesh.instanceColor.needsUpdate = true; }
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.frustumCulled = false;
-    this.tilesGroup.add(mesh);
-    return mesh;
-  }
-
-  // The shaded colour of every tile in `list`. `occupied` holds every cell
-  // that is solid in the same world (the common tiles plus this group), so
-  // depth and open sides are measured against what is actually there.
-  _shadeTiles(list, occupied, body, lip, rng) {
-    const has = (x, y) => occupied.has(`${x},${y}`);
-    return list.map(([tx, ty]) => {
-      let depth = 0;
-      while (depth < SHADE_BY_DEPTH.length && has(tx, ty + depth + 1)) depth++;
-      let k = depth < SHADE_BY_DEPTH.length ? SHADE_BY_DEPTH[depth] : 0;
-      if (!has(tx - 1, ty) || !has(tx + 1, ty)) k += SHADE_SIDE;
-      k = Math.max(0, k + rng.range(-SHADE_JITTER, SHADE_JITTER));
-      return mixHex(body, lip, k);
-    });
-  }
-
-  // Grass, crystals, roots and stone grain for one layer group. Everything is
-  // one InstancedMesh of unit quads, scaled and coloured per instance, so a
-  // whole level of dressing is a single draw call per world.
-  _buildDecor(list, occupied, body, lip, rng) {
-    const shapes = DECOR[this.data.id] || [];
-    const has = (x, y) => occupied.has(`${x},${y}`);
-    const holes = this.data.holeCol || [];
-    const items = [];   // [x, y, w, h, color]
-    const tint = (c, mix) => mixHex(lip, c, mix);
-    for (const [tx, ty] of list) {
-      // Stone grain on any tile with rock around it.
-      if (has(tx, ty + 1) && rng.chance(GRAIN_CHANCE)) {
-        items.push([tx * TILE + rng.int(1, 6), ty * TILE + rng.int(1, 6), 1, 1,
-          mixHex(body, lip, rng.range(0.10, 0.18))]);
-      }
-      // Dressing only on a surface with open air above it, and not on the lip
-      // of a pit: the edge of a hole stays clean so it reads as an edge.
-      if (has(tx, ty + 1) || holes[tx - 1] || holes[tx + 1]) continue;
-      const top = (ty + 1) * TILE;
-      for (const s of shapes) {
-        if (!rng.chance(s.chance)) continue;
-        const n = rng.int(s.count[0], s.count[1]);
-        for (let i = 0; i < n; i++) {
-          const w = rng.int(s.w[0], s.w[1]), h = rng.int(s.h[0], s.h[1]);
-          const x = tx * TILE + rng.int(0, TILE - w);
-          const y = top + (s.lift ? rng.int(s.lift[0], s.lift[1]) : 0);
-          items.push([x, y, w, h, tint(s.color, s.mix * rng.range(0.8, 1))]);
-          if (s.cap) items.push([x - 1, y + h, 3, 1, new THREE.Color(s.cap)]);
-        }
-      }
-    }
-    if (!items.length) return null;
-    const geo = new THREE.PlaneGeometry(1, 1);
-    geo.translate(0.5, 0.5, 0);   // origin at the bottom-left, like the items
-    const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthTest: false, depthWrite: false });
-    const mesh = new THREE.InstancedMesh(geo, mat, items.length);
-    // After the tiles (1) and with the lips (2): the dressing sits on top of
-    // the rock but under every character.
-    mesh.renderOrder = 2;
-    const m = new THREE.Matrix4();
-    items.forEach(([x, y, w, h, c], i) => {
-      m.makeScale(w, h, 1).setPosition(x, y, 0.5);
-      mesh.setMatrixAt(i, m);
-      mesh.setColorAt(i, c);
-    });
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.instanceColor.needsUpdate = true;
-    mesh.frustumCulled = false;
-    this.tilesGroup.add(mesh);
-    return mesh;
-  }
-
-  _buildLips(solids, color) {
-    const set = new Set(solids.map(([x, y]) => `${x},${y}`));
-    const tops = solids.filter(([x, y]) => !set.has(`${x},${y + 1}`));
-    if (!tops.length) return null;
-    const geo = new THREE.PlaneGeometry(TILE, 2);
-    const mat = new THREE.MeshBasicMaterial({ color, transparent: true });
-    const mesh = new THREE.InstancedMesh(geo, mat, tops.length);
-    mesh.renderOrder = 2;
-    const m = new THREE.Matrix4();
-    tops.forEach(([tx, ty], i) => {
-      m.makeTranslation(tx * TILE + TILE / 2, ty * TILE + TILE - 1, 0);
-      mesh.setMatrixAt(i, m);
-    });
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.frustumCulled = false;
-    this.tilesGroup.add(mesh);
-    return mesh;
-  }
-
   dispose() {
     for (let i = this.tilesGroup.children.length - 1; i >= 0; i--) {
       const c = this.tilesGroup.children[i];
       c.geometry?.dispose();
+      c.material?.map?.dispose();
       c.material?.dispose();
       this.tilesGroup.remove(c);
     }
