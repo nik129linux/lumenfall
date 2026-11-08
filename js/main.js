@@ -2,6 +2,7 @@ import * as THREE from './vendor/three.module.js';
 
 import { LOW_RES_W, LOW_RES_H, LEVELS, CAM, DASH_COOLDOWN, PIT_DEATH_Y, HITSTOP, SHAKE, ENEMY_KNOCKBACK, GA_MEASUREMENT_ID } from './core/config.js';
 import { loadAssets } from './core/assets.js';
+import { loadArt } from './core/art.js';
 import { Input } from './core/input.js';
 import { audio } from './core/audio.js';
 import { clamp, damp, makeRng } from './core/rng.js';
@@ -144,6 +145,7 @@ class Game {
         fill.style.width = `${Math.round((base + p * (1 - base)) * 100)}%`;
       });
       this.minionArt = new MinionArt(minions);
+      this.level.art = await loadArt();
     } catch (err) {
       console.error('asset load failed', err);
       document.getElementById('boot-note').textContent = 'Error al cargar los recursos';
