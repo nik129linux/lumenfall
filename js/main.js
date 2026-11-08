@@ -387,7 +387,7 @@ class Game {
     // scene for the rest of the run, which is why the elder turned up in the
     // level 2 and level 3 screenshots.
     for (const e of this.enemies) e.mesh.parent?.remove(e.mesh);
-    for (const s of this.shards) s.mesh.parent?.remove(s.mesh);
+    for (const s of this.shards) s.dispose();
     for (const pr of this.fx.projectiles) pr.dispose();
     if (this.elder) this.elder.mesh.parent?.remove(this.elder.mesh);
     // Mirrors the removal on the boss death path below. The boss lives in the
@@ -406,7 +406,7 @@ class Game {
 
     for (const def of data.entities) {
       if (def.type === 'shard') {
-        const s = new Shard(def);
+        const s = new Shard(def, this.level.art, this.levelDef.id);
         this.shards.push(s);
         this.pipeline.scene.add(s.mesh);
       } else if (def.type === 'wisp' || def.type === 'crawler' || def.type === 'spitter') {
@@ -657,7 +657,8 @@ class Game {
         this.ember++;
         this.ui.setEmber(this.ember);
         audio.sfxEmber();
-        this.fx.burst(s.x, s.y, 0x8fffc0, 8, 45);
+        this.fx.burst(s.x, s.y, s.color, 12, 55);
+        this.fx.burst(s.x, s.y, 0xffffff, 4, 30);
       }
     }
 

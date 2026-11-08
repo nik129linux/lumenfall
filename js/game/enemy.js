@@ -499,23 +499,86 @@ export class Enemy {
 
 // -------------------------------------------------------------- the shard pickup
 
+// One soft round glow, shared by every pickup. Built once.
+let glowTexture = null;
+function getGlow() {
+  if (glowTexture) return glowTexture;
+  const c = document.createElement('canvas');
+  c.width = c.height = 32;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+  grad.addColorStop(0, 'rgba(255,255,255,0.9)');
+  grad.addColorStop(0.35, 'rgba(255,255,255,0.35)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 32, 32);
+  glowTexture = new THREE.CanvasTexture(c);
+  return glowTexture;
+}
+
+// Pickup colour per level, matching the sheet rows in tools/build-tiles.py.
+const SHARD_COLOR = { 1: 0xffc23c, 2: 0x5af0e0, 3: 0x54f0a8 };
+const SHARD_FPS = 9;
+
+// The ember Kael collects: a 10x10 crystal that turns on its axis (6 frames from
+// assets/pickups/shard.png, one row per level) over a soft additive glow.
 export class Shard {
-  constructor(def) {
+  constructor(def, art, levelId = 1) {
     this.x = def.x; this.y = def.y;
     this.taken = false;
     this.t = Math.random() * 6;
-    this.mesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(5, 7),
-      new THREE.MeshBasicMaterial({ color: 0x7fe8b0, transparent: true, opacity: 0.95 })
-    );
-    this.mesh.position.set(def.x, def.y + 3, 0);
+    this.color = SHARD_COLOR[levelId] ?? SHARD_COLOR[1];
+    const sh = art.shard;
+    this.frames = sh.frames;
+    this.rows = sh.rows;
+
+    // One texture per pickup, because each animates on its own; they share the image.
+    const tex = new THREE.Texture(sh.img);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    tex.generateMipmaps = false;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.repeat.set(1 / sh.frames, 1 / sh.rows);
+    tex.needsUpdate = true;
+    this.tex = tex;
+    this.row = Math.max(0, Math.min(sh.rows - 1, levelId - 1));
+
+    this.mesh = new THREE.Group();
+    this.glow = new THREE.Mesh(
+      new THREE.PlaneGeometry(28, 28),
+      new THREE.MeshBasicMaterial({
+        map: getGlow(), color: this.color, transparent: true, opacity: 0.6,
+        depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending,
+      }));
+    this.glow.renderOrder = 7;
+    this.gem = new THREE.Mesh(
+      new THREE.PlaneGeometry(sh.frame, sh.frame),
+      new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false }));
+    this.gem.renderOrder = 8;
+    this.mesh.add(this.glow, this.gem);
+    this.mesh.position.set(def.x, def.y + 4, 0);
     this.mesh.frustumCulled = false;
+    this._frame(0);
+  }
+
+  _frame(k) {
+    // Texture rows run bottom-up, sheet rows top-down.
+    this.tex.offset.set(k / this.frames, 1 - (this.row + 1) / this.rows);
+  }
+
+  // Frees the per-pickup texture and materials; the shared glow and the image stay.
+  dispose() {
+    this.mesh.parent?.remove(this.mesh);
+    this.tex.dispose();
+    this.gem.material.dispose(); this.gem.geometry.dispose();
+    this.glow.material.dispose(); this.glow.geometry.dispose();
   }
 
   update(dt) {
     this.t += dt;
-    this.mesh.position.y = this.y + 3 + Math.sin(this.t * 2.2) * 2;
-    this.mesh.material.opacity = 0.7 + Math.sin(this.t * 3) * 0.25;
+    this.mesh.position.y = this.y + 4 + Math.sin(this.t * 2.2) * 2;
+    this._frame(Math.floor(this.t * SHARD_FPS) % this.frames);
+    this.glow.material.opacity = 0.48 + Math.sin(this.t * 3) * 0.16;
   }
 }
 
