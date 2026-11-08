@@ -38,6 +38,7 @@ export class Statue extends Boss {
       ...opts,
       nameKey: 'bossStatue',
       w: 26, h: 46,
+      struck: { w: 36, h: 64 },
       hp: 12,
       phases: 2,
       contactDmg: 1,

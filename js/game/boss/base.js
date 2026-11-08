@@ -18,6 +18,10 @@ export class Boss extends THREE.Object3D {
     this.audio = opts.audio || audio;
 
     this.w = opts.w; this.h = opts.h;
+    // Where the player's blade can land, centred on the body and standing on its
+    // feet. The bodies are narrow (26-34 px) and the drawn bosses much wider and
+    // taller, so by default it is the body and each boss passes its own.
+    this.struck = opts.struck ?? { w: opts.w, h: opts.h };
     this.maxHp = opts.hp;
     this.hp = opts.hp;
     this.phase = 1;
@@ -48,6 +52,14 @@ export class Boss extends THREE.Object3D {
   get cy() { return this.body.cy; }
   get rect() {
     return { left: this.body.left, right: this.body.right, bottom: this.body.bottom, top: this.body.top };
+  }
+  // See `struck` in the constructor. Not `hurtRect`: that one is the boss's own
+  // attack box, in front of it.
+  struckRect() {
+    return {
+      left: this.cx - this.struck.w / 2, right: this.cx + this.struck.w / 2,
+      bottom: this.body.bottom, top: this.body.bottom + this.struck.h,
+    };
   }
   get hpFrac() { return Math.max(0, this.hp / this.maxHp); }
 

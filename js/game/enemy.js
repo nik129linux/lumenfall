@@ -33,6 +33,18 @@ const STATS = {
   spitter: { w: 30, h: 32, hp: 3, speed: 30, dmg: 1, aggro: 190 },
 };
 
+// The box where a minion RECEIVES a hit, in px, centred on the body and standing
+// on its feet. The body boxes above are deliberately small (they decide contact
+// damage and squeezing through gaps), but the drawn sprites are far bigger
+// (wisp 34x22, crawler 36x20, spitter 64x40), so a blade visibly through a
+// minion did nothing. These cover the drawn figure without its smoke, tail and
+// staff tips, which the union of all frames includes.
+const STRUCK = {
+  wisp:    { w: 26, h: 20 },
+  crawler: { w: 32, h: 18 },
+  spitter: { w: 40, h: 38 },
+};
+
 // Which clip each enemy plays when. The crawler sheet has no idle frame -- it is
 // always walking or lunging -- so idle and move resolve to the same clip, and
 // play() short-circuits instead of restarting the cycle every frame.
@@ -151,6 +163,12 @@ export class Enemy {
   get cy() { return this.body.cy; }
   get rect() {
     return { left: this.body.left, right: this.body.right, bottom: this.body.bottom, top: this.body.top };
+  }
+
+  // Where the player's blade can land. See STRUCK.
+  struckRect() {
+    const s = STRUCK[this.type];
+    return { left: this.cx - s.w / 2, right: this.cx + s.w / 2, bottom: this.body.bottom, top: this.body.bottom + s.h };
   }
 
   hurt(dmg) {
