@@ -41,8 +41,17 @@ export const GROUND_FRICTION = 1100;
 export const AIR_FRICTION = 220;
 
 export const ATTACK_TIME = 0.26;   // seconds
-export const ATTACK_ACTIVE = 0.10; // seconds where the blade is live
-export const ATTACK_REACH = 26;
+// The attack clip is 3 frames at 11 fps: frame 0 (0 - 0.09 s) is the wind-up
+// pose with the blade still at Kael's side, frames 1 and 2 (0.09 - 0.27 s) are
+// the swing. The live window starts when frame 1 does and covers the frame that
+// shows the blade fully out, so damage lands while the blade is visibly there.
+export const ATTACK_WINDUP = 0.09; // seconds before the blade is live
+export const ATTACK_ACTIVE = 0.11; // seconds where the blade is live
+// Measured from assets/atlases/kael.png: the drawn blade tip reaches 10.5, 16.5
+// and 17.5 px from the sprite centre in the three attack frames. 22 covers the
+// tip with a few pixels of tolerance; it used to be 26 from 5 px off-centre
+// (31 px out), which hit things the blade visibly did not reach.
+export const ATTACK_REACH = 22;
 export const ATTACK_DMG = 1;
 export const IFRAMES_ON_HIT = 0.9;  // seconds
 

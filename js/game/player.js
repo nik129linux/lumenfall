@@ -4,7 +4,7 @@ import { Body, moveX, moveY, TILE, SOLID, SPIKE, tileAt } from './physics.js';
 import {
   PLAYER_W, PLAYER_H, DASH_TIME, DASH_SPEED, DASH_COOLDOWN, JUMP_VEL, JUMP_CUT,
   GRAVITY, MAX_FALL, RUN_SPEED, PIT_DEATH_Y, GROUND_ACCEL, AIR_ACCEL, GROUND_FRICTION, AIR_FRICTION,
-  ATTACK_TIME, ATTACK_ACTIVE, ATTACK_REACH, ATTACK_DMG, IFRAMES_ON_HIT,
+  ATTACK_TIME, ATTACK_WINDUP, ATTACK_ACTIVE, ATTACK_REACH, ATTACK_DMG, IFRAMES_ON_HIT,
 } from '../core/config.js';
 import { clamp, approach, damp } from '../core/rng.js';
 
@@ -38,6 +38,7 @@ export class Player {
     this.airDashUsed = false;
     this.attackTimer = 0;
     this.attackHit = false;
+    this.swingHits = new Set();   // targets this swing has already struck
     this.hurtTimer = 0;
     this.hurtEvent = false;   // set once per hit, consumed by main.js
     this.dead = false;
@@ -61,11 +62,13 @@ export class Player {
   get isAttacking() { return this.attackTimer > 0; }
   get dashReady() { return this.dashCd <= 0; }
 
-  // The attack box, in the level's local space.
+  // The attack box, in the level's local space. It starts at the body centre,
+  // where the sprite is centred, and ends ATTACK_REACH out: the same distance
+  // the drawn blade reaches, so what the blade touches is what takes damage.
   attackRect() {
     const w = ATTACK_REACH;
     const h = 22;
-    const x = this.facing > 0 ? this.body.right - 2 : this.body.left - w + 2;
+    const x = this.facing > 0 ? this.body.cx : this.body.cx - w;
     return { left: x, right: x + w, bottom: this.body.bottom + 4, top: this.body.bottom + 4 + h };
   }
 
@@ -138,6 +141,7 @@ export class Player {
     if (canAct && input.consume('attack') && this.attackTimer <= 0) {
       this.attackTimer = ATTACK_TIME;
       this.attackHit = false;
+      this.swingHits.clear();
       this.sprite.play('attack', { restart: true, loop: false, speed: 11 });
     }
 
@@ -301,17 +305,17 @@ export class Player {
     this.sprite.update(dt);
   }
 
-  // Called after the sprite animation is settled, so a single-frame attack always
-  // gets to play. Returns true on the frame the blade is actually live.
+  // Called after the sprite animation is settled. Returns 'start' on the first
+  // frame the blade is live, 'live' on the rest of the window, and null while
+  // it is not. The caller resolves hits on both: a target that walks into the
+  // blade halfway through the swing is hit, and swingHits keeps it to once per
+  // swing.
   updateAttackFrame() {
-    if (this.attackTimer > 0 && !this.attackHit) {
-      const elapsed = ATTACK_TIME - this.attackTimer;
-      if (elapsed >= (ATTACK_TIME - ATTACK_ACTIVE) / 2) {
-        this.attackHit = true;
-        return true;
-      }
-    }
-    return false;
+    if (this.attackTimer <= 0) return null;
+    const elapsed = ATTACK_TIME - this.attackTimer;
+    if (elapsed < ATTACK_WINDUP || elapsed >= ATTACK_WINDUP + ATTACK_ACTIVE) return null;
+    if (!this.attackHit) { this.attackHit = true; return 'start'; }
+    return 'live';
   }
 
   syncToWorld(worldX, worldY) {

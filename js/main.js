@@ -612,9 +612,15 @@ class Game {
     this._recordActions(dt);
 
     // ---- attack
-    if (p.updateAttackFrame()) {
-      audio.sfxSlash();
-      this.fx.slashArc(p.lightX, p.lightY, p.facing);
+    const swing = p.updateAttackFrame();
+    if (swing) {
+      if (swing === 'start') {
+        audio.sfxSlash();
+        // Drawn from the body centre so the arc covers the same stretch as the
+        // attack box (4-20 px out), not the blade-tip light position.
+        const ar = p.attackRect();
+        this.fx.slashArc(p.cx, (ar.bottom + ar.top) / 2, p.facing);
+      }
       this._resolvePlayerHit();
     }
 
@@ -753,10 +759,14 @@ class Game {
   _resolvePlayerHit() {
     const p = this.player;
     const r = p.attackRect();
+    // Once per target per swing while a swing is on. With no swing (the gates
+    // call this directly) every call counts.
+    const struck = (t) => p.isAttacking && p.swingHits.has(t);
     for (const e of this.enemies) {
-      if (e.dead || e.mesh == null) continue;
+      if (e.dead || e.mesh == null || struck(e)) continue;
       const er = e.rect;
       if (r.left < er.right && r.right > er.left && r.bottom < er.top && r.top > er.bottom) {
+        if (p.isAttacking) p.swingHits.add(e);
         e.hurt(1);
         this.fx.burst(e.cx, e.cy, 0xffd08a, 6, 60);
         // Knockback away from the blade; the enemy is staggered so it keeps it.
@@ -765,7 +775,7 @@ class Game {
         this.cam.shake = Math.max(this.cam.shake, SHAKE.enemy);
       }
     }
-    if (this.boss && !this.boss.dead && this.boss.state !== 'sleep') {
+    if (this.boss && !this.boss.dead && this.boss.state !== 'sleep' && !struck(this.boss)) {
       const br = this.boss.rect;
       let landed = false;
       if (r.left < br.right && r.right > br.left && r.bottom < br.top && r.top > br.bottom) {
@@ -777,6 +787,7 @@ class Game {
         }
       }
       if (landed) {
+        if (p.isAttacking) p.swingHits.add(this.boss);
         const kill = this.boss.dead;
         this.addHitstop(kill ? HITSTOP.bossKill : HITSTOP.boss);
         this.cam.shake = Math.max(this.cam.shake, kill ? SHAKE.bossKill : SHAKE.boss);
