@@ -69,6 +69,7 @@ export class UlBurjo extends Boss {
       ...opts,
       nameKey: 'bossUlBurjo',
       w: 22, h: 44,
+      struck: { w: 30, h: 52 },
       hp: 18,
       phases: 2,
       contactDmg: 1,

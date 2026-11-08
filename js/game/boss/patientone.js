@@ -84,6 +84,7 @@ export class PatientOne extends Boss {
       ...opts,
       nameKey: 'bossPatient',
       w: 34, h: 66,
+      struck: { w: 56, h: 88 },
       hp: 22,
       phases: 2,
       contactDmg: 1,

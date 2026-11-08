@@ -10,6 +10,7 @@ import { Metrics, loadGoogleAnalytics } from './core/metrics.js';
 
 import { Pipeline } from './render/pipeline.js';
 import { Parallax, Sky } from './render/parallax.js';
+import { HitboxOverlay } from './render/debug.js';
 import { Sprite } from './render/sprite.js';
 import { loadMinions, MinionArt, MinionSprite } from './render/minions.js';
 
@@ -66,6 +67,9 @@ class Game {
     this.parallax = new Parallax(this.pipeline.scene);
     this.level = new Level(this.pipeline.scene);
     this.fx = new FX(this.pipeline.scene);
+    // ?hitbox=1 draws every hit box over the scene (js/render/debug.js).
+    this.hitboxes = new URLSearchParams(location.search).get('hitbox') === '1'
+      ? new HitboxOverlay(this.pipeline.scene) : null;
     this.fx.projectiles = [];
     this.fx.scene = this.pipeline.scene;
 
@@ -556,6 +560,7 @@ class Game {
     }
 
     this.fx.update(simDt);
+    this.hitboxes?.update(this);
     this.level.updateRunes(this.machine.time);
     this.pipeline.updateSky(this.sky);
     this.input.endFrame(simDt);   // the input buffer must not drain while frozen
@@ -815,7 +820,7 @@ class Game {
     const struck = (t) => p.isAttacking && p.swingHits.has(t);
     for (const e of this.enemies) {
       if (e.dead || e.mesh == null || struck(e)) continue;
-      const er = e.rect;
+      const er = e.struckRect();
       if (r.left < er.right && r.right > er.left && r.bottom < er.top && r.top > er.bottom) {
         if (p.isAttacking) p.swingHits.add(e);
         e.hurt(1);
@@ -827,7 +832,7 @@ class Game {
       }
     }
     if (this.boss && !this.boss.dead && this.boss.state !== 'sleep' && !struck(this.boss)) {
-      const br = this.boss.rect;
+      const br = this.boss.struckRect();
       let landed = false;
       if (r.left < br.right && r.right > br.left && r.bottom < br.top && r.top > br.bottom) {
         landed = this.boss.hurt(1);
