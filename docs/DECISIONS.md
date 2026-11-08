@@ -305,6 +305,77 @@ place to look.
 
 ---
 
+## Art, hit boxes and the pickup (MarioZaMu, round 2)
+
+The brief: ground, columns and the rest should look like the reference sheets at the
+game's own pixel scale, the collectible included, and the blade's reach should match what
+is drawn.
+
+### The blade hit things it did not touch
+
+`kael.png` is 59x47 with the sprite centred at x=29.5. Measured from its opaque pixels,
+the drawn blade reaches 10.5, 16.5 and 17.5 px from the centre in the three attack
+frames. The box went from 5 px off-centre to 31 px (reach 26), so it hurt what the blade
+did not reach. It was also tested once, 0.08 s in, while the 3-frame clip (11 fps) was
+still on its wind-up pose; the blade is only out in frames 1-2 (0.09-0.27 s). A target
+that walked into the blade mid-swing took nothing.
+
+Now: reach 22 from the body centre, a live window of 0.11 s starting with frame 1, tested
+every frame, once per target per swing (`player.swingHits`, only consulted while a swing
+is on, because the gates call `_resolvePlayerHit()` directly). The new test fails on the
+old code for exactly those two cases (a target at 26 px was hit; one entering mid-swing was
+not) and passes now. The slash arc is drawn over the box (4-20 px from the centre) instead
+of from the blade-tip light position.
+
+Enemies and bosses take hits in `struckRect()`, a box over the drawn sprite, apart from
+the small body box that decides contact damage and squeezing through gaps. The sizes are
+set under the union of every frame's opaque pixels, which includes smoke and arm
+extensions (demon 133 px wide, wisp 34), so they are deliberately smaller than the full
+union. Its name is not `hurtRect`: that is already a boss's attack box.
+
+`?hitbox=1` draws all of it (`js/render/debug.js`). Nothing else reads it.
+
+### The level is painted, not boxed
+
+Rock cracks have to cross tile borders. A set of independent 8x8 variants cuts every crack
+off at the edge and the level reads as a grid. So the body textures are 64x64 and periodic
+in both axes (Voronoi cells on a torus for rock, running-bond blocks for masonry), the game
+samples them at world coordinates, and the rim art is drawn over them by neighbour
+(`js/render/tilepaint.js`). A level is painted once into a canvas per layer group and shown
+as three planes, so L2's world shift still just toggles two meshes. `grid`, `layer` and
+`tileAt` are untouched, which is why `reach.mjs` still proves the levels.
+
+This replaces the procedural per-tile shading from round 1 (`SHADE_*`, `mixHex`, `DECOR`),
+which was a flat colour with a mix on top; the tiles carry that now.
+
+The palettes are the levels' own and dark. The reference sheets are bright, and Kael has
+to stay the brightest thing on screen. Pixels are authored in sRGB and the texture is
+declared sRGB, so the PNG is what the player sees: the round-1 mistake was mixing in linear
+light, where the post pass's encode lifted a 20 % mix into a bright slab.
+
+The colonnades and the gargoyle columns follow the first reference (arches carried on
+columns under a masonry beam) and are original drawings: no reference image is copied.
+They sit behind everything, dimmed, never in the boss arena, where the telegraph markers
+need a plain backdrop.
+
+### The pickup disappeared on L3
+
+The first crystal took each level's accent colour. Orange on L3's orange sky was almost
+invisible, and mint on L1's green forest not much better (the original mint rectangle
+only worked because it was flat and bright). Each level now uses the hue that contrasts
+with its backdrop: amber, turquoise, mint. It is 10 px, not 8, and glows.
+
+### Found, not fixed
+
+- Loading levels leaks about 3 textures and several geometries per round (L1 -> L2 -> L3).
+  The same test on `master` leaks more (+48 geometries per round against +25 here), so it
+  was there before; the level planes and pickups are disposed. Something per level (the
+  minion sprites and enemy meshes are the first place to look) is not.
+- `tools/build-tiles.py` output is procedural. A hand-painted tileset would be better; the
+  script is the way to retune it quickly meanwhile.
+
+---
+
 ## Verification
 
 `tools/smoke.mjs` drives a headless Chromium through a full run and fails on any
