@@ -2,6 +2,7 @@ import * as THREE from './vendor/three.module.js';
 
 import { LOW_RES_W, LOW_RES_H, LEVELS, CAM, DASH_COOLDOWN, PIT_DEATH_Y, HITSTOP, SHAKE, ENEMY_KNOCKBACK, GA_MEASUREMENT_ID } from './core/config.js';
 import { loadAssets } from './core/assets.js';
+import { voice } from './core/voice.js';
 import { Input } from './core/input.js';
 import { audio } from './core/audio.js';
 import { clamp, damp, makeRng } from './core/rng.js';
@@ -946,7 +947,7 @@ class Game {
       this.parallax.update(this.cam.x, this.cam.y);
       p.sprite.update(dt);
       this.elder?.update(dt);
-      if (s.ease <= 0) { s.chars = 0; s.typing = true; this._paintStory(); }
+      if (s.ease <= 0) { s.chars = 0; s.typing = true; this._paintStory(); voice.play(this._dealLine()?.textKey); }
       return;
     }
 
@@ -976,6 +977,7 @@ class Game {
         s.typing = true;
         if (s.index >= DEAL.length) { this._endDeal(); return; }
         this._paintStory();
+        voice.play(this._dealLine()?.textKey);
       }
     }
   }
@@ -985,6 +987,7 @@ class Game {
   _endDeal() {
     const gone = this.elder;
     const at = gone ? gone.x : this.player.cx;
+    voice.stop();
     this.ui.showStory(false);
     this.story = null;
     this.machine.to(S.CUTSCENE);
