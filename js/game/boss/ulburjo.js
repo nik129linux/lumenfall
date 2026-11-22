@@ -155,6 +155,7 @@ export class UlBurjo extends Boss {
     this.body.vx = 0;
     this.agent.markAttack();
     this._log();
+    audio.sfxWarn();
     this._mark();
   }
 
