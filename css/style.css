@@ -539,11 +539,51 @@ kbd {
   transition: opacity .4s ease;
 }
 #boot.gone { opacity: 0; pointer-events: none; }
-.boot-inner { display: grid; gap: 1.1em; justify-items: center; }
-.boot-title { letter-spacing: .4em; margin-right: -.4em; color: #cfe8dc; font-size: 1.5em; }
-.boot-bar { width: 16em; height: 3px; background: #1a2420; overflow: hidden; }
-.boot-bar i { display: block; height: 100%; width: 0%; background: var(--accent); transition: width .2s ease; }
-.boot-note { font-size: .7em; color: var(--dim); letter-spacing: .2em; }
+#boot {
+  background:
+    radial-gradient(ellipse at 50% 42%, rgba(84, 240, 168, .10) 0%, rgba(5, 7, 10, 0) 55%),
+    #05070a;
+}
+.boot-inner { display: grid; gap: 1em; justify-items: center; width: min(26em, 86vw); text-align: center; }
+
+/* The Ember itself: a small glowing orb that breathes while the game loads. */
+.boot-ember {
+  width: 1.1em; height: 1.1em; border-radius: 50%; margin-bottom: .6em;
+  background: radial-gradient(circle, #fff6c8 0%, #ffd36b 35%, #ff9a3c 70%, rgba(255, 154, 60, 0) 100%);
+  box-shadow: 0 0 1.2em .5em rgba(255, 180, 80, .45), 0 0 4em 1.4em rgba(84, 240, 168, .18);
+  animation: ember-breathe 2.2s ease-in-out infinite;
+}
+@keyframes ember-breathe {
+  0%, 100% { transform: scale(.85); opacity: .75; }
+  50%      { transform: scale(1.15); opacity: 1; }
+}
+
+.boot-title {
+  letter-spacing: .4em; margin-right: -.4em; color: #cfe8dc; font-size: 1.9em;
+  text-shadow: 0 0 .8em rgba(84, 240, 168, .45);
+}
+.boot-sub { font-size: .62em; color: var(--dim); letter-spacing: .35em; text-transform: uppercase; margin-top: -.5em; }
+
+.boot-bar {
+  width: 100%; height: 5px; margin-top: .9em; background: #121a17;
+  border: 1px solid var(--edge); border-radius: 3px; overflow: hidden;
+}
+.boot-bar i {
+  display: block; height: 100%; width: 0%;
+  background: linear-gradient(90deg, #2fbf86, var(--accent));
+  box-shadow: 0 0 .8em rgba(84, 240, 168, .7);
+}
+.boot-status {
+  display: flex; justify-content: space-between; width: 100%;
+  font-size: .68em; color: var(--dim); letter-spacing: .2em; text-transform: uppercase;
+}
+.boot-status #boot-pct { color: var(--accent); font-variant-numeric: tabular-nums; }
+.boot-note {
+  min-height: 2.6em; margin-top: .6em; font-size: .72em; line-height: 1.5;
+  color: #9fb3a9; font-style: italic; letter-spacing: .04em;
+  transition: opacity .35s ease;
+}
+.boot-note.swap { opacity: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: .01ms !important; transition-duration: .06s !important; }
