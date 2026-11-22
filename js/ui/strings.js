@@ -109,7 +109,7 @@ export const STRINGS = {
     cs5Title: 'El Regreso',
     cs5a: 'La Brasa era pequeña. Había viajado muy lejos para caber en una mano.',
     cs5b: 'Kael la levantó y la devolvió al pueblo que la había perdido.',
-    cs5c: 'El verde volvió primero a las hojas. Después a las piedra.',
+    cs5c: 'El verde volvió primero a las hojas. Después a las piedras.',
     cs5d: 'Nadie supo el nombre que el viejo había llevado antes.',
     cs5e: 'Eso tampoco importó. La luz había vuelto a casa.',
 
@@ -122,6 +122,11 @@ export const STRINGS = {
 
     // ---- misc
     loading: 'Cargando',
+    loadTip1: 'La Brasa no calentaba casas. Mantenía vivo todo el bosque.',
+    loadTip2: 'Esquivar da fotogramas de invulnerabilidad. Úsalo antes de que el golpe llegue.',
+    loadTip3: 'Atacar y fallar es barato. Atacar y quedarte quieto, no.',
+    loadTip4: 'Los enemigos leen cómo juegas. Cambia de ritmo.',
+    loadTip5: 'Cada jefe avisa su ataque con un sonido: escucha antes de saltar.',
     skip: 'Saltar',
     pressAny: 'Pulsa cualquier tecla',
     zoneShrine: 'Santuario',
@@ -251,6 +256,11 @@ export const STRINGS = {
     endingTitle2: 'Title screen',
 
     loading: 'Loading',
+    loadTip1: 'The Ember did not warm houses. It kept the whole forest alive.',
+    loadTip2: 'Dashing gives you invincibility frames. Use it before the hit lands.',
+    loadTip3: 'Missing an attack is cheap. Committing and standing still is not.',
+    loadTip4: 'Enemies read how you play. Change your rhythm.',
+    loadTip5: 'Every boss announces its attack with a sound: listen before you jump.',
     skip: 'Skip',
     pressAny: 'Press any key',
     zoneShrine: 'Shrine',

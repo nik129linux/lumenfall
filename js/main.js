@@ -2,6 +2,7 @@ import * as THREE from './vendor/three.module.js';
 
 import { LOW_RES_W, LOW_RES_H, LEVELS, CAM, DASH_COOLDOWN, PIT_DEATH_Y, HITSTOP, SHAKE, ENEMY_KNOCKBACK, GA_MEASUREMENT_ID } from './core/config.js';
 import { loadAssets } from './core/assets.js';
+import { voice } from './core/voice.js';
 import { Input } from './core/input.js';
 import { audio } from './core/audio.js';
 import { clamp, damp, makeRng } from './core/rng.js';
@@ -126,25 +127,75 @@ class Game {
     this.ui.refreshStrings();
     this.wireMenu();
 
+    // ---- loading screen
+    // Locally the assets load in well under a second, which made the screen a
+    // flash nobody could read. So: the bar eases toward the real progress
+    // instead of jumping, the screen stays up for at least BOOT_MIN_MS, and a
+    // rotating tip gives the player something to read while they wait.
+    const BOOT_MIN_MS = 2600;
+    const TIP_EVERY_MS = 1800;
     const fill = document.getElementById('boot-fill');
+    const pctEl = document.getElementById('boot-pct');
+    const noteEl = document.getElementById('boot-note');
+    const bar = fill.parentElement;
+    document.getElementById('boot-sub').textContent = t('subtitle');
+    document.getElementById('boot-label').textContent = t('loading');
+    const tips = [1, 2, 3, 4, 5].map((n) => t('loadTip' + n));
+    let tipIdx = Math.floor(Math.random() * tips.length);
+    noteEl.textContent = tips[tipIdx];
+    const tipTimer = setInterval(() => {
+      noteEl.classList.add('swap');
+      setTimeout(() => {
+        tipIdx = (tipIdx + 1) % tips.length;
+        noteEl.textContent = tips[tipIdx];
+        noteEl.classList.remove('swap');
+      }, 350);
+    }, TIP_EVERY_MS);
+
+    const bootStart = performance.now();
+    let target = 0, shown = 0, lastTick = bootStart;
+    const paintBar = () => {
+      // Ease toward the target, and never faster than the minimum time allows,
+      // so the bar cannot reach 100% before the screen is allowed to leave.
+      // Driven by a timer and real elapsed time, not requestAnimationFrame:
+      // rAF stops in a background tab, which would leave the game stuck on
+      // this screen until the player came back to it.
+      const now = performance.now();
+      const dt = (now - lastTick) / 1000;
+      lastTick = now;
+      const timeCap = Math.min(100, ((now - bootStart) / BOOT_MIN_MS) * 100);
+      const goal = Math.min(target, timeCap);
+      shown += (goal - shown) * (1 - Math.exp(-dt * 8));
+      if (goal - shown < 0.3) shown = goal;
+      fill.style.width = `${shown}%`;
+      bar.setAttribute('aria-valuenow', String(Math.round(shown)));
+      pctEl.textContent = `${Math.round(shown)}%`;
+    };
+    const barTimer = setInterval(paintBar, 33);
+    const stopBar = () => { clearInterval(barTimer); clearInterval(tipTimer); };
+
     try {
-      const loaded = await loadAssets((p) => {
-        fill.style.width = `${Math.round(p * 100)}%`;
-      });
+      const loaded = await loadAssets((p) => { target = p * 100 * (5 / 9); });
       this.characters = loaded.characters;
       // The minion atlases share the loading bar: 5 of 9 characters, then 4
       // minion sheets. They are small, but a half-filled bar that then stalls
       // reads as a hang.
       const base = 5 / 9;
-      const minions = await loadMinions((p) => {
-        fill.style.width = `${Math.round((base + p * (1 - base)) * 100)}%`;
-      });
+      const minions = await loadMinions((p) => { target = (base + p * (1 - base)) * 100; });
       this.minionArt = new MinionArt(minions);
+      target = 100;
     } catch (err) {
       console.error('asset load failed', err);
-      document.getElementById('boot-note').textContent = 'Error al cargar los recursos';
+      stopBar();
+      noteEl.classList.remove('swap');
+      noteEl.textContent = 'Error al cargar los recursos';
       return;
     }
+
+    // Hold until the bar has actually filled, then a short beat on 100%.
+    while (shown < 99.5) await new Promise((r) => setTimeout(r, 40));
+    await new Promise((r) => setTimeout(r, 350));
+    stopBar();
 
     this.player = new Player(this.pipeline.scene, this.characters.kael);
     this._wireMenuKeys();
@@ -896,7 +947,7 @@ class Game {
       this.parallax.update(this.cam.x, this.cam.y);
       p.sprite.update(dt);
       this.elder?.update(dt);
-      if (s.ease <= 0) { s.chars = 0; s.typing = true; this._paintStory(); }
+      if (s.ease <= 0) { s.chars = 0; s.typing = true; this._paintStory(); voice.play(this._dealLine()?.textKey); }
       return;
     }
 
@@ -926,6 +977,7 @@ class Game {
         s.typing = true;
         if (s.index >= DEAL.length) { this._endDeal(); return; }
         this._paintStory();
+        voice.play(this._dealLine()?.textKey);
       }
     }
   }
@@ -935,6 +987,7 @@ class Game {
   _endDeal() {
     const gone = this.elder;
     const at = gone ? gone.x : this.player.cx;
+    voice.stop();
     this.ui.showStory(false);
     this.story = null;
     this.machine.to(S.CUTSCENE);

@@ -9,6 +9,9 @@ import { makeSpriteMaterial } from '../render/materials.js';
 
 const MAX = 320;
 
+// Red floor markers that show where a boss attack will land. Off by request.
+const SHOW_TELEGRAPHS = false;
+
 export class FX {
   constructor(scene) {
     this.scene = scene;
@@ -121,6 +124,10 @@ export class FX {
   // `x` is the CENTRE of the marker and `y` its BOTTOM edge, in level pixels --
   // the same convention as the hurt rectangles they mirror.
   telegraph(x, y, w, h, dur, color = 0xff3b3b) {
+    // Requested in the course review: no red box on the floor. The bosses play
+    // a warning sound at the start of each wind-up instead (audio.sfxWarn).
+    // Flip SHOW_TELEGRAPHS to true to bring the boxes back.
+    if (!SHOW_TELEGRAPHS) return null;
     const mesh = new THREE.Mesh(
       new THREE.PlaneGeometry(1, 1),
       new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.55, depthTest: false, depthWrite: false }));

@@ -98,6 +98,7 @@ export class Statue extends Boss {
     };
     this.body.vx = 0;
     this._log();
+    audio.sfxWarn();
 
     // The markers are the promise: same ground, same width, same lifetime as
     // the hit box that is coming, for as long as the player has to move.
