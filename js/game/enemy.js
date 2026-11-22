@@ -224,6 +224,7 @@ export class Enemy {
     this.fireTimer -= 1 / 60;
     if (this.fireTimer > 0) return;
     this.fireTimer = SPIT_INTERVAL;
+    audio.sfxSpit();
     this.onFire?.(this.cx + Math.sign(player.cx - this.cx) * 8, this.cy + 4,
                    Math.sign(player.cx - this.cx) || 1);
   }
@@ -246,6 +247,14 @@ export class Enemy {
       this.sprite.update(dt);
       return;
     }
+
+    // One sound on the frame an attack starts. The spitter is skipped here:
+    // its sound plays when the fireball actually leaves (see _spit).
+    if (attacking && !this._wasAttacking && !this.dead) {
+      if (this.type === 'crawler') audio.sfxCrawlerAttack();
+      else if (this.type === 'wisp') audio.sfxWispAttack();
+    }
+    this._wasAttacking = attacking;
 
     const map = CLIPS[this.type];
     const clip = attacking ? map.attack : (moving ? map.move : map.idle);
