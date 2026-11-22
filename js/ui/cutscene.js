@@ -1,5 +1,6 @@
 import { t } from './i18n.js';
 import { audio } from '../core/audio.js';
+import { voice } from '../core/voice.js';
 
 // Cutscenes: a fullscreen panel, letterbox bars that tween in, and a typewriter.
 //
@@ -95,6 +96,7 @@ export class Cutscene {
     preloadPanels();
     this.ui.show('cutscene');
     this._paint();
+    voice.play(this.current?.key);
   }
 
   get current() { return this.lines[this.index] || null; }
@@ -126,6 +128,7 @@ export class Cutscene {
     this._holdFor = 0;
     if (this.index >= this.lines.length) { this._finish(); return; }
     this._paint();
+    voice.play(this.current?.key);
   }
 
   // Esc: the whole scene at once, rather than one line per press.
@@ -134,6 +137,7 @@ export class Cutscene {
   _finish() {
     this.active = false;
     this.finished = true;
+    voice.stop();
     this.panel.hide();
     const done = this.onDone;
     this.onDone = null;
@@ -205,6 +209,7 @@ export const CUTSCENES = {
 export function buildScript(key) {
   return (CUTSCENES[key] || []).map((l) => ({
     art: l.art,
+    key: l.textKey,
     title: l.speakerKey ? t(l.speakerKey) : (l.titleKey ? t(l.titleKey) : ''),
     text: t(l.textKey),
   }));
