@@ -273,3 +273,13 @@ export const STRINGS = {
 };
 
 export const DEFAULT_LANG = 'es';
+    loadTip1: 'La Brasa no calentaba casas. Mantenía vivo todo el bosque.',
+    loadTip2: 'Esquivar da fotogramas de invulnerabilidad. Úsalo antes de que el golpe llegue.',
+    loadTip3: 'Atacar y fallar es barato. Atacar y quedarte quieto, no.',
+    loadTip4: 'Los enemigos leen cómo juegas. Cambia de ritmo.',
+    loadTip5: 'Cada jefe avisa su ataque con un sonido: escucha antes de saltar.',
+    loadTip1: 'The Ember did not warm houses. It kept the whole forest alive.',
+    loadTip2: 'Dashing gives you invincibility frames. Use it before the hit lands.',
+    loadTip3: 'Missing an attack is cheap. Committing and standing still is not.',
+    loadTip4: 'Enemies read how you play. Change your rhythm.',
+    loadTip5: 'Every boss announces its attack with a sound: listen before you jump.',
