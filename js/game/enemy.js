@@ -98,7 +98,7 @@ const LUNGE = { wisp: 1.7, crawler: 2.4 };
 // main.js _spitterShot(): the aim below needs the flight time.
 const SHOT_SPEED = 88;
 
-<// The spitter's fireball leaves on the third cast frame, so a cast has to live
+// The spitter's fireball leaves on the third cast frame, so a cast has to live
 // long enough to reach it. This is also the floor between shots, in case the AI
 // holds the attack action.
 const SPIT_INTERVAL = 0.9;
