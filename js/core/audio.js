@@ -97,6 +97,17 @@ export class Audio {
   sfxType()   { this.tone({ freq: 1500 + Math.random() * 300, type: 'square', dur: 0.02, gain: 0.025 }); }
   sfxBoss()   { this.tone({ freq: 90, to: 55, type: 'sawtooth', dur: 1.1, gain: 0.16 });
                 this.noise({ dur: 0.9, gain: 0.08, freq: 200, type: 'lowpass' }); }
+  // Enemy attacks. Each one has its own character so they can be told apart
+  // without looking: crawler = low growl + lunge, wisp = airy whoosh,
+  // spitter = wet pop, boss wind-up = rising warning.
+  sfxCrawlerAttack() { this.noise({ dur: 0.18, gain: 0.18, freq: 500, sweepTo: 180, q: 1.5, type: 'lowpass' });
+                       this.tone({ freq: 160, to: 70, type: 'sawtooth', dur: 0.16, gain: 0.12 }); }
+  sfxWispAttack()    { this.noise({ dur: 0.22, gain: 0.12, freq: 1800, sweepTo: 5200, q: 3 });
+                       this.tone({ freq: 700, to: 1500, type: 'sine', dur: 0.2, gain: 0.07 }); }
+  sfxSpit()          { this.tone({ freq: 260, to: 520, type: 'square', dur: 0.09, gain: 0.1 });
+                       this.noise({ dur: 0.1, gain: 0.1, freq: 900, sweepTo: 300, q: 1 }); }
+  sfxWarn()          { this.tone({ freq: 220, to: 440, type: 'sawtooth', dur: 0.35, gain: 0.1 });
+                       this.tone({ freq: 330, to: 660, type: 'triangle', dur: 0.35, gain: 0.06, delay: 0.05 }); }
   sfxPhase()  { this.tone({ freq: 140, to: 500, type: 'sawtooth', dur: 0.7, gain: 0.14 }); }
 
   // A slow two-oscillator drone per level. Retuned between levels rather than
