@@ -289,4 +289,7 @@ fails on any console error.
   into atlases and panels by the scripts in `tools/`.
 - **Code** built with AI coding agents under human direction.
 
-Team: (add names)
+Team: Nico, Juanda and Mario.
+
+Presentation video (5 min, presented by Mario):
+[`docs/presentacion/`](docs/presentacion/README.md).
